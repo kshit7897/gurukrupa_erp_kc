@@ -1,41 +1,67 @@
-'use client';
-import React, { useState } from 'react';
+ 'use client';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, Input, Card, Switch, Table, Select, Modal } from '../../../components/ui/Common';
 import { User, Shield, Building, Key, Upload, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('Company');
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [users, setUsers] = useState<Array<any>>([]);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserUsername, setNewUserUsername] = useState('');
+  const [newUserRole, setNewUserRole] = useState('admin');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [userLoading, setUserLoading] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  useEffect(() => {
+    if (!notification) return;
+    const t = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(t);
+  }, [notification]);
 
   const CompanySettings = () => (
-    <Card title="Company Profile" className="animate-in fade-in duration-300">
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Input label="Company Name" defaultValue="Gurukrupa Multi Ventures Pvt Ltd" />
-          <Input label="GST Number" placeholder="27ABCDE1234F1Z5" />
-          <Input label="Phone Number" placeholder="+91" />
-          <Input label="Email Address" placeholder="info@gurukrupa.com" />
-        </div>
-        <Input label="Registered Address" placeholder="Street Address" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <Input label="City" placeholder="Pune" />
-          <Input label="State" placeholder="Maharashtra" />
-          <Input label="Pincode" placeholder="411037" />
-        </div>
-        <div className="pt-4 border-t border-slate-100 flex justify-end">
-          <Button>Save Changes</Button>
-        </div>
-      </div>
-    </Card>
+    <CompanyCard />
   );
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      if (!res.ok) return setUsers([]);
+      const data = await res.json();
+      setUsers(data.users || []);
+    } catch (err) {
+      setUsers([]);
+    }
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  // Edit / Delete state
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const UserSettings = () => (
     <Card title="Team Management" className="animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6"><p className="text-sm text-slate-500">Manage access to your ERP.</p><Button size="sm" icon={Plus} onClick={() => setIsUserModalOpen(true)}>Add User</Button></div>
-      <Table headers={['Name', 'Email', 'Role', 'Status', 'Action']}>
-        <tr className="group hover:bg-slate-50">
-          <td className="px-4 py-3 font-medium text-slate-900">Amit Singh</td><td className="px-4 py-3 text-slate-500">amit@gurukrupa.com</td><td className="px-4 py-3"><span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Admin</span></td><td className="px-4 py-3"><span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">Active</span></td><td className="px-4 py-3 flex gap-2"><button className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button><button className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button></td>
-        </tr>
+      <Table headers={['Name', 'Username', 'Role', 'Created', 'Action']}>
+        {users.length === 0 && (
+          <tr className="group hover:bg-slate-50"><td className="px-4 py-3 text-slate-500" colSpan={5}>No users found</td></tr>
+        )}
+        {users.map((u) => (
+          <tr key={u.id} className="group hover:bg-slate-50">
+            <td className="px-4 py-3 font-medium text-slate-900">{u.name || '-'}</td>
+            <td className="px-4 py-3 text-slate-500">{u.username}</td>
+            <td className="px-4 py-3">{u.role === 'admin' ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Admin</span> : <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-medium">{u.role}</span>}</td>
+            <td className="px-4 py-3 text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
+            <td className="px-4 py-3 flex gap-2">
+              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'admin'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+              <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+            </td>
+          </tr>
+        ))}
       </Table>
     </Card>
   );
@@ -56,16 +82,116 @@ export default function Settings() {
             <select value={selectedRole} onChange={handleRoleChange} className="w-full sm:w-auto border-slate-300 rounded-md text-sm p-2 bg-white shadow-sm outline-none"><option value="Staff">Staff</option><option value="Manager">Manager</option></select>
          </div>
          <div className="space-y-1">{permissions.map((perm) => (<div key={perm.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"><div className="pr-4"><p className="text-sm font-medium text-slate-900">{perm.label}</p><p className="text-xs text-slate-500">{perm.desc}</p></div><Switch checked={perm.checked} onChange={() => handleToggle(perm.id)} /></div>))}</div>
-         <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><Button onClick={() => alert(`Permissions saved`)}><CheckCircle2 className="w-4 h-4 mr-2" />Save Permissions</Button></div>
+         <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><Button onClick={() => setNotification({ type: 'success', message: 'Permissions saved' })}><CheckCircle2 className="w-4 h-4 mr-2" />Save Permissions</Button></div>
       </Card>
     );
   };
 
-  const PasswordSettings = () => (
-    <Card title="Security" className="animate-in fade-in duration-300 max-w-2xl">
-      <div className="space-y-4"><Input label="Current Password" type="password" /><Input label="New Password" type="password" /><div className="pt-2 flex justify-end"><Button>Update Password</Button></div></div>
-    </Card>
-  );
+  // CompanyCard component: fetches and saves company profile
+  const CompanyCard = () => {
+    const [company, setCompany] = useState<any | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [form, setForm] = useState({ name: '', gstNumber: '', phone: '', email: '', address: '', city: '', state: '', pincode: '' });
+
+    useEffect(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          const res = await fetch('/api/company');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!mounted) return;
+          const c = data.company || null;
+          setCompany(c);
+          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '' });
+        } catch (err) {
+          console.error(err);
+        }
+      })();
+      return () => { mounted = false };
+    }, []);
+
+    const save = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/company', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+        const data = await res.json();
+        if (!res.ok) {
+          setNotification({ type: 'error', message: data?.error || 'Failed to save company' });
+        } else {
+          setCompany(data.company);
+          setNotification({ type: 'success', message: 'Company profile updated' });
+        }
+      } catch (err) { setNotification({ type: 'error', message: 'Network error' }); }
+      setLoading(false);
+    }
+
+    return (
+      <Card title="Company Profile" className="animate-in fade-in duration-300">
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Input label="Company Name" value={form.name} onChange={(e) => setForm({ ...form, name: (e as any).target.value })} />
+            <Input label="GST Number" value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: (e as any).target.value })} />
+            <Input label="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: (e as any).target.value })} />
+            <Input label="Email Address" value={form.email} onChange={(e) => setForm({ ...form, email: (e as any).target.value })} />
+          </div>
+          <Input label="Registered Address" value={form.address} onChange={(e) => setForm({ ...form, address: (e as any).target.value })} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: (e as any).target.value })} />
+            <Input label="State" value={form.state} onChange={(e) => setForm({ ...form, state: (e as any).target.value })} />
+            <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: (e as any).target.value })} />
+          </div>
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <Button onClick={save} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const PasswordSettings = () => {
+    const [currentPwd, setCurrentPwd] = useState('');
+    const [newPwd, setNewPwd] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+
+    const router = useRouter();
+    const handleUpdate = async () => {
+      setMessage(null);
+      const stored = localStorage.getItem('gurukrupa_user');
+      if (!stored) return setMessage('Not authenticated');
+      let username = '';
+      try { username = JSON.parse(stored).username } catch(e) { username = '' }
+      if (!username) return setMessage('Unable to determine user');
+      if (!currentPwd || !newPwd) return setMessage('Please fill both fields');
+      setLoading(true);
+      try {
+        const res = await fetch('/api/auth/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, currentPassword: currentPwd, newPassword: newPwd }) });
+        const data = await res.json();
+        if (!res.ok) {
+          setMessage(data?.error || 'Failed to update password');
+        } else {
+          // Clear local auth and redirect to login with a success flag
+          localStorage.removeItem('gurukrupa_user');
+          setCurrentPwd(''); setNewPwd('');
+          router.replace('/login?changed=1');
+        }
+      } catch (err) {
+        setMessage('Network or server error');
+      } finally { setLoading(false); }
+    }
+
+    return (
+      <Card title="Security" className="animate-in fade-in duration-300 max-w-2xl">
+        <div className="space-y-4">
+          <Input label="Current Password" type="password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} />
+          <Input label="New Password" type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
+          {message && <p className="text-sm text-slate-600">{message}</p>}
+          <div className="pt-2 flex justify-end"><Button onClick={handleUpdate} disabled={loading}>{loading ? 'Updating...' : 'Update Password'}</Button></div>
+        </div>
+      </Card>
+    )
+  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 pb-10">
@@ -78,7 +204,80 @@ export default function Settings() {
         </div>
       </div>
       <div className="flex-1 lg:pt-14">{activeTab === 'Company' && <CompanySettings />}{activeTab === 'Users' && <UserSettings />}{activeTab === 'Permissions' && <PermissionSettings />}{activeTab === 'Password' && <PasswordSettings />}</div>
-      <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Add New User" footer={<><Button variant="ghost" onClick={() => setIsUserModalOpen(false)}>Cancel</Button><Button onClick={() => setIsUserModalOpen(false)}>Create User</Button></>}><div className="space-y-4"><Input label="Full Name" placeholder="John Doe" /><Input label="Email Address" type="email" placeholder="john@company.com" /><div className="grid grid-cols-2 gap-4"><Input label="Mobile" placeholder="+91" /><Select label="Role" options={[{label: 'Select Role', value: ''}, {label: 'Admin', value: 'admin'}]} /></div><Input label="Temporary Password" type="password" /></div></Modal>
+      <Modal
+        isOpen={isUserModalOpen}
+        onClose={() => { setIsUserModalOpen(false); setEditingUser(null); }}
+        title={editingUser ? 'Edit User' : 'Add New User'}
+        footer={<>
+          <Button variant="ghost" onClick={() => { setIsUserModalOpen(false); setEditingUser(null); }}>Cancel</Button>
+          <Button onClick={async () => {
+            setUserLoading(true);
+            try {
+              if (editingUser) {
+                // Update
+                const body = { name: newUserName, role: newUserRole } as any;
+                if (newUserPassword) body.password = newUserPassword;
+                const id = (editingUser as any).id || (editingUser as any)._id;
+                const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!res.ok) {
+                  setNotification({ type: 'error', message: data?.error || 'Failed to update user' });
+                } else {
+                  setIsUserModalOpen(false);
+                  setEditingUser(null);
+                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('admin');
+                  await fetchUsers();
+                }
+              } else {
+                // Create
+                const body = { username: newUserUsername, password: newUserPassword, name: newUserName, role: newUserRole };
+                const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (!res.ok) {
+                  setNotification({ type: 'error', message: data?.error || 'Failed to create user' });
+                } else {
+                  setIsUserModalOpen(false);
+                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('admin');
+                  await fetchUsers();
+                }
+              }
+            } catch (err) {
+              setNotification({ type: 'error', message: 'Network error' });
+            } finally { setUserLoading(false); }
+          }}>{userLoading ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save Changes' : 'Create User')}</Button>
+        </>}
+      >
+        <div className="space-y-4">
+          <Input label="Full Name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName((e as any).target.value)} />
+          <Input label="Email Address" type="email" placeholder="john@company.com" value={newUserEmail} onChange={(e) => setNewUserEmail((e as any).target.value)} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Username" placeholder="username" value={newUserUsername} onChange={(e) => setNewUserUsername((e as any).target.value)} disabled={!!editingUser} />
+            <Select label="Role" options={[{label: 'Admin', value: 'admin'}, {label: 'Manager', value: 'manager'}, {label: 'Staff', value: 'staff'}]} value={newUserRole} onChange={(e: any) => setNewUserRole(e.target.value)} />
+          </div>
+          <Input label={editingUser ? 'New Password (leave blank to keep current)' : 'Temporary Password'} type="password" value={newUserPassword} onChange={(e) => setNewUserPassword((e as any).target.value)} />
+        </div>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal isOpen={isDeleteConfirmOpen} onClose={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }} title="Confirm delete" footer={<>
+        <Button variant="ghost" onClick={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }}>Cancel</Button>
+        <Button onClick={async () => {
+          if (!deleteTarget) return;
+          try {
+            const res = await fetch(`/api/users/${deleteTarget}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok) { setNotification({ type: 'error', message: data?.error || 'Failed to delete user' }); }
+            else { await fetchUsers(); setIsDeleteConfirmOpen(false); setDeleteTarget(null); setNotification({ type: 'success', message: 'User deleted' }); }
+          } catch (err) { setNotification({ type: 'error', message: 'Network error' }); }
+        }}>Delete</Button>
+      </>}> <div className="py-4">Are you sure you want to delete this user? This action cannot be undone.</div></Modal>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-6 right-6 z-50 max-w-xs w-full p-3 rounded shadow-md ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {notification.message}
+        </div>
+      )}
     </div>
   );
 }

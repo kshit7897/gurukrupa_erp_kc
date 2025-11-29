@@ -27,9 +27,20 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const api = {
   auth: {
     login: async (username: string, password: string) => {
-      await delay(500);
-      if (username === 'admin' && password === 'admin') return true;
-      throw new Error('Invalid credentials');
+      // Call backend auth route
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Invalid credentials');
+      }
+      const data = await res.json();
+      // store minimal user info in localStorage for client-side guard
+      if (data?.user) localStorage.setItem('gurukrupa_user', JSON.stringify(data.user));
+      return true;
     }
   },
   dashboard: {
@@ -71,41 +82,52 @@ export const api = {
     }
   },
   parties: {
-    list: async () => { await delay(300); return [...MOCK_PARTIES]; },
-    get: async (id: string) => { await delay(300); return MOCK_PARTIES.find(p => p.id === id); },
+    list: async () => {
+      const res = await fetch('/api/parties');
+      if (!res.ok) throw new Error('Failed to fetch parties');
+      const data = await res.json();
+      return data;
+    },
+    get: async (id: string) => {
+      const res = await fetch(`/api/parties?id=${id}`);
+      if (!res.ok) throw new Error('Failed to fetch party');
+      return await res.json();
+    },
     add: async (party: Party) => {
-      await delay(500);
-      const newParty = { ...party, id: Math.random().toString(36).substr(2, 9) };
-      MOCK_PARTIES.unshift(newParty);
-      return newParty;
+      const res = await fetch('/api/parties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
+      if (!res.ok) throw new Error('Failed to create party');
+      return await res.json();
     },
     update: async (party: Party) => {
-      await delay(500);
-      MOCK_PARTIES = MOCK_PARTIES.map(p => p.id === party.id ? party : p);
-      return party;
+      const res = await fetch('/api/parties', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
+      if (!res.ok) throw new Error('Failed to update party');
+      return await res.json();
     },
     delete: async (id: string) => {
-      await delay(500);
-      MOCK_PARTIES = MOCK_PARTIES.filter(p => p.id !== id);
+      const res = await fetch(`/api/parties?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete party');
       return true;
     }
   },
   items: {
-    list: async () => { await delay(300); return [...MOCK_ITEMS]; },
+    list: async () => {
+      const res = await fetch('/api/items');
+      if (!res.ok) throw new Error('Failed to fetch items');
+      return await res.json();
+    },
     add: async (item: Item) => {
-      await delay(500);
-      const newItem = { ...item, id: Math.random().toString(36).substr(2, 9) };
-      MOCK_ITEMS.unshift(newItem);
-      return newItem;
+      const res = await fetch('/api/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+      if (!res.ok) throw new Error('Failed to create item');
+      return await res.json();
     },
     update: async (item: Item) => {
-      await delay(500);
-      MOCK_ITEMS = MOCK_ITEMS.map(i => i.id === item.id ? item : i);
-      return item;
+      const res = await fetch('/api/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+      if (!res.ok) throw new Error('Failed to update item');
+      return await res.json();
     },
     delete: async (id: string) => {
-      await delay(500);
-      MOCK_ITEMS = MOCK_ITEMS.filter(i => i.id !== id);
+      const res = await fetch(`/api/items?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete item');
       return true;
     }
   },
@@ -124,22 +146,19 @@ export const api = {
   },
   invoices: {
     add: async (invoice: any) => {
-      await delay(800);
-      const newInvoice = { ...invoice, id: Math.random().toString(36).substr(2, 9) };
-      MOCK_INVOICES.unshift(newInvoice);
-      // Update Stock (Simulation)
-      invoice.items.forEach((lineItem: any) => {
-        const product = MOCK_ITEMS.find(p => p.id === lineItem.itemId);
-        if (product) {
-          if (invoice.type === 'SALES') product.stock -= lineItem.qty;
-          else product.stock += lineItem.qty;
-        }
-      });
-      return newInvoice;
+      const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoice) });
+      if (!res.ok) throw new Error('Failed to create invoice');
+      return await res.json();
+    },
+    list: async () => {
+      const res = await fetch('/api/invoices');
+      if (!res.ok) throw new Error('Failed to fetch invoices');
+      return await res.json();
     },
     get: async (id: string) => {
-      await delay(300);
-      return MOCK_INVOICES.find(i => i.id === id);
+      const res = await fetch(`/api/invoices/${id}`);
+      if (!res.ok) return null;
+      return await res.json();
     }
   },
   reports: {

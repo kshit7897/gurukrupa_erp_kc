@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '../../../../components/ui/Common';
 import { Printer, ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
 
@@ -14,7 +14,11 @@ export default function InvoiceView() {
   const [loading, setLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [scale, setScale] = useState(1);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const searchParams = useSearchParams();
+  const savedFlag = searchParams?.get('saved') === '1';
 
   useEffect(() => {
     const loadData = async () => {
@@ -30,6 +34,15 @@ export default function InvoiceView() {
     };
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (savedFlag) {
+      setTimeout(() => {
+        // Clear query param by replacing without it
+        router.replace(`/admin/invoice/${id}`);
+      }, 1200);
+    }
+  }, [savedFlag, id]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -51,7 +64,7 @@ export default function InvoiceView() {
     if (!element) return;
     setIsDownloading(true);
     // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { alert("PDF generator is initializing"); setIsDownloading(false); return; }
+    if (typeof window.html2pdf === 'undefined') { setNotification({ type: 'error', message: 'PDF generator is initializing' }); setIsDownloading(false); return; }
     // @ts-ignore
     window.html2pdf().set({ margin: 0, filename: `Invoice_${invoice?.invoiceNo}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => setIsDownloading(false));
   };
@@ -69,6 +82,10 @@ export default function InvoiceView() {
           <div className="flex space-x-3"><Button variant="outline" icon={isDownloading ? Loader2 : Download} onClick={handleDownload} disabled={isDownloading}>{isDownloading ? 'Saving...' : 'PDF'}</Button><Button icon={Printer} onClick={() => window.print()}>Print</Button></div>
         </div>
       </div>
+      {savedFlag && <div className="max-w-5xl mx-auto mt-4 p-3 text-sm rounded bg-green-100 text-green-800">Invoice saved successfully</div>}
+      {notification && (
+        <div className={`max-w-5xl mx-auto mt-4 p-3 text-sm rounded ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{notification.message}</div>
+      )}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 print:p-0 print:overflow-visible bg-slate-100/50 flex flex-col items-center" ref={containerRef}>
         <div className="relative transition-transform print:transform-none print:w-full" style={{ width: '210mm', transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: `-${(1 - scale) * 297}mm` }}>
           <div id="invoice-content" className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0" style={{ padding: '10mm 12mm' }}>

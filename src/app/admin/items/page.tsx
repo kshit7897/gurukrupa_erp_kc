@@ -7,8 +7,12 @@ import { api } from '../../../lib/api';
 
 export default function Items() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<Item[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Item>>({
     name: '', hsn: '', unit: 'PCS', purchaseRate: 0, saleRate: 0, taxPercent: 18, stock: 0
@@ -21,6 +25,12 @@ export default function Items() {
   };
 
   useEffect(() => { loadItems(); }, []);
+
+  useEffect(() => {
+    if (!notification) return;
+    const t = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(t);
+  }, [notification]);
 
   const handleEdit = (item: Item) => {
     setEditingId(item.id);
@@ -43,10 +53,12 @@ export default function Items() {
     setEditingId(null);
     setFormData({ name: '', hsn: '', unit: 'PCS', purchaseRate: 0, saleRate: 0, taxPercent: 18, stock: 0 });
     await loadItems();
+    setNotification({ type: 'success', message: editingId ? 'Product updated' : 'Product created' });
   };
 
   const handleDelete = async (id: string) => {
-    if(confirm('Delete this item?')) { await api.items.delete(id); loadItems(); }
+    setDeleteTarget(id);
+    setIsDeleteConfirmOpen(true);
   };
 
   return (
@@ -56,7 +68,7 @@ export default function Items() {
         <Button onClick={openNewModal} icon={Plus}>Add Product</Button>
       </div>
       <div className="flex gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-        <div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><Input placeholder="Search items..." className="pl-10" /></div>
+        <div className="relative flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><Input placeholder="Search items..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
       </div>
       {/* Mobile card list */}
       <div className="md:hidden space-y-4">
@@ -65,7 +77,7 @@ export default function Items() {
         ) : items.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No items found. Add your first product.</div>
         ) : (
-          items.map(item => (
+          items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
             <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-start">
                 <div>
@@ -95,7 +107,7 @@ export default function Items() {
       <div className="hidden md:block">
         <Table headers={["Item Name", "Unit", "Purchase Price", "Sale Price", "Stock", "Action"]}>
           {isLoading ? (<tr><td colSpan={6} className="text-center py-12 text-slate-500"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading Inventory...</td></tr>) : items.length === 0 ? (<tr><td colSpan={6} className="text-center py-8 text-slate-500">No items found. Add your first product.</td></tr>) : (
-          items.map(item => (
+          items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
             <tr key={item.id}>
               <td className="px-4 py-3 font-medium text-slate-900">{item.name}<div className="text-xs text-slate-400">HSN: {item.hsn}</div></td>
               <td className="px-4 py-3 text-sm">{item.unit}</td>
@@ -128,6 +140,13 @@ export default function Items() {
           </div>
         </div>
       </Modal>
+      <Modal isOpen={isDeleteConfirmOpen} onClose={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }} title="Confirm delete" footer={<><Button variant="ghost" onClick={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }}>Cancel</Button><Button onClick={async () => { if (!deleteTarget) return; try { await api.items.delete(deleteTarget); await loadItems(); setIsDeleteConfirmOpen(false); setDeleteTarget(null); setNotification({ type: 'success', message: 'Product deleted' }); } catch (err) { setNotification({ type: 'error', message: 'Failed to delete' }); } }}>Delete</Button></>}> <div className="py-4">Are you sure you want to delete this product? This will remove it from the database.</div></Modal>
+
+      {notification && (
+        <div className={`fixed top-6 right-6 z-50 max-w-xs w-full p-3 rounded shadow-md ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {notification.message}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,8 +7,13 @@ import { api } from '../../../lib/api';
 
 export default function Parties() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [parties, setParties] = useState<Party[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'ALL' | PartyType.CUSTOMER | PartyType.SUPPLIER>('ALL');
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Party>>({
     name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0
@@ -24,6 +29,12 @@ export default function Parties() {
   };
 
   useEffect(() => { loadParties(); }, []);
+
+  useEffect(() => {
+    if (!notification) return;
+    const t = setTimeout(() => setNotification(null), 3000);
+    return () => clearTimeout(t);
+  }, [notification]);
 
   const handleEdit = (party: Party) => {
     setEditingId(party.id);
@@ -46,13 +57,12 @@ export default function Parties() {
     setEditingId(null);
     setFormData({ name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0 });
     await loadParties();
+    setNotification({ type: 'success', message: editingId ? 'Party updated' : 'Party created' });
   };
 
   const handleDelete = async (id: string) => {
-    if(confirm('Are you sure you want to delete this party?')) {
-      await api.parties.delete(id);
-      loadParties();
-    }
+    setDeleteTarget(id);
+    setIsDeleteConfirmOpen(true);
   };
 
   return (
@@ -61,10 +71,13 @@ export default function Parties() {
         <h1 className="text-2xl font-bold text-slate-800">Parties</h1>
         <Button onClick={openNewModal} icon={Plus}>Add Party</Button>
       </div>
-      <div className="flex gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input placeholder="Search parties..." className="pl-10" />
+          <Input placeholder="Search parties..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
+        <div className="w-48">
+          <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)} options={[{ label: 'All', value: 'ALL' }, { label: 'Customer', value: PartyType.CUSTOMER }, { label: 'Supplier', value: PartyType.SUPPLIER }]} label="Filter" />
         </div>
       </div>
       {/* Mobile card list */}
@@ -74,7 +87,10 @@ export default function Parties() {
         ) : parties.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No parties found. Add your first party.</div>
         ) : (
-          parties.map(party => (
+          parties
+            .filter(p => (filterType === 'ALL' ? true : p.type === filterType))
+            .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map(party => (
             <div key={party.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-start">
                 <div>
@@ -109,7 +125,10 @@ export default function Parties() {
           ) : parties.length === 0 ? (
             <tr><td colSpan={6} className="text-center py-8 text-slate-500">No parties found. Add your first party.</td></tr>
           ) : (
-            parties.map(party => (
+              parties
+                .filter(p => (filterType === 'ALL' ? true : p.type === filterType))
+                .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(party => (
               <tr key={party.id}>
                 <td className="px-4 py-3 font-medium text-slate-900">{party.name}</td>
                 <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-semibold ${party.type === PartyType.CUSTOMER ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{party.type}</span></td>
@@ -121,7 +140,7 @@ export default function Parties() {
                   <button onClick={() => handleDelete(party.id)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
                 </td>
               </tr>
-            ))
+              ))
           )}
         </Table>
       </div>
@@ -138,6 +157,13 @@ export default function Parties() {
           <Input label="Opening Balance" type="number" value={formData.openingBalance} onChange={e => setFormData({...formData, openingBalance: parseFloat(e.target.value)})} />
         </div>
       </Modal>
+      <Modal isOpen={isDeleteConfirmOpen} onClose={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }} title="Confirm delete" footer={<><Button variant="ghost" onClick={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }}>Cancel</Button><Button onClick={async () => { if (!deleteTarget) return; try { await api.parties.delete(deleteTarget); await loadParties(); setIsDeleteConfirmOpen(false); setDeleteTarget(null); setNotification({ type: 'success', message: 'Party deleted' }); } catch (err) { setNotification({ type: 'error', message: 'Failed to delete' }); } }}>Delete</Button></>}> <div className="py-4">Are you sure you want to delete this party? This will remove it from the database.</div></Modal>
+
+      {notification && (
+        <div className={`fixed top-6 right-6 z-50 max-w-xs w-full p-3 rounded shadow-md ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {notification.message}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '../../components/ui/Common';
 import { Lock, User, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -12,6 +12,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const search = useSearchParams();
+  const pwdChanged = search?.get('changed');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +24,8 @@ export default function Login() {
       await api.auth.login(username, password);
       router.push('/admin/dashboard');
     } catch (err) {
-      setError('Invalid username or password. Try "admin" / "admin"');
+      const msg = (err as any)?.message || 'Invalid username or password.';
+      setError(msg.includes('Invalid') ? 'Invalid username or password.' : msg);
     } finally {
       setIsLoading(false);
     }
@@ -46,6 +49,13 @@ export default function Login() {
         <div className="bg-white py-8 px-6 shadow-2xl shadow-slate-900/20 rounded-2xl sm:px-10 border border-slate-100/50">
           <form className="space-y-6" onSubmit={handleLogin}>
             
+            {pwdChanged === '1' && (
+              <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center animate-in fade-in slide-in-from-top-2 mb-3">
+                <ShieldCheck className="h-4 w-4 mr-2 text-green-700" />
+                Password updated successfully. Please login with your new password.
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-lg text-sm flex items-center animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="h-4 w-4 mr-2" />

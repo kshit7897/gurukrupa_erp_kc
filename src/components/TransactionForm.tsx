@@ -281,7 +281,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       };
 
       const savedInvoice = await api.invoices.add(newInvoice);
-      router.replace(`/admin/invoice/${savedInvoice.id}`);
+      // Redirect to preview and indicate saved so preview can show a success banner
+      router.replace(`/admin/invoice/${savedInvoice.id}?saved=1`);
 
     } catch (error) {
       console.error("Failed to save transaction", error);
