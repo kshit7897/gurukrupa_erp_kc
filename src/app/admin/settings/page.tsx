@@ -58,6 +58,7 @@ export default function Settings() {
             <td className="px-4 py-3 text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
             <td className="px-4 py-3 flex gap-2">
               <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'admin'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'admin'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
               <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
             </td>
           </tr>
@@ -215,7 +216,7 @@ export default function Settings() {
             try {
               if (editingUser) {
                 // Update
-                const body = { name: newUserName, role: newUserRole } as any;
+                    const body = { name: newUserName, role: newUserRole, email: newUserEmail } as any;
                 if (newUserPassword) body.password = newUserPassword;
                 const id = (editingUser as any).id || (editingUser as any)._id;
                 const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -230,7 +231,7 @@ export default function Settings() {
                 }
               } else {
                 // Create
-                const body = { username: newUserUsername, password: newUserPassword, name: newUserName, role: newUserRole };
+                const body = { username: newUserUsername, password: newUserPassword, name: newUserName, role: newUserRole, email: newUserEmail };
                 const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 const data = await res.json();
                 if (!res.ok) {

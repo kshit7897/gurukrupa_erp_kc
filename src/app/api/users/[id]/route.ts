@@ -19,15 +19,16 @@ export async function PUT(request: NextRequest, context: any) {
     if (id) user = await User.findById(id);
     if (!user && usernameFallback) user = await User.findOne({ username: usernameFallback });
     if (!user) return NextResponse.json({ error: `User not found (searched id: ${id || 'none'}, username: ${usernameFallback || 'none'})` }, { status: 404 });
-    const { name, role, password } = body;
+    const { name, role, password, email } = body;
     if (typeof name === 'string') user.name = name;
     if (typeof role === 'string') user.role = role;
+    if (typeof email === 'string') user.email = email;
     if (password) {
       const hashed = await bcrypt.hash(password, 10);
       user.password = hashed;
     }
     await user.save();
-    const safe = { id: (user as any)._id.toString(), username: user.username, name: user.name, role: user.role };
+    const safe = { id: (user as any)._id.toString(), username: user.username, email: (user as any).email || null, name: user.name, role: user.role };
     return NextResponse.json({ success: true, user: safe });
   } catch (err) {
     console.error('Users PUT error', err);

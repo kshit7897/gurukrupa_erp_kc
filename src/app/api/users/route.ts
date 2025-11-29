@@ -7,7 +7,7 @@ export async function GET() {
   try {
     await dbConnect();
     const users = await User.find().lean();
-    const safe = users.map(u => ({ id: (u as any)._id.toString(), username: u.username, name: u.name, role: u.role, createdAt: u.createdAt }));
+    const safe = users.map(u => ({ id: (u as any)._id.toString(), username: u.username, email: (u as any).email || null, name: u.name, role: u.role, createdAt: u.createdAt }));
     return NextResponse.json({ success: true, users: safe });
   } catch (err) {
     console.error('Users GET error', err);
@@ -19,15 +19,15 @@ export async function POST(request: Request) {
   try {
     await dbConnect();
     const body = await request.json();
-    const { username, password, name, role } = body;
+    const { username, password, name, role, email } = body;
     if (!username || !password || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
     const exists = await User.findOne({ username }).lean();
     if (exists) return NextResponse.json({ error: 'Username already exists' }, { status: 409 });
 
     const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, password: hashed, name: name || '', role });
-    const safe = { id: (user as any)._id.toString(), username: user.username, name: user.name, role: user.role };
+    const user = await User.create({ username, password: hashed, name: name || '', role, email: email || null });
+    const safe = { id: (user as any)._id.toString(), username: user.username, email: (user as any).email || null, name: user.name, role: user.role };
     return NextResponse.json({ success: true, user: safe });
   } catch (err) {
     console.error('Users POST error', err);
