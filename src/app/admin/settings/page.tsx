@@ -264,7 +264,7 @@ export default function Settings() {
         <Button onClick={async () => {
           if (!deleteTarget) return;
           try {
-            const res = await fetch(`/api/users/${deleteTarget}`, { method: 'DELETE' });
+            const res = await fetch(`/api/users/${deleteTarget}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: deleteTarget }) });
             const data = await res.json();
             if (!res.ok) { setNotification({ type: 'error', message: data?.error || 'Failed to delete user' }); }
             else { await fetchUsers(); setIsDeleteConfirmOpen(false); setDeleteTarget(null); setNotification({ type: 'success', message: 'User deleted' }); }

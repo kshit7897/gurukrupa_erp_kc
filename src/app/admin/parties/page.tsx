@@ -77,7 +77,7 @@ export default function Parties() {
           <Input placeholder="Search parties..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <div className="w-48">
-          <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)} options={[{ label: 'All', value: 'ALL' }, { label: 'Customer', value: PartyType.CUSTOMER }, { label: 'Supplier', value: PartyType.SUPPLIER }]} label="Filter" />
+          <Select value={filterType} onChange={(e) => setFilterType(e.target.value as any)} options={[{ label: 'All', value: 'ALL' }, { label: 'Customer', value: PartyType.CUSTOMER }, { label: 'Supplier', value: PartyType.SUPPLIER }]} />
         </div>
       </div>
       {/* Mobile card list */}
