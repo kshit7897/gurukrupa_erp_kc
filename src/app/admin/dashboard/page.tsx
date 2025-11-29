@@ -4,6 +4,7 @@ import { Card } from '../../../components/ui/Common';
 import { TrendingUp, TrendingDown, Users, Package, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { api } from '../../../lib/api';
+import { SoftLoader } from '../../../components/ui/Common';
 
 const data = [
   { name: 'Mon', sales: 4000, purchase: 2400 },
@@ -40,7 +41,7 @@ export default function Dashboard() {
   }, []);
 
   if (!stats) {
-    return <div className="p-10 text-center text-slate-500">Loading Dashboard...</div>;
+    return <div className="p-10 text-center"><SoftLoader size="lg" text="Loading dashboard..." /></div>;
   }
 
   return (

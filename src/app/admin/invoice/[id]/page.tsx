@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '../../../../components/ui/Common';
 import { Printer, ArrowLeft, Download, Loader2 } from 'lucide-react';
+import { SoftLoader } from '../../../../components/ui/Common';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
@@ -77,7 +78,7 @@ export default function InvoiceView() {
     window.html2pdf().set({ margin: 0, filename: `Invoice_${invoice?.invoiceNo}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => setIsDownloading(false));
   };
 
-  if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><Loader2 className="h-8 w-8 animate-spin mr-3 text-blue-600" /> Loading Invoice...</div>;
+  if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><div><SoftLoader size="lg" text="Loading invoice..." /></div></div>;
   if (!invoice) return <div className="text-center py-20 bg-slate-50 h-full"><h2 className="text-2xl font-bold text-slate-700">Invoice Not Found</h2><Button onClick={() => router.push('/admin/dashboard')} className="mt-4">Go to Dashboard</Button></div>;
 
   const invoiceTitle = invoice.paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE';

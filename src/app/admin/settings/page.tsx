@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, Switch, Table, Select, Modal } from '../../../components/ui/Common';
-import { User, Shield, Building, Key, Upload, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
+import { User, Shield, Building, Key, Upload, Plus, Edit2, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('Company');
@@ -11,7 +11,8 @@ export default function Settings() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
-  const [newUserRole, setNewUserRole] = useState('admin');
+  const [newUserRole, setNewUserRole] = useState('staff');
+  const [usersLoading, setUsersLoading] = useState(true);
   const [newUserPassword, setNewUserPassword] = useState('');
   const [userLoading, setUserLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -26,6 +27,7 @@ export default function Settings() {
   );
 
   const fetchUsers = async () => {
+    setUsersLoading(true);
     try {
       const res = await fetch('/api/users');
       if (!res.ok) return setUsers([]);
@@ -33,6 +35,8 @@ export default function Settings() {
       setUsers(data.users || []);
     } catch (err) {
       setUsers([]);
+    } finally {
+      setUsersLoading(false);
     }
   };
 
@@ -47,9 +51,11 @@ export default function Settings() {
     <Card title="Team Management" className="animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6"><p className="text-sm text-slate-500">Manage access to your ERP.</p><Button size="sm" icon={Plus} onClick={() => setIsUserModalOpen(true)}>Add User</Button></div>
       <Table headers={['Name', 'Username', 'Role', 'Created', 'Action']}>
-        {users.length === 0 && (
+        {usersLoading ? (
+          <tr><td colSpan={5} className="text-center py-8 text-slate-500"><div className="flex flex-col items-center"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner" /></div><div className="text-sm text-slate-500 mt-2">Loading users...</div></td></tr>
+        ) : users.length === 0 ? (
           <tr className="group hover:bg-slate-50"><td className="px-4 py-3 text-slate-500" colSpan={5}>No users found</td></tr>
-        )}
+        ) : null}
         {users.map((u) => (
           <tr key={u.id} className="group hover:bg-slate-50">
             <td className="px-4 py-3 font-medium text-slate-900">{u.name || '-'}</td>
@@ -57,8 +63,7 @@ export default function Settings() {
             <td className="px-4 py-3">{u.role === 'admin' ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Admin</span> : <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-medium">{u.role}</span>}</td>
             <td className="px-4 py-3 text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
             <td className="px-4 py-3 flex gap-2">
-              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'admin'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'admin'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'staff'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
               <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
             </td>
           </tr>
@@ -68,7 +73,7 @@ export default function Settings() {
   );
 
   const PermissionSettings = () => {
-    const [selectedRole, setSelectedRole] = useState('Staff');
+    const [selectedRole, setSelectedRole] = useState('staff');
     const [permissions, setPermissions] = useState([
       { id: 'create_invoice', label: 'Create Invoice', desc: 'Can create new sales invoices', checked: true },
       { id: 'edit_invoice', label: 'Edit Invoice', desc: 'Can edit existing invoices', checked: false },
@@ -80,7 +85,11 @@ export default function Settings() {
       <Card title="Role Permissions" className="animate-in fade-in duration-300">
          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
             <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Select Role to Edit:</label>
-            <select value={selectedRole} onChange={handleRoleChange} className="w-full sm:w-auto border-slate-300 rounded-md text-sm p-2 bg-white shadow-sm outline-none"><option value="Staff">Staff</option><option value="Manager">Manager</option></select>
+            <select value={selectedRole} onChange={handleRoleChange} className="w-full sm:w-auto border-slate-300 rounded-md text-sm p-2 bg-white shadow-sm outline-none">
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
          </div>
          <div className="space-y-1">{permissions.map((perm) => (<div key={perm.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"><div className="pr-4"><p className="text-sm font-medium text-slate-900">{perm.label}</p><p className="text-xs text-slate-500">{perm.desc}</p></div><Switch checked={perm.checked} onChange={() => handleToggle(perm.id)} /></div>))}</div>
          <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><Button onClick={() => setNotification({ type: 'success', message: 'Permissions saved' })}><CheckCircle2 className="w-4 h-4 mr-2" />Save Permissions</Button></div>
@@ -226,7 +235,7 @@ export default function Settings() {
                 } else {
                   setIsUserModalOpen(false);
                   setEditingUser(null);
-                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('admin');
+                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('staff');
                   await fetchUsers();
                 }
               } else {
@@ -238,7 +247,7 @@ export default function Settings() {
                   setNotification({ type: 'error', message: data?.error || 'Failed to create user' });
                 } else {
                   setIsUserModalOpen(false);
-                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('admin');
+                  setNewUserName(''); setNewUserEmail(''); setNewUserUsername(''); setNewUserPassword(''); setNewUserRole('staff');
                   await fetchUsers();
                 }
               }

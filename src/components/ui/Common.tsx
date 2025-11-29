@@ -177,3 +177,19 @@ export const Switch: React.FC<SwitchProps> = ({ checked, onChange }) => (
     <span className={`${checked ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm`} />
   </button>
 );
+
+// --- SOFT LOADER ---
+interface SoftLoaderProps {
+  size?: 'sm' | 'md' | 'lg';
+  text?: string;
+}
+
+export const SoftLoader: React.FC<SoftLoaderProps> = ({ size = 'md', text }) => {
+  const dims = size === 'sm' ? 'h-6 w-6' : size === 'lg' ? 'h-10 w-10' : 'h-8 w-8';
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <div className={`rounded-full ${dims} bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner`} />
+      {text && <div className="text-sm text-slate-500 mt-2">{text}</div>}
+    </div>
+  );
+};

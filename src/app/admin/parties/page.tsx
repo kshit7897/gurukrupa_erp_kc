@@ -83,7 +83,7 @@ export default function Parties() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
-          <div className="text-center py-8 text-slate-500"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading Parties...</div>
+          <div className="text-center py-8 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Parties...</div></div>
         ) : parties.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No parties found. Add your first party.</div>
         ) : (
@@ -120,9 +120,9 @@ export default function Parties() {
       {/* Desktop table */}
       <div className="hidden md:block">
         <Table headers={["Name", "Type", "Mobile", "GSTIN", "Balance", "Action"]}>
-          {isLoading ? (
-             <tr><td colSpan={6} className="text-center py-12 text-slate-500"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading Parties...</td></tr>
-          ) : parties.length === 0 ? (
+           {isLoading ? (
+             <tr><td colSpan={6} className="text-center py-12 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Parties...</div></td></tr>
+           ) : parties.length === 0 ? (
             <tr><td colSpan={6} className="text-center py-8 text-slate-500">No parties found. Add your first party.</td></tr>
           ) : (
               parties

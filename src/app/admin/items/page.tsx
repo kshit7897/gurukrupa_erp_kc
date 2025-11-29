@@ -73,7 +73,7 @@ export default function Items() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
-          <div className="text-center py-8 text-slate-500"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading Inventory...</div>
+          <div className="text-center py-8 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Inventory...</div></div>
         ) : items.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No items found. Add your first product.</div>
         ) : (
@@ -106,7 +106,7 @@ export default function Items() {
       {/* Desktop table */}
       <div className="hidden md:block">
         <Table headers={["Item Name", "Unit", "Purchase Price", "Sale Price", "Stock", "Action"]}>
-          {isLoading ? (<tr><td colSpan={6} className="text-center py-12 text-slate-500"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading Inventory...</td></tr>) : items.length === 0 ? (<tr><td colSpan={6} className="text-center py-8 text-slate-500">No items found. Add your first product.</td></tr>) : (
+          {isLoading ? (<tr><td colSpan={6} className="text-center py-12 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Inventory...</div></td></tr>) : items.length === 0 ? (<tr><td colSpan={6} className="text-center py-8 text-slate-500">No items found. Add your first product.</td></tr>) : (
           items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
             <tr key={item.id}>
               <td className="px-4 py-3 font-medium text-slate-900">{item.name}<div className="text-xs text-slate-400">HSN: {item.hsn}</div></td>
