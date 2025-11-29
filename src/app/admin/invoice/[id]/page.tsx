@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '../../../../components/ui/Common';
 import { Printer, ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
 
@@ -17,8 +17,16 @@ export default function InvoiceView() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const searchParams = useSearchParams();
-  const savedFlag = searchParams?.get('saved') === '1';
+  const [savedFlag, setSavedFlag] = useState(false);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setSavedFlag(params.get('saved') === '1');
+    } catch (e) {
+      setSavedFlag(false);
+    }
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {

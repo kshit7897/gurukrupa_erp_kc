@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '../../components/ui/Common';
 import { Lock, User, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -12,8 +12,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const search = useSearchParams();
-  const pwdChanged = search?.get('changed');
+  const [pwdChanged, setPwdChanged] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setPwdChanged(params.get('changed'));
+    } catch (e) {
+      setPwdChanged(null);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
