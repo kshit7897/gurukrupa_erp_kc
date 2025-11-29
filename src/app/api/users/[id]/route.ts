@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
 import User from '../../../../lib/models/User';
 import bcrypt from 'bcryptjs';
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: any) {
   try {
     await dbConnect();
     const body = await request.json();
     // Accept id from params or body (id, _id) or username as fallback
+    const params = context?.params;
     const paramId = params?.id;
     const bodyId = (body && (body.id || body._id)) || null;
     const usernameFallback = body && body.username ? body.username : null;
@@ -34,10 +35,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: any) {
   try {
     await dbConnect();
     const body = await request.json().catch(() => ({}));
+    const params = context?.params;
     const paramId = params?.id;
     const bodyId = (body && (body.id || body._id)) || null;
     const usernameFallback = body && body.username ? body.username : null;
