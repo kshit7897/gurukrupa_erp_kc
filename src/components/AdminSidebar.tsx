@@ -28,6 +28,8 @@ export const AdminSidebar = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const handleLogout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    localStorage.removeItem('gurukrupa_user');
     router.push('/login');
   };
 

@@ -27,8 +27,21 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
 
   // AUTH GUARD: Check if user is logged in
   useEffect(() => {
-    const user = localStorage.getItem('gurukrupa_user');
-    if (!user) {
+    const raw = localStorage.getItem('gurukrupa_user');
+    if (!raw) {
+      router.replace('/login');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || (parsed.expiresAt && Date.now() > parsed.expiresAt)) {
+        // expired
+        localStorage.removeItem('gurukrupa_user');
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        router.replace('/login');
+      }
+    } catch (e) {
+      localStorage.removeItem('gurukrupa_user');
       router.replace('/login');
     }
   }, [router]);
@@ -36,6 +49,7 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const handleLogout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('gurukrupa_user');
     router.replace('/login');
   };

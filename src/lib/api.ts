@@ -39,7 +39,11 @@ export const api = {
       }
       const data = await res.json();
       // store minimal user info in localStorage for client-side guard
-      if (data?.user) localStorage.setItem('gurukrupa_user', JSON.stringify(data.user));
+      if (data?.user) {
+        // store expiry (24 hours) so client-side checks can expire if cookie removed
+        const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+        localStorage.setItem('gurukrupa_user', JSON.stringify({ ...data.user, expiresAt }));
+      }
       return true;
     }
   },
