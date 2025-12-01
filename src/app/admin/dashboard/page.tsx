@@ -109,9 +109,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Sales" value={`₹ ${(stats.totalSales || 0).toLocaleString()}`} subtext="" icon={TrendingUp} color="#10b981" />
-        <StatCard title="Total Purchase" value={`₹ ${(stats.totalPurchase || 0).toLocaleString()}`} subtext="" icon={TrendingDown} color="#ef4444" />
-        <StatCard title="Parties Receivables" value={`₹ ${(stats.receivables || 0).toLocaleString()}`} subtext="" icon={Users} color="#3b82f6" />
+        <StatCard title="Total Sales" value={`₹ ${(Number(stats.totalSales || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="" icon={TrendingUp} color="#10b981" />
+        <StatCard title="Total Purchase" value={`₹ ${(Number(stats.totalPurchase || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="" icon={TrendingDown} color="#ef4444" />
+        <StatCard title="Parties Receivables" value={`₹ ${(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="" icon={Users} color="#3b82f6" />
         <StatCard title="Low Stock Items" value={`${stats.lowStock || 0} Items`} subtext="" icon={AlertCircle} color="#f59e0b" />
       </div>
 
@@ -141,7 +141,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Receivable (Customer)</p>
               <div className="flex items-center justify-between mt-2">
                 <div>
-                  <div className="text-lg font-bold">₹ {Number(stats.receivables || 0).toLocaleString()}</div>
+                  <div className="text-lg font-bold">₹ {(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                   <div className="text-xs text-slate-400">Outstanding from customers</div>
                 </div>
                 <div style={{width:80, height:40}}>
@@ -159,7 +159,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Payable (Supplier)</p>
               <div className="flex items-center justify-between mt-2">
                 <div>
-                  <div className="text-lg font-bold">₹ {Number(stats.payables || 0).toLocaleString()}</div>
+                  <div className="text-lg font-bold">₹ {(Number(stats.payables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                   <div className="text-xs text-slate-400">Outstanding to suppliers</div>
                 </div>
                 <div style={{width:80, height:40}}>
@@ -179,7 +179,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Cash In</p>
               <div className="flex items-center justify-between mt-2">
                 <div>
-                  <div className="text-lg font-bold">₹ {Number(stats.cashIn || 0).toLocaleString()}</div>
+                  <div className="text-lg font-bold">₹ {(Number(stats.cashIn || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                   <div className="text-xs text-slate-400">Received from customers</div>
                 </div>
                 <div style={{width:80, height:40}}>
@@ -197,7 +197,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500">Cash Out</p>
               <div className="flex items-center justify-between mt-2">
                 <div>
-                  <div className="text-lg font-bold">₹ {Number(stats.cashOut || 0).toLocaleString()}</div>
+                  <div className="text-lg font-bold">₹ {(Number(stats.cashOut || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
                   <div className="text-xs text-slate-400">Paid to suppliers</div>
                 </div>
                 <div style={{width:80, height:40}}>
@@ -228,7 +228,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-right ml-4 flex-shrink-0">
-                    <p className={`text-sm font-bold ${tx.type === 'Sale' ? 'text-green-600' : tx.type === 'Purchase' ? 'text-slate-700' : 'text-slate-600'}`}>{tx.type === 'Purchase' ? '-' : '+'} ₹ {Number(tx.amount).toLocaleString()}</p>
+                    <p className={`text-sm font-bold ${tx.type === 'Sale' ? 'text-green-600' : tx.type === 'Purchase' ? 'text-slate-700' : 'text-slate-600'}`}>{tx.type === 'Purchase' ? '-' : '+'} ₹ {(Number(tx.amount || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</p>
                     <p className="text-xs text-slate-400">{tx.date}</p>
                   </div>
                 </div>

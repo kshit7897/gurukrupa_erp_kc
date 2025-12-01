@@ -56,17 +56,30 @@ export async function POST(request: Request) {
     }
 
     // Generate invoice numbering fields: invoice_no, serial, bill_type, financial_year
+    // We'll attempt to generate atomically; if generation fails, fall back to any client-provided number,
+    // and as a last resort create a safe timestamp-based invoice_no so Mongoose validation doesn't fail.
     try {
       const gen = await generateInvoiceNumber({ paymentMode: payload.paymentMode, date: payload.date, bill_type: payload.bill_type });
-      payload.invoice_no = gen.invoice_no;
-      payload.serial = gen.serial;
-      payload.bill_type = gen.bill_type;
-      payload.financial_year = gen.financial_year;
-      // keep legacy field as well
-      payload.invoiceNo = gen.invoice_no;
+      if (gen && gen.invoice_no) {
+        payload.invoice_no = gen.invoice_no;
+        payload.serial = gen.serial;
+        payload.bill_type = gen.bill_type;
+        payload.financial_year = gen.financial_year;
+        // keep legacy field as well
+        payload.invoiceNo = gen.invoice_no;
+      }
     } catch (err) {
       console.error('Invoice number generation failed', err);
-      return NextResponse.json({ error: 'Failed to generate invoice number' }, { status: 500 });
+      // fallback: if client provided legacy invoiceNo, use that; otherwise create a timestamp-based fallback
+      if (payload.invoiceNo) {
+        payload.invoice_no = payload.invoiceNo;
+      } else if (payload.invoice_no) {
+        // nothing to do
+      } else {
+        const fallback = `AUTO/${new Date().toISOString()}`;
+        payload.invoice_no = fallback;
+        payload.invoiceNo = fallback;
+      }
     }
 
     const invoice = await Invoice.create(payload);

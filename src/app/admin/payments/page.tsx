@@ -1,18 +1,15 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Button, Modal, Input, Select, Table, Card, SoftLoader } from '../../../components/ui/Common';
+import { Button, Input, Select, Table, Card, SoftLoader } from '../../../components/ui/Common';
 import { Plus, Download } from 'lucide-react';
 import { api } from '../../../lib/api';
+import { useRouter } from 'next/navigation';
 
 export default function PaymentsPage() {
-  const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<any[]>([]);
   const [parties, setParties] = useState<{ label: string; value: string }[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
-
-  const [form, setForm] = useState<any>({ partyId: '', invoiceId: '', amount: '', date: '', mode: 'cash', reference: '', notes: '' });
-  const [saving, setSaving] = useState(false);
   const [notif, setNotif] = useState<{ type: 'success'|'error'; message: string } | null>(null);
 
   const load = async () => {
@@ -38,16 +35,38 @@ export default function PaymentsPage() {
     return () => document.removeEventListener('gurukrupa:data:updated', onData);
   }, []);
 
-  const openModal = () => {
-    setForm({ partyId: '', invoiceId: '', amount: '', date: new Date().toISOString().slice(0,10), mode: 'cash', reference: '', notes: '' });
-    setIsOpen(true);
+  const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const handleExport = async () => {
+    try {
+      const data = await api.payments.list();
+      if (!data || data.length === 0) return alert('No payments to export');
+      const headers = [ 'date','partyId','type','amount','mode','reference','invoiceIds','allocations','notes' ];
+      const rows = data.map((p:any) => {
+        const invs = Array.isArray(p.invoiceIds) ? p.invoiceIds.join('|') : (p.invoiceId || '');
+        const alloc = Array.isArray(p.allocations) ? p.allocations.map((a:any) => `${a.invoiceId}:${a.amount}`).join('|') : '';
+        return [ (p.date||'').slice(0,10), p.partyName || p.partyId, p.type || '', (p.amount||0), p.mode || '', p.reference || '', invs, alloc, p.notes || '' ];
+      });
+      const csv = [headers.join(','), ...rows.map(r => r.map((c:any)=> '"'+String(c).replace(/"/g,'""')+'"').join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `payments_export_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    } catch (e:any) { console.error(e); alert('Export failed'); }
   };
 
   const handleSave = async () => {
     if (!form.partyId || !form.amount) { setNotif({ type: 'error', message: 'Party and amount required' }); return; }
     setSaving(true);
     try {
-      await api.payments.add({ partyId: form.partyId, invoiceId: form.invoiceId || undefined, amount: Number(form.amount), date: form.date, mode: form.mode, reference: form.reference, notes: form.notes });
+      await api.payments.add({ partyId: form.partyId, type: 'receive', invoiceIds: form.invoiceId ? [form.invoiceId] : undefined, amount: Number(form.amount), date: form.date, mode: form.mode, reference: form.reference, notes: form.notes });
       setIsOpen(false);
       setNotif({ type: 'success', message: 'Payment recorded' });
       // api.payments.add dispatches data update; local load will refresh via event, but refresh now for instant UX
@@ -60,11 +79,14 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6 p-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Payments</h1>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" icon={Download}>Export</Button>
-          <Button onClick={openModal} icon={Plus}>Receive Payment</Button>
+      <div className="flex flex-col md:flex-row items-center md:justify-between">
+        <h1 className="text-2xl font-bold hidden md:block">Payments</h1>
+        <div className="flex justify-center md:justify-end flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+          <Button variant="outline" icon={Download} onClick={handleExport} className="w-full md:w-auto">Export</Button>
+          <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full md:w-auto">
+            <Button onClick={() => router.push('/payments/receive')} className="w-full md:w-auto">Receive</Button>
+            <Button onClick={() => router.push('/payments/pay')} className="w-full md:w-auto">Make Payment</Button>
+          </div>
         </div>
       </div>
 
@@ -74,57 +96,51 @@ export default function PaymentsPage() {
         ) : payments.length === 0 ? (
           <div className="p-6 text-center text-slate-500">No payments recorded yet.</div>
         ) : (
-          <Table headers={[ 'Date', 'Party', 'Invoice', 'Amount', 'Mode', 'Ref' ]}>
-            {payments.map(p => (
-              <tr key={p.id || p._id} className="group hover:bg-slate-50">
-                <td className="px-4 py-3">{(p.date || '').slice(0,10)}</td>
-                <td className="px-4 py-3">{p.partyName || p.partyId}</td>
-                <td className="px-4 py-3">{p.invoiceId || '-'}</td>
-                <td className="px-4 py-3 text-right font-semibold">₹ {p.amount}</td>
-                <td className="px-4 py-3">{p.mode}</td>
-                <td className="px-4 py-3">{p.reference || '-'}</td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            {isMobile ? (
+              <div className="space-y-3">
+                {payments.map(p => (
+                  <div
+                    key={p.id || p._id}
+                    onClick={() => router.push(`/payments/receipt/${p.id || p._id}`)}
+                    className="border border-slate-100 rounded p-3 bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-slate-400">{(p.date || '').slice(0,10)}</div>
+                        <div className="font-semibold text-slate-800 truncate">{p.partyName || p.partyId}</div>
+                        <div className="text-xs text-slate-500 mt-1 max-w-[180px] truncate">{p.invoiceId ? `Invoice: ${p.invoiceId}` : (p._id || p.id)}</div>
+                        {p.reference && <div className="text-xs text-slate-500 mt-1">{p.reference}</div>}
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <div className="text-lg font-bold">₹ {Number(p.amount || 0).toFixed(2)}</div>
+                        <div className="text-xs text-slate-500">{p.mode || ''}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <Table headers={[ 'Date', 'Party', 'Invoice', 'Amount', 'Mode', 'Ref' ]}>
+                  {payments.map(p => (
+                    <tr key={p.id || p._id} className="group hover:bg-slate-50">
+                      <td className="px-4 py-3">{(p.date || '').slice(0,10)}</td>
+                      <td className="px-4 py-3">{p.partyName || p.partyId}</td>
+                      <td className="px-4 py-3">{p.invoiceId || '-'}</td>
+                      <td className="px-4 py-3 text-right font-semibold">₹ {p.amount}</td>
+                      <td className="px-4 py-3">{p.mode}</td>
+                      <td className="px-4 py-3">{p.reference || '-'}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Record Payment" footer={<><Button variant="ghost" onClick={() => setIsOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Payment'}</Button></>}>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm block mb-1">Party</label>
-            <Select value={form.partyId} onChange={(e:any)=> setForm({...form, partyId: e.target.value})} options={[{ label: 'Select party', value: '' }, ...parties]} />
-          </div>
-          <div>
-            <label className="text-sm block mb-1">Invoice (optional)</label>
-            <Select value={form.invoiceId} onChange={(e:any)=> setForm({...form, invoiceId: e.target.value})} options={[{ label: 'Select invoice (optional)', value: '' }, ...(invoices || []).filter((inv:any)=> inv.dueAmount && inv.dueAmount>0).map((inv:any)=>({ label: `${inv.invoiceNo} • ₹ ${inv.dueAmount}`, value: inv._id || inv.id }))]} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm block mb-1">Amount</label>
-              <Input type="number" value={form.amount} onChange={(e:any)=> setForm({...form, amount: e.target.value})} />
-            </div>
-            <div>
-              <label className="text-sm block mb-1">Date</label>
-              <Input type="date" value={form.date} onChange={(e:any)=> setForm({...form, date: e.target.value})} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm block mb-1">Mode</label>
-              <Select value={form.mode} onChange={(e:any)=> setForm({...form, mode: e.target.value})} options={[{label:'Cash',value:'cash'},{label:'Online',value:'online'},{label:'Cheque',value:'cheque'}]} />
-            </div>
-            <div>
-              <label className="text-sm block mb-1">Reference</label>
-              <Input value={form.reference} onChange={(e:any)=> setForm({...form, reference: e.target.value})} />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm block mb-1">Notes</label>
-            <Input value={form.notes} onChange={(e:any)=> setForm({...form, notes: e.target.value})} />
-          </div>
-        </div>
-      </Modal>
+      {/* Quick modal removed - use full Receive / Make Payment pages */}
 
       {notif && (
         <div className={`fixed top-6 right-6 z-50 max-w-xs w-full p-3 rounded shadow-md ${notif.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

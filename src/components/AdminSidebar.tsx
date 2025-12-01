@@ -17,6 +17,7 @@ const MENU_ITEMS = [
   { path: '/admin/purchase/create', label: 'Purchase Entry', icon: ShoppingCart },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { path: '/invoices/all', label: 'Invoices', icon: FileText },
+  { path: '/admin/payments', label: 'Payments', icon: FileBarChart },
   { path: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

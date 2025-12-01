@@ -248,5 +248,35 @@ export const api = {
         return items.map((item: any) => ({ ...item, value: (item.stock || 0) * (item.purchaseRate || 0) }));
       });
     }
+    ,
+    getCashbook: async (from?: string, to?: string) => {
+      return withLoader(async () => {
+        const qs = new URLSearchParams();
+        if (from) qs.set('from', from);
+        if (to) qs.set('to', to);
+        const res = await fetch(`/api/reports/cashbook${qs.toString() ? ('?' + qs.toString()) : ''}`);
+        if (!res.ok) throw new Error('Failed to fetch cashbook');
+        return await res.json();
+      });
+    },
+    getBankbook: async (from?: string, to?: string) => {
+      return withLoader(async () => {
+        const qs = new URLSearchParams();
+        if (from) qs.set('from', from);
+        if (to) qs.set('to', to);
+        const res = await fetch(`/api/reports/bankbook${qs.toString() ? ('?' + qs.toString()) : ''}`);
+        if (!res.ok) throw new Error('Failed to fetch bankbook');
+        return await res.json();
+      });
+    },
+    getDaybook: async (date: string) => {
+      return withLoader(async () => {
+        const qs = new URLSearchParams();
+        if (date) qs.set('date', date);
+        const res = await fetch(`/api/reports/daybook?${qs.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch daybook');
+        return await res.json();
+      });
+    }
   }
 };

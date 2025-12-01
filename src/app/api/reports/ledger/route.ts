@@ -35,16 +35,41 @@ export async function GET(req: Request) {
     const payQuery: any = { partyId };
     if (start && end) payQuery.date = { $gte: start, $lte: end };
     const payments = await Payment.find(payQuery).sort({ date: 1 }).lean();
-    const payTx = payments.map((p: any) => ({
-      id: p._id || p.id,
-      date: p.date,
-      ref: p.reference || (p._id || ''),
-      type: 'PAYMENT',
-      // For customers, payment reduces receivable (credit). For suppliers, payment reduces payable (debit).
-      credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (p.amount || 0) : 0,
-      debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (p.amount || 0) : 0,
-      desc: `Payment ${p.mode || ''}`
-    }));
+
+    // Build payment transactions and allocation-level transactions
+    const payTx: any[] = [];
+    // Map invoiceId to invoiceNo for quick lookup
+    const invMap: Record<string, string> = {};
+    (invoices || []).forEach(i => { if (i._id) invMap[(i._id || '').toString()] = i.invoiceNo || (i._id || '').toString(); });
+
+    for (const p of payments) {
+      payTx.push({
+        id: p._id || p.id,
+        date: p.date,
+        ref: p.reference || (p._id || ''),
+        type: 'PAYMENT',
+        credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (p.amount || 0) : 0,
+        debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (p.amount || 0) : 0,
+        desc: `Payment ${p.mode || ''}`
+      });
+
+      // If allocations exist, add a transaction per allocation so ledger shows invoice-specific application
+      if (Array.isArray(p.allocations) && p.allocations.length > 0) {
+        for (const a of p.allocations) {
+          const invId = (a.invoiceId || '').toString();
+          const invRef = invMap[invId] || invId;
+          payTx.push({
+            id: `${p._id || p.id}_alloc_${invId}`,
+            date: p.date,
+            ref: invRef,
+            type: 'PAYMENT_ALLOC',
+            credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (a.amount || 0) : 0,
+            debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (a.amount || 0) : 0,
+            desc: `Allocated to Invoice ${invRef}`
+          });
+        }
+      }
+    }
 
     const transactions = invTx.concat(payTx).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 

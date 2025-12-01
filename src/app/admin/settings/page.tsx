@@ -136,7 +136,7 @@ export default function Settings() {
   const CompanyCard = () => {
     const [company, setCompany] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({ name: '', gstNumber: '', phone: '', email: '', address: '', city: '', state: '', pincode: '' });
+    const [form, setForm] = useState<any>({ name: '', gstNumber: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', bank_name: '', bank_branch: '', bank_account_no: '', ifsc_code: '', upi_id: '', logo: '', extraDetails: [] });
 
     useEffect(() => {
       let mounted = true;
@@ -148,7 +148,7 @@ export default function Settings() {
           if (!mounted) return;
           const c = data.company || null;
           setCompany(c);
-          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '' });
+          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bank_name: c.bank_name || '', bank_branch: c.bank_branch || '', bank_account_no: c.bank_account_no || '', ifsc_code: c.ifsc_code || '', upi_id: c.upi_id || '', logo: c.logo || '', extraDetails: c.extraDetails || [] });
         } catch (err) {
           console.error(err);
         }
@@ -161,7 +161,7 @@ export default function Settings() {
       try {
         const res = await fetch('/api/company', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
         const data = await res.json();
-        if (!res.ok) {
+          if (!res.ok) {
           setNotification({ type: 'error', message: data?.error || 'Failed to save company' });
         } else {
           setCompany(data.company);
@@ -185,6 +185,42 @@ export default function Settings() {
             <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: (e as any).target.value })} />
             <Input label="State" value={form.state} onChange={(e) => setForm({ ...form, state: (e as any).target.value })} />
             <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: (e as any).target.value })} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
+            <Input label="Bank Name" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: (e as any).target.value })} />
+            <Input label="Branch" value={form.bank_branch} onChange={(e) => setForm({ ...form, bank_branch: (e as any).target.value })} />
+            <Input label="Account No" value={form.bank_account_no} onChange={(e) => setForm({ ...form, bank_account_no: (e as any).target.value })} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-3">
+            <Input label="IFSC Code" value={form.ifsc_code} onChange={(e) => setForm({ ...form, ifsc_code: (e as any).target.value })} />
+            <Input label="UPI ID" value={form.upi_id} onChange={(e) => setForm({ ...form, upi_id: (e as any).target.value })} />
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Logo (png/jpg)</label>
+            <input type="file" accept="image/*" onChange={async (e:any)=>{
+              const f = e.target.files && e.target.files[0];
+              if (!f) return;
+              const reader = new FileReader();
+              reader.onload = () => { setForm((prev:any)=> ({ ...prev, logo: reader.result })); };
+              reader.readAsDataURL(f);
+            }} />
+            {form.logo && (<div className="mt-3 w-28 h-20 border border-slate-200 rounded overflow-hidden"><img src={form.logo} alt="logo" className="w-full h-full object-contain" /></div>)}
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Additional Company Details</label>
+            <div className="space-y-2">
+              {(form.extraDetails || []).map((ed:any, idx:number) => (
+                <div key={idx} className="flex gap-2">
+                  <Input placeholder="Label" value={ed.label} onChange={(e)=>{ const val = (e as any).target.value; const copy = [...form.extraDetails]; copy[idx] = { ...copy[idx], label: val }; setForm({ ...form, extraDetails: copy }); }} />
+                  <Input placeholder="Value" value={ed.value} onChange={(e)=>{ const val = (e as any).target.value; const copy = [...form.extraDetails]; copy[idx] = { ...copy[idx], value: val }; setForm({ ...form, extraDetails: copy }); }} />
+                  <button className="px-3 py-2 bg-red-600 text-white rounded" onClick={()=>{ const copy = [...form.extraDetails]; copy.splice(idx,1); setForm({ ...form, extraDetails: copy }); }}>Del</button>
+                </div>
+              ))}
+              <div>
+                <button className="px-3 py-2 bg-blue-600 text-white rounded" onClick={()=> setForm({ ...form, extraDetails: [ ...(form.extraDetails||[]), { label:'', value:'' } ] })}>Add Detail</button>
+              </div>
+            </div>
           </div>
           <div className="pt-4 border-t border-slate-100 flex justify-end">
             <Button onClick={save} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</Button>

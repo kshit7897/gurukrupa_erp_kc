@@ -118,7 +118,8 @@ export default function InvoiceView() {
   if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><div><SoftLoader size="lg" text="Loading invoice..." /></div></div>;
   if (!invoice) return <div className="text-center py-20 bg-slate-50 h-full"><h2 className="text-2xl font-bold text-slate-700">Invoice Not Found</h2><Button onClick={() => router.push('/admin/dashboard')} className="mt-4">Go to Dashboard</Button></div>;
 
-  const invoiceTitle = invoice.paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE';
+  const invoiceTitle = invoice.type === 'PURCHASE' ? 'PURCHASE VOUCHER' : (invoice.paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE');
+  const freight = Number((invoice as any)?.freight || 0);
 
   return (
     <div className="h-full bg-slate-100 flex flex-col">
@@ -147,6 +148,14 @@ export default function InvoiceView() {
                   {/* dummy logo */}
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
                 </div>
+                  <div className="w-20 h-20 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
+                    {company?.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
+                    )}
+                  </div>
                 <div>
                   <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{company?.name || 'Company Name'}</h1>
                   <div className="text-sm text-slate-600 leading-tight mt-1">
@@ -169,62 +178,131 @@ export default function InvoiceView() {
               </div>
             </div>
 
-            {/* Bill To / Ship To stacked and metadata column spanning full height */}
-            <div className="grid grid-cols-3 grid-rows-2 gap-4 mb-4">
-              <div className="col-span-2 row-span-2 flex flex-col gap-4">
-                <div className="bg-slate-50 border border-slate-100 rounded p-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase">Bill To</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.billingAddress?.name || party?.name || invoice.partyName}</div>
-                  <div className="mt-1 text-sm text-slate-600 leading-tight">
-                    {(invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address) || ''}
-                    {(invoice.billingAddress?.line2 || party?.billingAddress?.line2) && (<div>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</div>)}
-                    <div>{invoice.billingAddress?.city || party?.billingAddress?.city || ''}{(invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : ''}</div>
-                    <div>{invoice.billingAddress?.state || party?.billingAddress?.state || ''}</div>
-                    <div className="mt-1">Phone: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</div>
-                    <div className="mt-1">GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
-                  </div>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded p-3">
-                  <div className="text-xs font-semibold text-slate-500 uppercase">Ship To</div>
-                    <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.shippingAddress?.name || party?.name || invoice.partyName}</div>
+            {/* Purchase-specific layout: Supplier block + metadata on right */}
+            {invoice.type === 'PURCHASE' ? (
+              <div className="grid grid-cols-5 gap-4 mb-4">
+                <div className="col-span-3">
+                  <div className="bg-slate-50 border border-slate-100 rounded p-3">
+                    <div className="text-xs font-semibold text-slate-500 uppercase">Supplier</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.billingAddress?.name || party?.name || invoice.partyName}</div>
                     <div className="mt-1 text-sm text-slate-600 leading-tight">
-                      {(invoice.shippingAddress?.line1 || party?.shippingAddress?.line1 || party?.address) || ''}
-                      {(invoice.shippingAddress?.line2 || party?.shippingAddress?.line2) && (<div>{invoice.shippingAddress?.line2 || party?.shippingAddress?.line2}</div>)}
-                      <div>{invoice.shippingAddress?.city || party?.shippingAddress?.city || ''}{(invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode) ? ` - ${invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode}` : ''}</div>
-                      <div>{invoice.shippingAddress?.state || party?.shippingAddress?.state || ''}</div>
-                      <div className="mt-1">GSTIN: {invoice.shippingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                      {(invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address) || ''}
+                      {(invoice.billingAddress?.line2 || party?.billingAddress?.line2) && (<div>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</div>)}
+                      <div>{invoice.billingAddress?.city || party?.billingAddress?.city || ''}{(invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : ''}</div>
+                      <div className="mt-1">Contact: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</div>
+                      <div className="mt-1">GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <div className="border border-slate-100 rounded p-3 text-sm bg-white">
+                    <div className="space-y-2 text-slate-600">
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Purchase Voucher No.</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.invoiceNo || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Supplier Invoice No.</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.supplier_ref || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Supplier Invoice Date</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.delivery_date || invoice.date || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Purchase Type</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{(invoice.payment_mode || invoice.paymentMode || 'Cash').toString()}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="col-span-1 row-span-2">
-                <div className="border border-slate-100 rounded p-3 text-sm h-full flex items-start bg-white">
-                  <div className="grid grid-cols-2 gap-2 text-slate-600 w-full">
-                    <div className="font-medium">Buyer\'s Order No :</div><div className="text-right">{invoice.buyer_order_no || '-'}</div>
-                    <div className="font-medium">Supplier\'s Ref. :</div><div className="text-right">{invoice.supplier_ref || '-'}</div>
-                    <div className="font-medium">Vehicle Number :</div><div className="text-right">{invoice.vehicle_no || '-'}</div>
-                    <div className="font-medium">Delivery Date :</div><div className="text-right">{invoice.delivery_date || '-'}</div>
-                    <div className="font-medium">Transport Details :</div><div className="text-right">{invoice.transport_details || '-'}</div>
-                    <div className="font-medium">Terms Of Delivery :</div><div className="text-right">{invoice.terms_of_delivery || '-'}</div>
+            ) : (
+              <div className="grid grid-cols-5 grid-rows-2 gap-4 mb-4">
+                <div className="col-span-3 row-span-2 flex flex-col gap-4">
+                  <div className="bg-slate-50 border border-slate-100 rounded p-3">
+                    <div className="text-xs font-semibold text-slate-500 uppercase">Bill To</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.billingAddress?.name || party?.name || invoice.partyName}</div>
+                    <div className="mt-1 text-sm text-slate-600 leading-tight">
+                      {(invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address) || ''}
+                      {(invoice.billingAddress?.line2 || party?.billingAddress?.line2) && (<div>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</div>)}
+                      <div>{invoice.billingAddress?.city || party?.billingAddress?.city || ''}{(invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : ''}</div>
+                      <div>{invoice.billingAddress?.state || party?.billingAddress?.state || ''}</div>
+                      <div className="mt-1">Phone: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</div>
+                      <div className="mt-1">GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-100 rounded p-3">
+                    <div className="text-xs font-semibold text-slate-500 uppercase">Ship To</div>
+                      <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.shippingAddress?.name || party?.name || invoice.partyName}</div>
+                      <div className="mt-1 text-sm text-slate-600 leading-tight">
+                        {(invoice.shippingAddress?.line1 || party?.shippingAddress?.line1 || party?.address) || ''}
+                        {(invoice.shippingAddress?.line2 || party?.shippingAddress?.line2) && (<div>{invoice.shippingAddress?.line2 || party?.shippingAddress?.line2}</div>)}
+                        <div>{invoice.shippingAddress?.city || party?.shippingAddress?.city || ''}{(invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode) ? ` - ${invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode}` : ''}</div>
+                        <div>{invoice.shippingAddress?.state || party?.shippingAddress?.state || ''}</div>
+                        <div className="mt-1">GSTIN: {invoice.shippingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-span-2 row-span-2">
+                  <div className="border border-slate-100 rounded p-3 text-sm h-full flex items-start bg-white">
+                    <div className="w-full space-y-2 text-slate-600">
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Buyer&apos;s Order No</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.buyer_order_no || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Supplier&apos;s Ref.</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.supplier_ref || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Vehicle Number</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.vehicle_no || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Delivery Date</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.delivery_date || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Transport Details</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.transport_details || '-'}</div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="w-40 font-medium text-slate-700">Terms Of Delivery</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.terms_of_delivery || '-'}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Items table */}
             <div className="mb-4">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-700 text-left text-xs">
-                    <th className="py-2 px-2 w-8">Sr</th>
-                    <th className="py-2 px-2">Goods & Service Description</th>
-                    <th className="py-2 px-2 w-16 text-right">HSN</th>
-                    <th className="py-2 px-2 w-20 text-right">Quantity</th>
-                    <th className="py-2 px-2 w-24 text-right">Rate</th>
-                    <th className="py-2 px-2 w-24 text-right">Taxable</th>
-                    <th className="py-2 px-2 w-16 text-right">%</th>
-                    <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
-                    <th className="py-2 px-2 w-28 text-right">Total</th>
-                  </tr>
+                  {invoice.type === 'PURCHASE' ? (
+                    <tr className="bg-slate-100 text-slate-700 text-left text-xs">
+                      <th className="py-2 px-2 w-8">Sr</th>
+                      <th className="py-2 px-2">Item Name</th>
+                      <th className="py-2 px-2 w-16 text-right">HSN</th>
+                      <th className="py-2 px-2 w-24 text-right">Rate</th>
+                      <th className="py-2 px-2 w-16 text-right">GST %</th>
+                      <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
+                    </tr>
+                  ) : (
+                    <tr className="bg-slate-100 text-slate-700 text-left text-xs">
+                      <th className="py-2 px-2 w-8">Sr</th>
+                      <th className="py-2 px-2">Goods & Service Description</th>
+                      <th className="py-2 px-2 w-16 text-right">HSN</th>
+                      <th className="py-2 px-2 w-20 text-right">Quantity</th>
+                      <th className="py-2 px-2 w-24 text-right">Rate</th>
+                      <th className="py-2 px-2 w-24 text-right">Taxable</th>
+                      <th className="py-2 px-2 w-16 text-right">%</th>
+                      <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
+                      <th className="py-2 px-2 w-28 text-right">Total</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="text-slate-700">
                   {invoice.items.map((item, index) => {
@@ -236,12 +314,22 @@ export default function InvoiceView() {
                         <td className="py-3 px-2 text-slate-500">{index + 1}</td>
                         <td className="py-3 px-2 font-semibold text-slate-800">{item.name}</td>
                         <td className="py-3 px-2 text-right text-slate-500">{(item as any).hsn || '-'}</td>
-                        <td className="py-3 px-2 text-right">{item.qty}</td>
-                        <td className="py-3 px-2 text-right">{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</td>
-                        <td className="py-3 px-2 text-right">{taxable.toFixed(2)}</td>
-                        <td className="py-3 px-2 text-right">{item.taxPercent}%</td>
-                        <td className="py-3 px-2 text-right">{gstAmt.toFixed(2)}</td>
-                        <td className="py-3 px-2 text-right font-bold">{lineTotal.toFixed(2)}</td>
+                        {invoice.type === 'PURCHASE' ? (
+                          <>
+                            <td className="py-3 px-2 text-right">{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</td>
+                            <td className="py-3 px-2 text-right">{item.taxPercent}%</td>
+                            <td className="py-3 px-2 text-right">{gstAmt.toFixed(2)}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="py-3 px-2 text-right">{item.qty}</td>
+                            <td className="py-3 px-2 text-right">{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</td>
+                            <td className="py-3 px-2 text-right">{taxable.toFixed(2)}</td>
+                            <td className="py-3 px-2 text-right">{item.taxPercent}%</td>
+                            <td className="py-3 px-2 text-right">{gstAmt.toFixed(2)}</td>
+                            <td className="py-3 px-2 text-right font-bold">{lineTotal.toFixed(2)}</td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -260,18 +348,37 @@ export default function InvoiceView() {
                   <div><span className="font-medium">IFSC Code :</span> {company?.ifsc_code || '-'}</div>
                   <div><span className="font-medium">UPI ID :</span> {company?.upi_id || '-'}</div>
                 </div>
+                  {Array.isArray(company?.extraDetails) && company.extraDetails.length > 0 && (
+                    <div className="mt-4 bg-slate-50 border border-slate-100 rounded p-3 text-sm">
+                      {company.extraDetails.map((e: any, i: number) => (
+                        <div key={i}><span className="font-medium">{e.label} :</span> {e.value}</div>
+                      ))}
+                    </div>
+                  )}
                 <div className="mt-4 text-slate-700 font-medium">Invoice Total in Word</div>
                 <div className="mt-1 text-slate-600">{invoice.total_amount_in_words || invoice.total_amount_in_words || ''}</div>
               </div>
               <div className="w-1/2">
                 <div className="bg-white border border-slate-100 rounded p-3">
-                  <div className="text-sm text-slate-600 flex justify-between"><div>Sub-Total:</div><div className="font-bold">{(invoice.subtotal || 0).toFixed(2)}</div></div>
-                  <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST Amt :</div><div className="font-bold">{(invoice.cgstAmount != null ? invoice.cgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
-                  <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST Amt :</div><div className="font-bold">{(invoice.sgstAmount != null ? invoice.sgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
-                  <div className="text-sm text-slate-600 flex justify-between mt-1"><div>IGST Amt :</div><div className="font-bold">{(invoice.igstAmount || 0).toFixed(2)}</div></div>
-                  <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Freight/Packing:</div><div className="font-bold">{(invoice['freight'] || 0).toFixed(2)}</div></div>
-                  <div className="text-sm text-slate-600 flex justify-between mt-2 border-t border-slate-100 pt-2"><div>Round off :</div><div className="font-bold">{(invoice.roundOff || 0).toFixed(2)}</div></div>
-                  <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Total Amount :</div><div>₹ {(invoice.grandTotal || 0).toFixed(2)}</div></div>
+                  {invoice.type === 'PURCHASE' ? (
+                    <div>
+                      <div className="text-sm text-slate-600 flex justify-between"><div>Subtotal</div><div className="font-bold">₹ {(invoice.subtotal || 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST</div><div className="font-bold">₹ {(invoice.cgstAmount != null ? invoice.cgstAmount : 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST</div><div className="font-bold">₹ {(invoice.sgstAmount != null ? invoice.sgstAmount : 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>GST</div><div className="font-bold">₹ {(((invoice.cgstAmount || 0) + (invoice.sgstAmount || 0) + (invoice.igstAmount || 0))).toFixed(2)}</div></div>
+                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Grand Total</div><div>₹ {(invoice.grandTotal || 0).toFixed(2)}</div></div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-sm text-slate-600 flex justify-between"><div>Sub-Total:</div><div className="font-bold">{(invoice.subtotal || 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST Amt :</div><div className="font-bold">{(invoice.cgstAmount != null ? invoice.cgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST Amt :</div><div className="font-bold">{(invoice.sgstAmount != null ? invoice.sgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>IGST Amt :</div><div className="font-bold">{(invoice.igstAmount || 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Freight/Packing:</div><div className="font-bold">{freight.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-2 border-t border-slate-100 pt-2"><div>Round off :</div><div className="font-bold">{(invoice.roundOff || 0).toFixed(2)}</div></div>
+                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Total Amount :</div><div>₹ {(invoice.grandTotal || 0).toFixed(2)}</div></div>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-6 flex justify-end">
                   <div className="text-center">

@@ -21,6 +21,11 @@ const CompanySchema = new mongoose.Schema({
   ifsc_code: String,
   upi_id: String,
   declaration_text: [String]
+  ,
+  // logo as data URL or image path
+  logo: String,
+  // arbitrary extra details to show on invoices (array of { label, value })
+  extraDetails: [{ label: String, value: String }]
 }, { timestamps: true });
 
 export default mongoose.models.Company || mongoose.model('Company', CompanySchema);

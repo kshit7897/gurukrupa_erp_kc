@@ -540,10 +540,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
              <MapPin className="h-3 w-3" /> Delivery Address
            </h3>
            <div className="text-sm text-slate-500"> 
-             <label className="inline-flex items-center gap-2">
-               <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
-               <span className="text-sm">Delivery address same as party address</span>
-             </label>
+             {isSales && (
+               <label className="inline-flex items-center gap-2">
+                 <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
+                 <span className="text-sm">Delivery address same as party address</span>
+               </label>
+             )}
            </div>
         </div>
 
