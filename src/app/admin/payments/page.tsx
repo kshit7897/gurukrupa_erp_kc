@@ -55,27 +55,14 @@ export default function PaymentsPage() {
         const alloc = Array.isArray(p.allocations) ? p.allocations.map((a:any) => `${a.invoiceId}:${a.amount}`).join('|') : '';
         return [ (p.date||'').slice(0,10), p.partyName || p.partyId, p.type || '', (p.amount||0), p.mode || '', p.reference || '', invs, alloc, p.notes || '' ];
       });
-      const csv = [headers.join(','), ...rows.map(r => r.map((c:any)=> '"'+String(c).replace(/"/g,'""')+'"').join(','))].join('\n');
+      const csv = [headers.join(','), ...rows.map((r:any) => r.map((c:any)=> '"'+String(c).replace(/"/g,'""')+'"').join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `payments_export_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
     } catch (e:any) { console.error(e); alert('Export failed'); }
   };
 
-  const handleSave = async () => {
-    if (!form.partyId || !form.amount) { setNotif({ type: 'error', message: 'Party and amount required' }); return; }
-    setSaving(true);
-    try {
-      await api.payments.add({ partyId: form.partyId, type: 'receive', invoiceIds: form.invoiceId ? [form.invoiceId] : undefined, amount: Number(form.amount), date: form.date, mode: form.mode, reference: form.reference, notes: form.notes });
-      setIsOpen(false);
-      setNotif({ type: 'success', message: 'Payment recorded' });
-      // api.payments.add dispatches data update; local load will refresh via event, but refresh now for instant UX
-      await load();
-    } catch (e:any) {
-      console.error(e);
-      setNotif({ type: 'error', message: e?.message || 'Failed to save' });
-    } finally { setSaving(false); }
-  };
+  // Quick-save modal was removed; inline save handler not needed here.
 
   return (
     <div className="space-y-6 p-4">
