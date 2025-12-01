@@ -21,12 +21,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMode, setPaymentMode] = useState('cash');
   const [paymentDetails, setPaymentDetails] = useState('');
+  const [vehicleNo, setVehicleNo] = useState('');
+  const [deliveryDateMeta, setDeliveryDateMeta] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [addedItems, setAddedItems] = useState<InvoiceItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
+  const [deliverySame, setDeliverySame] = useState<boolean>(true);
+  const [shippingAddress, setShippingAddress] = useState<Partial<any>>({
+    name: '', line1: '', line2: '', city: '', state: '', pincode: '', gstin: '', phone: ''
+  });
+  const [billingAddressState, setBillingAddressState] = useState<Partial<any>>({
+    name: '', line1: '', line2: '', city: '', state: '', pincode: '', gstin: '', phone: ''
+  });
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -38,6 +47,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [currentQty, setCurrentQty] = useState<number | ''>(1);
   const [currentRate, setCurrentRate] = useState<number | ''>('');
   const [currentDiscount, setCurrentDiscount] = useState<number | ''>(0);
+  const [currentTaxMode, setCurrentTaxMode] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST');
 
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -110,6 +120,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setSelectedParty(party);
     setShowPartyDropdown(false);
     setFormError(null);
+    // derive billing address from party if available
+    const billing = {
+      name: party.name,
+      line1: party.billingAddress?.line1 || party.address || '',
+      line2: party.billingAddress?.line2 || '',
+      city: party.billingAddress?.city || '',
+      state: party.billingAddress?.state || '',
+      pincode: party.billingAddress?.pincode || '',
+      gstin: party.gstin || party.gstNo || '',
+      phone: party.phone || party.mobile || ''
+    };
+    setBillingAddressState(billing);
+    // if deliverySame is true (default), copy billing to shipping
+    if (deliverySame) {
+      setShippingAddress({ ...billing });
+    }
   };
 
   const openNewPartyModal = () => {
@@ -212,6 +238,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     // Calculate Taxable Value (Amount)
     const taxableValue = baseAmount - discountAmount;
 
+    // calculate taxes
+    const gstAmt = taxableValue * ((selectedItem.taxPercent || 0) / 100);
+    let cgstAmt = 0, sgstAmt = 0, igstAmt = 0;
+    if (currentTaxMode === 'CGST_SGST') { cgstAmt = gstAmt / 2; sgstAmt = gstAmt / 2; }
+    else { igstAmt = gstAmt; }
+
     const newItemLine: InvoiceItem = {
       itemId: selectedItem.id,
       name: selectedItem.name,
@@ -219,7 +251,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       rate: rate,
       discountPercent: discount,
       taxPercent: selectedItem.taxPercent,
-      amount: taxableValue // Store as Taxable Value
+      amount: taxableValue, // Store as Taxable Value
+      cgstAmount: cgstAmt,
+      sgstAmount: sgstAmt,
+      igstAmount: igstAmt,
+      taxType: currentTaxMode
     };
 
     setAddedItems([...addedItems, newItemLine]);
@@ -238,8 +274,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   };
 
   // Calculations
-  const subtotal = addedItems.reduce((sum, item) => sum + item.amount, 0); // Sum of Taxable Values
-  const taxTotal = addedItems.reduce((sum, item) => sum + (item.amount * item.taxPercent / 100), 0); // Tax on Taxable Value
+  const subtotal = addedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const cgstTotal = addedItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
+  const sgstTotal = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
+  const igstTotal = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
+  const taxTotal = cgstTotal + sgstTotal + igstTotal;
   const total = subtotal + taxTotal;
 
   // Live calculation for the input line
@@ -278,6 +317,37 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         paymentMode,
         paymentDetails,
         dueDate: paymentMode === 'credit' ? dueDate : undefined
+      ,
+        // invoice metadata
+        buyer_order_no: invoiceNo,
+        vehicle_no: vehicleNo,
+        delivery_date: deliveryDateMeta,
+        // GST split totals
+        cgstAmount: cgstTotal,
+        sgstAmount: sgstTotal,
+        igstAmount: igstTotal,
+        // billing/shipping saved elsewhere in the payload (handled earlier)
+        // save billing and shipping addresses with invoice
+        billingAddress: {
+          name: billingAddressState.name || selectedParty.name,
+          line1: billingAddressState.line1 || selectedParty.address || '',
+          line2: billingAddressState.line2 || '',
+          city: billingAddressState.city || '',
+          state: billingAddressState.state || '',
+          pincode: billingAddressState.pincode || '',
+          gstin: billingAddressState.gstin || selectedParty.gstNo || '',
+          phone: billingAddressState.phone || selectedParty.mobile || ''
+        },
+        shippingAddress: {
+          name: shippingAddress.name || billingAddressState.name || selectedParty.name,
+          line1: shippingAddress.line1 || billingAddressState.line1 || selectedParty.address || '',
+          line2: shippingAddress.line2 || billingAddressState.line2 || '',
+          city: shippingAddress.city || billingAddressState.city || '',
+          state: shippingAddress.state || billingAddressState.state || '',
+          pincode: shippingAddress.pincode || billingAddressState.pincode || '',
+          gstin: shippingAddress.gstin || billingAddressState.gstin || selectedParty.gstNo || '',
+          phone: shippingAddress.phone || billingAddressState.phone || selectedParty.mobile || ''
+        }
       };
 
       const savedInvoice = await api.invoices.add(newInvoice);
@@ -442,6 +512,79 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                 <div className="hidden md:block"></div>
              )}
           </div>
+          {/* Invoice Metadata (Vehicle, Delivery, Transport, Terms). Buyer's Order No will be auto-set. Supplier's Ref removed. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Vehicle Number</label>
+              <input type="text" value={vehicleNo} onChange={(e) => setVehicleNo(e.target.value.toUpperCase())} placeholder="e.g. MH12AB1234" className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Delivery Date</label>
+              <input type="date" value={deliveryDateMeta} onChange={(e) => setDeliveryDateMeta(e.target.value)} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">&nbsp;</label>
+              <div />
+            </div>
+            <div className="md:col-span-2">
+              {/* Removed Transport Details (per request) */}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* SHIPPING / DELIVERY ADDRESS */}
+      <Card className="bg-white p-5 space-y-4 shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between">
+           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+             <MapPin className="h-3 w-3" /> Delivery Address
+           </h3>
+           <div className="text-sm text-slate-500"> 
+             <label className="inline-flex items-center gap-2">
+               <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
+               <span className="text-sm">Delivery address same as party address</span>
+             </label>
+           </div>
+        </div>
+
+        <div>
+           <div>
+             <label className="text-xs text-slate-500 mb-1 block">Name</label>
+             <input type="text" value={shippingAddress.name} onChange={(e) => setShippingAddress({...shippingAddress, name: e.target.value})} disabled={deliverySame} readOnly={deliverySame} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+           </div>
+          {/* Show fields only when user unchecks deliverySame */}
+          {!deliverySame && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+              <div className="md:col-span-2">
+                <label className="text-xs text-slate-500 mb-1 block">Address Line 1</label>
+                <input type="text" value={shippingAddress.line1} onChange={(e) => setShippingAddress({...shippingAddress, line1: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">City</label>
+                <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs text-slate-500 mb-1 block">Address Line 2</label>
+                <input type="text" value={shippingAddress.line2} onChange={(e) => setShippingAddress({...shippingAddress, line2: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">State</label>
+                <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Pincode</label>
+                <input type="text" value={shippingAddress.pincode} onChange={(e) => setShippingAddress({...shippingAddress, pincode: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">GSTIN</label>
+                <input type="text" value={shippingAddress.gstin} onChange={(e) => setShippingAddress({...shippingAddress, gstin: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Phone</label>
+                <input type="text" value={shippingAddress.phone} onChange={(e) => setShippingAddress({...shippingAddress, phone: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -559,36 +702,25 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         ) : (
           addedItems.map((item, index) => (
             <div key={index} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center group hover:border-blue-200 transition-colors">
-               <div className="flex items-start gap-3">
-                  <div className="bg-slate-100 p-2 rounded-lg text-slate-500 text-xs font-bold">
-                     {index + 1}
+              <div className="flex items-start gap-3">
+                <div className="bg-slate-100 p-2 rounded-lg text-slate-500 text-xs font-bold">{index + 1}</div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm md:text-base">{item.name}</h4>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded">Qty: {item.qty}</span>
+                    <span>x</span>
+                    <span>₹ {item.rate}</span>
+                    {item.discountPercent > 0 && <span className="text-red-500">(-{item.discountPercent}%)</span>}
+                    <span className="text-slate-300">|</span>
+                    <span>Tax: {item.taxPercent}%</span>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800 text-sm md:text-base">{item.name}</h4>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                       <span className="bg-slate-100 px-1.5 py-0.5 rounded">Qty: {item.qty}</span>
-                       <span>x</span>
-                       <span>₹ {item.rate}</span>
-                       {item.discountPercent > 0 && (
-                         <span className="text-red-500">(-{item.discountPercent}%)</span>
-                       )}
-                       <span className="text-slate-300">|</span>
-                       <span>Tax: {item.taxPercent}%</span>
-                    </div>
-                  </div>
-               </div>
-               <div className="flex items-center gap-4">
-                  <div className="text-right">
-                     <p className="font-bold text-slate-900">₹ {item.amount.toFixed(2)}</p>
-                     {item.discountPercent > 0 && <p className="text-[10px] text-slate-400">After Discount</p>}
-                  </div>
-                  <button 
-                    onClick={() => handleRemoveItem(index)}
-                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                     <Trash2 className="h-4 w-4" />
-                  </button>
-               </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleRemoveItem(index)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ))
         )}

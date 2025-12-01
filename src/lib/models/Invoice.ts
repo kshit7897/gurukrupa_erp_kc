@@ -28,6 +28,43 @@ const InvoiceSchema = new mongoose.Schema({
   type: { type: String, enum: ['SALES', 'PURCHASE'] },
   paymentMode: String,
   paymentDetails: String
+  ,
+  // additional invoice metadata
+  payment_mode: String,
+  reverse_charge: { type: Boolean, default: false },
+  buyer_order_no: String,
+  supplier_ref: String,
+  vehicle_no: String,
+  delivery_date: String,
+  transport_details: String,
+  terms_of_delivery: String,
+  total_amount_in_words: String,
+  // tax split fields
+  cgstAmount: { type: Number, default: 0 },
+  sgstAmount: { type: Number, default: 0 },
+  igstAmount: { type: Number, default: 0 }
+  ,
+  // billing and shipping address objects saved with invoice
+  billingAddress: {
+    name: String,
+    line1: String,
+    line2: String,
+    city: String,
+    state: String,
+    pincode: String,
+    gstin: String,
+    phone: String
+  },
+  shippingAddress: {
+    name: String,
+    line1: String,
+    line2: String,
+    city: String,
+    state: String,
+    pincode: String,
+    gstin: String,
+    phone: String
+  }
 }, { timestamps: true });
 
 // index to help lookup last serial; not strictly unique because we pair with serial

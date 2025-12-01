@@ -41,16 +41,34 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({ label, error, className = '', ...props }) => (
-  <div className="w-full">
-    {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
-    <input
-      className={`flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 transition-all shadow-sm ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''} ${className}`}
-      {...props}
-    />
-    {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-  </div>
-);
+export const Input: React.FC<InputProps> = ({ label, error, className = '', ...props }) => {
+  // Safely handle numeric NaN values which React warns about when passed to `value`
+  const { value, ...rest } = props as any;
+  let safeValue: any = value;
+  if (typeof safeValue === 'number') {
+    if (isNaN(safeValue)) safeValue = '';
+    else safeValue = String(safeValue);
+  } else if (typeof safeValue === 'undefined') {
+    safeValue = undefined;
+  } else {
+    // ensure non-number values are strings
+    safeValue = safeValue != null ? String(safeValue) : '';
+  }
+
+  const inputProps: any = { ...rest };
+  if (typeof safeValue !== 'undefined') inputProps.value = safeValue;
+
+  return (
+    <div className="w-full">
+      {label && <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>}
+      <input
+        className={`flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:cursor-not-allowed disabled:bg-slate-50 transition-all shadow-sm ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''} ${className}`}
+        {...inputProps}
+      />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+};
 
 // --- TEXTAREA ---
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {

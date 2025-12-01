@@ -6,6 +6,23 @@ const PartySchema = new mongoose.Schema({
   email: String,
   address: String,
   gstNo: String,
+  // billing/shipping structured addresses
+  billingAddress: {
+    line1: String,
+    line2: String,
+    city: String,
+    state: String,
+    pincode: String
+  },
+  shippingAddress: {
+    line1: String,
+    line2: String,
+    city: String,
+    state: String,
+    pincode: String
+  },
+  gstin: String,
+  phone: String,
   openingBalance: { type: Number, default: 0 },
   type: { type: String, required: true, enum: ['Customer', 'Supplier'] },
 }, { timestamps: true });
