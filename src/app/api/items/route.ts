@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   await dbConnect();
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-
+//kshit
   try {
     if (id) {
       const item = await Item.findById(id);
