@@ -4,7 +4,7 @@ const InvoiceSchema = new mongoose.Schema({
   // legacy camelCase invoiceNo kept for backward compatibility
   invoiceNo: { type: String, required: true },
   // new fields per requirements
-  invoice_no: { type: String, required: true, unique: true },
+  invoice_no: { type: String, required: true, index: true, unique: true, sparse: true },
   serial: { type: Number },
   bill_type: { type: String },
   financial_year: { type: String },
@@ -32,6 +32,6 @@ const InvoiceSchema = new mongoose.Schema({
 
 // index to help lookup last serial; not strictly unique because we pair with serial
 InvoiceSchema.index({ bill_type: 1, financial_year: 1, serial: -1 });
-InvoiceSchema.index({ invoice_no: 1 }, { unique: true, sparse: true });
+// invoice_no index declared on field to avoid duplicate index warnings
 
 export default mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
