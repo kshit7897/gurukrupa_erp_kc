@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const invoice = await Invoice.create(payload);
     // ensure stock updates; if this fails, delete the created invoice and return error
     try {
-      await updateStockForInvoice({ ...invoice.toObject(), id: (invoice as any)._id.toString() });
+      await updateStockForInvoice({ ...((invoice as any).toObject()), id: (invoice as any)._id.toString() });
     } catch (err) {
       console.error('Stock update failed after invoice create, reverting invoice:', err);
       await Invoice.findByIdAndDelete((invoice as any)._id);
