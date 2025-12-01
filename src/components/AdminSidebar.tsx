@@ -15,8 +15,8 @@ const MENU_ITEMS = [
   { path: '/admin/items', label: 'Inventory', icon: Package },
   { path: '/admin/sales/create', label: 'Sale Entry', icon: ShoppingCart },
   { path: '/admin/purchase/create', label: 'Purchase Entry', icon: ShoppingCart },
-  { path: '/admin/invoice/list', label: 'Invoices', icon: FileText },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/invoices/all', label: 'Invoices', icon: FileText },
   { path: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -4,10 +4,33 @@ import Invoice from '../../../lib/models/Invoice';
 import { updateStockForInvoice } from '../../../lib/stock';
 import { generateInvoiceNumber } from '../../../lib/invoiceNumber';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await dbConnect();
-    const invoices = await Invoice.find({}).sort({ createdAt: -1 });
+    const url = new URL(request.url);
+    const party = url.searchParams.get('party');
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    const month = url.searchParams.get('month');
+    const year = url.searchParams.get('year');
+    const bill_type = url.searchParams.get('bill_type');
+    const pending = url.searchParams.get('pending'); // '1' or 'true'
+
+    const q: any = {};
+    if (party) q.partyId = party;
+    if (bill_type) q.paymentMode = bill_type;
+    if (pending === '1' || pending === 'true') q.dueAmount = { $gt: 0 };
+
+    if (from && to) {
+      q.date = { $gte: from, $lte: to };
+    } else if (month && year) {
+      // filter by month/year (date is stored as ISO-ish string). We'll match prefix YYYY-MM
+      const mm = month.padStart(2, '0');
+      const prefix = `${year}-${mm}`;
+      q.date = { $regex: `^${prefix}` };
+    }
+
+    const invoices = await Invoice.find(q).sort({ date: -1, createdAt: -1 });
     const formatted = invoices.map(doc => ({ ...(doc as any).toObject(), id: (doc as any)._id.toString() }));
     return NextResponse.json(formatted);
   } catch (err: any) {
