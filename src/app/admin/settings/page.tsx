@@ -1,8 +1,8 @@
  'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card, Switch, Table, Select, Modal } from '../../../components/ui/Common';
-import { User, Shield, Building, Key, Upload, Plus, Edit2, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
+import { Button, Input, Card, Switch, Table, Select, Modal, Skeleton, SoftLoader } from '../../../components/ui/Common';
+import { User, Shield, Building, Key, Upload, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('Company');
@@ -50,25 +50,60 @@ export default function Settings() {
   const UserSettings = () => (
     <Card title="Team Management" className="animate-in fade-in duration-300">
       <div className="flex justify-between items-center mb-6"><p className="text-sm text-slate-500">Manage access to your ERP.</p><Button size="sm" icon={Plus} onClick={() => setIsUserModalOpen(true)}>Add User</Button></div>
-      <Table headers={['Name', 'Username', 'Role', 'Created', 'Action']}>
+      
+      {/* Mobile card list for users */}
+      <div className="md:hidden space-y-4">
         {usersLoading ? (
-          <tr><td colSpan={5} className="text-center py-8 text-slate-500"><div className="flex flex-col items-center"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner" /></div><div className="text-sm text-slate-500 mt-2">Loading users...</div></td></tr>
+          <div className="text-center py-8 text-slate-500"><Skeleton variant="card" /></div>
         ) : users.length === 0 ? (
-          <tr className="group hover:bg-slate-50"><td className="px-4 py-3 text-slate-500" colSpan={5}>No users found</td></tr>
-        ) : null}
-        {users.map((u) => (
-          <tr key={u.id} className="group hover:bg-slate-50">
-            <td className="px-4 py-3 font-medium text-slate-900">{u.name || '-'}</td>
-            <td className="px-4 py-3 text-slate-500">{u.username}</td>
-            <td className="px-4 py-3">{u.role === 'admin' ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Admin</span> : <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-medium">{u.role}</span>}</td>
-            <td className="px-4 py-3 text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
-            <td className="px-4 py-3 flex gap-2">
-              <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'staff'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
-              <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
-            </td>
-          </tr>
-        ))}
-      </Table>
+          <div className="text-center py-8 text-slate-500">No users found</div>
+        ) : (
+          users.map(u => (
+            <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-bold text-slate-800">{u.name || '-'}</h4>
+                  <p className="text-xs text-slate-500 mt-1">{u.username}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${u.role === 'admin' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>{u.role}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="text-xs text-slate-500">Created: <span className="font-mono text-sm text-slate-700">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '-'}</span></div>
+                <div className="text-right" />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'staff'); setIsUserModalOpen(true); }} className="flex-1 py-2 bg-white border border-slate-200 rounded-md text-blue-600 font-semibold">Edit</button>
+                <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="flex-1 py-2 bg-red-600 text-white rounded-md font-semibold">Del</button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <Table headers={['Name', 'Username', 'Role', 'Created', 'Action']}>
+          {usersLoading ? (
+            <Skeleton variant="tableRow" lines={5} colSpan={5} />
+          ) : users.length === 0 ? (
+            <tr className="group hover:bg-slate-50"><td className="px-4 py-3 text-slate-500" colSpan={5}>No users found</td></tr>
+          ) : null}
+          {users.map((u) => (
+            <tr key={u.id} className="group hover:bg-slate-50">
+              <td className="px-4 py-3 font-medium text-slate-900">{u.name || '-'}</td>
+              <td className="px-4 py-3 text-slate-500">{u.username}</td>
+              <td className="px-4 py-3">{u.role === 'admin' ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">Admin</span> : <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full text-xs font-medium">{u.role}</span>}</td>
+              <td className="px-4 py-3 text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleString() : '-'}</td>
+              <td className="px-4 py-3 flex gap-2">
+                <button onClick={() => { setEditingUser(u); setNewUserName(u.name || ''); setNewUserEmail(u.email || ''); setNewUserUsername(u.username || ''); setNewUserRole(u.role || 'staff'); setIsUserModalOpen(true); }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors"><Edit2 className="h-4 w-4" /></button>
+                <button onClick={() => { setDeleteTarget(u.id); setIsDeleteConfirmOpen(true); }} className="p-1 text-slate-400 hover:text-red-600 transition-colors"><Trash2 className="h-4 w-4" /></button>
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </div>
     </Card>
   );
 
@@ -224,11 +259,13 @@ export default function Settings() {
             setUserLoading(true);
             try {
               if (editingUser) {
-                // Update
-                    const body = { name: newUserName, role: newUserRole, email: newUserEmail } as any;
-                if (newUserPassword) body.password = newUserPassword;
-                const id = (editingUser as any).id || (editingUser as any)._id;
-                const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+              // Update
+                const body = { name: newUserName, role: newUserRole, email: newUserEmail } as any;
+              if (newUserPassword) body.password = newUserPassword;
+              const id = (editingUser as any).id || (editingUser as any)._id;
+              if (!id) { setNotification({ type: 'error', message: 'Unable to determine user id for update' }); setUserLoading(false); return; }
+              body.id = id; // include id in body as defensive fallback
+              const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 const data = await res.json();
                 if (!res.ok) {
                   setNotification({ type: 'error', message: data?.error || 'Failed to update user' });

@@ -58,6 +58,11 @@ export interface Invoice {
   paymentMode: string;
   paymentDetails?: string; // Cheque No, Transaction ID, etc.
   dueDate?: string; // For Credit invoices
+  // New generated fields
+  invoice_no?: string;
+  serial?: number;
+  bill_type?: string;
+  financial_year?: string;
 }
 
 export interface Payment {

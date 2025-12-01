@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Table, Modal, Select } from '../../../components/ui/Common';
-import { Plus, Search, Edit2, Trash2, Loader2, Package } from 'lucide-react';
+import { Button, Input, Table, Modal, Select, Skeleton, SoftLoader } from '../../../components/ui/Common';
+import { Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
 import { Item } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -25,6 +25,11 @@ export default function Items() {
   };
 
   useEffect(() => { loadItems(); }, []);
+  useEffect(() => {
+    const onData = () => { loadItems().catch(() => {}); };
+    document.addEventListener('gurukrupa:data:updated', onData);
+    return () => document.removeEventListener('gurukrupa:data:updated', onData);
+  }, []);
 
   useEffect(() => {
     if (!notification) return;
@@ -73,7 +78,7 @@ export default function Items() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
-          <div className="text-center py-8 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Inventory...</div></div>
+          <div className="text-center py-8 text-slate-500"><Skeleton variant="card" /></div>
         ) : items.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No items found. Add your first product.</div>
         ) : (
@@ -106,7 +111,7 @@ export default function Items() {
       {/* Desktop table */}
       <div className="hidden md:block">
         <Table headers={["Item Name", "Unit", "Purchase Price", "Sale Price", "Stock", "Action"]}>
-          {isLoading ? (<tr><td colSpan={6} className="text-center py-12 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Inventory...</div></td></tr>) : items.length === 0 ? (<tr><td colSpan={6} className="text-center py-8 text-slate-500">No items found. Add your first product.</td></tr>) : (
+          {isLoading ? (<Skeleton variant="tableRow" lines={6} colSpan={6} />) : items.length === 0 ? (<tr><td colSpan={6} className="text-center py-8 text-slate-500">No items found. Add your first product.</td></tr>) : (
           items.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase())).map(item => (
             <tr key={item.id}>
               <td className="px-4 py-3 font-medium text-slate-900">{item.name}<div className="text-xs text-slate-400">HSN: {item.hsn}</div></td>
@@ -123,7 +128,7 @@ export default function Items() {
         )}
         </Table>
       </div>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Product" : "Add New Product"} footer={<><Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={isLoading}>{isLoading ? 'Saving...' : 'Save Item'}</Button></>}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Product" : "Add New Product"} footer={<><Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={isLoading}>{isLoading ? (<><SoftLoader size="sm" /> Saving...</>) : 'Save Item'}</Button></>}>
         <div className="space-y-4">
           <Input label="Item Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
           <div className="grid grid-cols-2 gap-4">

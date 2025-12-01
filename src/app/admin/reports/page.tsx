@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, Table, Card, Select, Input } from '../../../components/ui/Common';
 import { Download } from 'lucide-react';
 
@@ -13,6 +14,30 @@ const Tabs = ({ active, setActive, tabs }: any) => (
 
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('Stock');
+  const router = useRouter();
+  const [parties, setParties] = useState<{ label: string; value: string }[]>([]);
+  const [partiesLoading, setPartiesLoading] = useState(true);
+  const [selectedParty, setSelectedParty] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
+  // load parties client-side and show skeletons while loading
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setPartiesLoading(true);
+        const res = await fetch('/api/parties');
+        if (!res.ok) { setParties([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        const opts = data.map((p: any) => ({ label: p.name, value: p._id || p.id }));
+        setParties(opts);
+      } catch (e) { console.error(e); setParties([]); }
+      finally { if (mounted) setPartiesLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const sampleStock = [
     { name: 'Cement Bag (50kg)', unitLabel: '100 BAG', purchaseRate: 350, totalValue: '₹ 35,000' },
@@ -117,12 +142,21 @@ export default function Reports() {
           <div className="md:grid md:grid-cols-3 md:gap-4">
             <div className="bg-white p-4 rounded-lg border border-slate-100">
               <label className="text-xs text-slate-500 mb-2 block">Select Party</label>
-              <Select options={[{ label: 'Select Party...', value: '' }]} />
+              {partiesLoading ? (
+                <div className="space-y-2">
+                  <div className="h-10 bg-slate-200 rounded-md animate-pulse" />
+                </div>
+              ) : (
+                <Select value={selectedParty} onChange={(e) => setSelectedParty(e.target.value)} options={[{ label: 'Select Party...', value: '' }, ...parties]} />
+              )}
               <label className="text-xs text-slate-500 mb-2 block mt-3">From Date</label>
-              <Input type="date" />
+              {partiesLoading ? <div className="h-10 bg-slate-200 rounded-md animate-pulse" /> : <Input value={fromDate} onChange={(e) => setFromDate(e.target.value)} type="date" />}
               <label className="text-xs text-slate-500 mb-2 block mt-3">To Date</label>
-              <Input type="date" />
-              <Button className="mt-3">Get Ledger</Button>
+              {partiesLoading ? <div className="h-10 bg-slate-200 rounded-md animate-pulse" /> : <Input value={toDate} onChange={(e) => setToDate(e.target.value)} type="date" />}
+              <Button className="mt-3" disabled={partiesLoading || !selectedParty} onClick={() => {
+                if (!selectedParty) return alert('Please select a party');
+                router.push(`/admin/reports/ledger/preview?party=${selectedParty}&from=${fromDate || ''}&to=${toDate || ''}`);
+              }}>{partiesLoading ? 'Loading...' : 'Get Ledger'}</Button>
             </div>
             <div className="md:col-span-2">
               <Card title="Detailed Ledger">
@@ -134,4 +168,27 @@ export default function Reports() {
       )}
     </div>
   );
+}
+
+// load parties list once (client-side)
+function useLoadParties(setParties: any) {
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/parties');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted) return;
+        const opts = data.map((p: any) => ({ label: p.name, value: p._id || p.id }));
+        setParties(opts);
+      } catch (e) { console.error(e); }
+    };
+    load();
+
+    const onData = () => { load().catch(() => {}); };
+    document.addEventListener('gurukrupa:data:updated', onData);
+
+    return () => { mounted = false; document.removeEventListener('gurukrupa:data:updated', onData); };
+  }, [setParties]);
 }

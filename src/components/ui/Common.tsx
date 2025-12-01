@@ -193,3 +193,59 @@ export const SoftLoader: React.FC<SoftLoaderProps> = ({ size = 'md', text }) => 
     </div>
   );
 };
+
+// --- SKELETON / PLACEHOLDER ---
+interface SkeletonProps {
+  variant?: 'text' | 'input' | 'card' | 'tableRow';
+  lines?: number;
+  colSpan?: number;
+}
+
+export const Skeleton: React.FC<SkeletonProps> = (props) => {
+  const { variant = 'text', lines = 1, colSpan } = props;
+  if (variant === 'input') {
+    return <div className="animate-pulse"><div className="h-10 rounded-md bg-slate-200 w-full" /></div>;
+  }
+  if (variant === 'card') {
+    return (
+      <div className="animate-pulse space-y-3 p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+        <div className="h-4 bg-slate-200 rounded w-3/5" />
+        <div className="h-2 bg-slate-200 rounded w-1/2" />
+        <div className="h-40 bg-slate-100 rounded" />
+      </div>
+    );
+  }
+  if (variant === 'tableRow') {
+    if (colSpan && typeof colSpan === 'number') {
+      return (
+        <>
+          {Array.from({ length: lines }).map((_, i) => (
+            <tr key={i} className="border-b border-slate-100">
+              <td colSpan={colSpan} className="text-center py-6"><div className="h-3 bg-slate-200 rounded w-3/4 mx-auto animate-pulse" /></td>
+            </tr>
+          ))}
+        </>
+      );
+    }
+    return (
+      <>
+        {Array.from({ length: lines }).map((_, i) => (
+          <tr key={i} className="border-b border-slate-100">
+            <td className="py-3 px-3"><div className="h-3 bg-slate-200 rounded w-24 animate-pulse" /></td>
+            <td className="py-3 px-3"><div className="h-3 bg-slate-200 rounded w-48 animate-pulse" /></td>
+            <td className="py-3 px-3"><div className="h-3 bg-slate-200 rounded w-20 animate-pulse ml-auto" /></td>
+            <td className="py-3 px-3"><div className="h-3 bg-slate-200 rounded w-16 animate-pulse ml-auto" /></td>
+          </tr>
+        ))}
+      </>
+    );
+  }
+  // text
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="h-3 bg-slate-200 rounded w-full animate-pulse" />
+      ))}
+    </div>
+  );
+};

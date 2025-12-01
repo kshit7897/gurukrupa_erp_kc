@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Input, Card, Modal, Select } from './ui/Common';
-import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, Loader2, AlertCircle, X, CalendarClock } from 'lucide-react';
+import { Button, Input, Card, Modal, Select, SoftLoader } from './ui/Common';
+import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, AlertCircle, X, CalendarClock } from 'lucide-react';
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
 import { api } from '../lib/api';
 import { useRouter } from 'next/navigation';
@@ -616,8 +616,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSaving}
           >
-             {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
-             {isSaving ? 'Processing...' : 'Generate Preview'}
+             {isSaving ? <SoftLoader size="sm" /> : <FileText className="h-5 w-5" />}
+             {isSaving ? 'Processing...' : 'Save and Preview'}
           </button>
       </Card>
 

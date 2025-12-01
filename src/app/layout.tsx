@@ -1,4 +1,5 @@
 import React from 'react';
+import Providers from '../components/Providers';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -27,7 +28,7 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body className="bg-slate-50 text-slate-900">{children}</body>
+      <body className="bg-slate-50 text-slate-900"><Providers>{children}</Providers></body>
     </html>
   );
 }

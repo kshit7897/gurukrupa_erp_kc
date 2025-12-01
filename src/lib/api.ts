@@ -1,5 +1,7 @@
 
 import { Party, Item, Invoice, PartyType, Payment } from '../types';
+import { loaderEvents, dataEvents } from './loaderEvents';
+import { notify } from './notify';
 
 // --- MOCK DATA STORE ---
 // In a real app, this would be a backend database.
@@ -24,231 +26,227 @@ let MOCK_PAYMENTS: Payment[] = [];
 // Helper to simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const withLoader = async <T,>(fn: () => Promise<T>) => {
+  if (typeof window !== 'undefined') loaderEvents.inc();
+  try {
+    const res = await fn();
+    return res;
+  } finally {
+    if (typeof window !== 'undefined') loaderEvents.dec();
+  }
+};
+
 export const api = {
   auth: {
     login: async (username: string, password: string) => {
-      // Call backend auth route
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'Invalid credentials');
-      }
-      const data = await res.json();
+      return withLoader(async () => {
+        // Call backend auth route
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Invalid credentials');
+        }
+        const data = await res.json();
       // store minimal user info in localStorage for client-side guard
       if (data?.user) {
         // store expiry (24 hours) so client-side checks can expire if cookie removed
         const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
         localStorage.setItem('gurukrupa_user', JSON.stringify({ ...data.user, expiresAt }));
       }
-      return true;
+        return true;
+      });
     }
   },
   dashboard: {
     getStats: async () => {
-      await delay(500);
-      const totalSales = MOCK_INVOICES.filter(i => i.type === 'SALES').reduce((acc, i) => acc + i.grandTotal, 0) + 125000;
-      const totalPurchase = MOCK_INVOICES.filter(i => i.type === 'PURCHASE').reduce((acc, i) => acc + i.grandTotal, 0) + 85000;
-      
-      // Calculate Receivables (Credit Sales - Payments)
-      const receivables = MOCK_PARTIES
-        .filter(p => p.type === PartyType.CUSTOMER)
-        .reduce((sum, p) => sum + p.openingBalance, 0);
-
-      return {
-        totalSales,
-        totalPurchase,
-        receivables: receivables + 15000, // Dummy addition for effect
-        lowStock: MOCK_ITEMS.filter(i => i.stock < 10).length
-      };
+      return withLoader(async () => {
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) throw new Error('Failed to fetch dashboard');
+        return await res.json();
+      });
     },
     getRecentTransactions: async () => {
-      await delay(500);
-      const recent = MOCK_INVOICES.slice(-5).reverse().map(inv => ({
-        id: inv.invoiceNo,
-        party: inv.partyName,
-        amount: inv.grandTotal,
-        type: inv.type === 'SALES' ? 'Sale' : 'Purchase',
-        date: inv.date
-      }));
-      // Add some dummy data if empty
-      if (recent.length === 0) {
-        return [
-           { id: '101', party: 'Ramesh Traders', amount: 4500, type: 'Sale', date: '2025-05-10' },
-           { id: '102', party: 'Suresh Supplies', amount: 12000, type: 'Purchase', date: '2025-05-11' },
-           { id: '103', party: 'Pune Construction', amount: 8500, type: 'Sale', date: '2025-05-12' },
-        ];
-      }
-      return recent;
+      return withLoader(async () => {
+        const res = await fetch('/api/dashboard');
+        if (!res.ok) throw new Error('Failed to fetch dashboard');
+        const data = await res.json();
+        const recent: any[] = [];
+        if (Array.isArray(data.recentInvoices)) {
+          data.recentInvoices.forEach((inv: any) => recent.push({ id: inv._id || inv.id, party: inv.partyName, amount: inv.grandTotal, type: inv.type === 'SALES' ? 'Sale' : 'Purchase', date: inv.date }));
+        }
+        if (Array.isArray(data.recentPayments)) {
+          data.recentPayments.forEach((p: any) => recent.push({ id: p._id || p.id, party: p.partyId, amount: p.amount, type: 'Payment', date: p.date }));
+        }
+        // sort by date desc and return only last 5 combined transactions
+        recent.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return recent.slice(0, 5);
+      });
     }
   },
   parties: {
     list: async () => {
-      const res = await fetch('/api/parties');
-      if (!res.ok) throw new Error('Failed to fetch parties');
-      const data = await res.json();
-      return data;
+      return withLoader(async () => {
+        const res = await fetch('/api/parties');
+        if (!res.ok) throw new Error('Failed to fetch parties');
+        const data = await res.json();
+        return data;
+      });
     },
     get: async (id: string) => {
-      const res = await fetch(`/api/parties?id=${id}`);
-      if (!res.ok) throw new Error('Failed to fetch party');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch(`/api/parties?id=${id}`);
+        if (!res.ok) throw new Error('Failed to fetch party');
+        return await res.json();
+      });
     },
     add: async (party: Party) => {
-      const res = await fetch('/api/parties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
-      if (!res.ok) throw new Error('Failed to create party');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/parties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
+        if (!res.ok) throw new Error('Failed to create party');
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Party created'); } catch (e) {}
+        return out;
+      });
     },
     update: async (party: Party) => {
-      const res = await fetch('/api/parties', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
-      if (!res.ok) throw new Error('Failed to update party');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/parties', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(party) });
+        if (!res.ok) throw new Error('Failed to update party');
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Party updated'); } catch (e) {}
+        return out;
+      });
     },
     delete: async (id: string) => {
-      const res = await fetch(`/api/parties?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete party');
-      return true;
+      return withLoader(async () => {
+        const res = await fetch(`/api/parties?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete party');
+        dataEvents.dispatch();
+        try { notify('success', 'Party deleted'); } catch (e) {}
+        return true;
+      });
     }
   },
   items: {
     list: async () => {
-      const res = await fetch('/api/items');
-      if (!res.ok) throw new Error('Failed to fetch items');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/items');
+        if (!res.ok) throw new Error('Failed to fetch items');
+        return await res.json();
+      });
     },
     add: async (item: Item) => {
-      const res = await fetch('/api/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
-      if (!res.ok) throw new Error('Failed to create item');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+        if (!res.ok) throw new Error('Failed to create item');
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Item created'); } catch (e) {}
+        return out;
+      });
     },
     update: async (item: Item) => {
-      const res = await fetch('/api/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
-      if (!res.ok) throw new Error('Failed to update item');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/items', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+        if (!res.ok) throw new Error('Failed to update item');
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Item updated'); } catch (e) {}
+        return out;
+      });
     },
     delete: async (id: string) => {
-      const res = await fetch(`/api/items?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete item');
-      return true;
+      return withLoader(async () => {
+        const res = await fetch(`/api/items?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete item');
+        dataEvents.dispatch();
+        try { notify('success', 'Item deleted'); } catch (e) {}
+        return true;
+      });
     }
   },
   payments: {
-    add: async (payment: Omit<Payment, 'id'>) => {
-      await delay(500);
-      const newPayment = { ...payment, id: Math.random().toString(36).substr(2, 9) };
-      MOCK_PAYMENTS.unshift(newPayment);
-      return newPayment;
+    add: async (payment: Omit<Payment, 'id'> & { invoiceId?: string }) => {
+      return withLoader(async () => {
+        const res = await fetch('/api/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payment) });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Failed to create payment');
+        }
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Payment recorded'); } catch (e) {}
+        return out;
+      });
     },
     list: async (partyId?: string) => {
-      await delay(300);
-      if (partyId) return MOCK_PAYMENTS.filter(p => p.partyId === partyId);
-      return [...MOCK_PAYMENTS];
+      return withLoader(async () => {
+        const qs = new URLSearchParams();
+        if (partyId) qs.set('party', partyId);
+        const res = await fetch(`/api/payments${qs.toString() ? ('?' + qs.toString()) : ''}`);
+        if (!res.ok) throw new Error('Failed to fetch payments');
+        return await res.json();
+      });
     }
   },
   invoices: {
     add: async (invoice: any) => {
-      const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoice) });
-      if (!res.ok) throw new Error('Failed to create invoice');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoice) });
+        if (!res.ok) throw new Error('Failed to create invoice');
+        const out = await res.json();
+        dataEvents.dispatch();
+        try { notify('success', 'Invoice created'); } catch (e) {}
+        return out;
+      });
     },
     list: async () => {
-      const res = await fetch('/api/invoices');
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch('/api/invoices');
+        if (!res.ok) throw new Error('Failed to fetch invoices');
+        return await res.json();
+      });
     },
     get: async (id: string) => {
-      const res = await fetch(`/api/invoices/${id}`);
-      if (!res.ok) return null;
-      return await res.json();
+      return withLoader(async () => {
+        const res = await fetch(`/api/invoices/${id}`);
+        if (!res.ok) return null;
+        return await res.json();
+      });
     }
   },
   reports: {
     getOutstanding: async () => {
-      await delay(500);
-      // Calculate Outstanding Balance for each party
-      const report = MOCK_PARTIES.map(party => {
-        // 1. Calculate Total Credit Sales (Receivables)
-        const totalCreditSales = MOCK_INVOICES
-          .filter(i => i.partyId === party.id && i.type === 'SALES' && i.paymentMode === 'credit')
-          .reduce((sum, i) => sum + i.grandTotal, 0);
-
-        // 2. Calculate Total Payments Received
-        const totalReceived = MOCK_PAYMENTS
-          .filter(p => p.partyId === party.id)
-          .reduce((sum, p) => sum + p.amount, 0);
-
-        // 3. Current Outstanding = Opening Balance + Credit Sales - Received
-        const currentBalance = party.openingBalance + totalCreditSales - totalReceived;
-
-        return {
-          ...party,
-          totalCreditSales,
-          totalReceived,
-          currentBalance
-        };
+      return withLoader(async () => {
+        const res = await fetch('/api/reports/outstanding');
+        if (!res.ok) throw new Error('Failed to fetch outstanding report');
+        return await res.json();
       });
-      
-      return report;
     },
     getLedger: async (partyId: string, startDate?: string, endDate?: string) => {
-      await delay(500);
-      let transactions: any[] = [];
-      const party = MOCK_PARTIES.find(p => p.id === partyId);
-      if (!party) return [];
-
-      // 1. Get Invoices (Debits/Credits)
-      const invoices = MOCK_INVOICES.filter(i => i.partyId === partyId).map(i => ({
-        id: i.invoiceNo,
-        date: i.date,
-        ref: i.invoiceNo,
-        type: i.type === 'SALES' ? 'SALE' : 'PURCHASE',
-        credit: i.type === 'PURCHASE' ? i.grandTotal : 0,
-        debit: i.type === 'SALES' ? i.grandTotal : 0,
-        desc: `${i.type === 'SALES' ? 'Sale' : 'Purchase'} Invoice`
-      }));
-
-      // 2. Get Payments (Credits/Debits)
-      const payments = MOCK_PAYMENTS.filter(p => p.partyId === partyId).map(p => ({
-        id: p.id,
-        date: p.date,
-        ref: p.reference || 'PAY-REC',
-        type: 'PAYMENT',
-        credit: party.type === 'Customer' ? p.amount : 0, // Customer paying reduces debit
-        debit: party.type === 'Supplier' ? p.amount : 0, // Paying supplier reduces credit
-        desc: `Payment (${p.mode})`
-      }));
-
-      // Merge and Sort
-      transactions = [...invoices, ...payments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      // Filter by Date
-      if (startDate && endDate) {
-        transactions = transactions.filter(t => t.date >= startDate && t.date <= endDate);
-      }
-
-      // Calculate Running Balance
-      let balance = party.openingBalance; // Simplified: Assuming opening balance is from start of time
-      
-      return transactions.map(t => {
-        // Customer: Debit increases balance (receivable), Credit decreases it
-        // Supplier: Credit increases balance (payable), Debit decreases it
-        if (party.type === 'Customer') {
-          balance = balance + t.debit - t.credit;
-        } else {
-          balance = balance + t.credit - t.debit;
-        }
-        return { ...t, balance };
+      const qs = new URLSearchParams();
+      if (partyId) qs.set('party', partyId);
+      if (startDate) qs.set('from', startDate);
+      if (endDate) qs.set('to', endDate);
+      return withLoader(async () => {
+        const res = await fetch(`/api/reports/ledger?${qs.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch ledger');
+        return await res.json();
       });
     },
     getStock: async () => {
-      await delay(300);
-      return MOCK_ITEMS.map(item => ({
-        ...item,
-        value: item.stock * item.purchaseRate
-      }));
+      return withLoader(async () => {
+        const res = await fetch('/api/items');
+        if (!res.ok) throw new Error('Failed to fetch items');
+        const items = await res.json();
+        return items.map((item: any) => ({ ...item, value: (item.stock || 0) * (item.purchaseRate || 0) }));
+      });
     }
   }
 };

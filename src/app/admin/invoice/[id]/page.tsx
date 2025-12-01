@@ -1,8 +1,7 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { Button } from '../../../../components/ui/Common';
-import { Printer, ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { SoftLoader } from '../../../../components/ui/Common';
+import { Button, SoftLoader } from '../../../../components/ui/Common';
+import { Printer, ArrowLeft, Download } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
@@ -24,6 +23,17 @@ export default function InvoiceView() {
     try {
       const params = new URLSearchParams(window.location.search);
       setSavedFlag(params.get('saved') === '1');
+      if (params.get('download') === '1') {
+        // mark that we should auto-download once invoice loads
+        setTimeout(() => {
+          // delay until invoice content renders
+          const el = document.getElementById('invoice-content');
+          if (el) {
+            // trigger download via existing handler
+            try { handleDownload(); } catch (e) { /* ignore */ }
+          }
+        }, 300);
+      }
     } catch (e) {
       setSavedFlag(false);
     }
@@ -42,6 +52,25 @@ export default function InvoiceView() {
       } catch (error) { console.error(error); } finally { setLoading(false); }
     };
     loadData();
+  }, [id]);
+
+  useEffect(() => {
+    const onData = () => {
+      (async () => {
+        setLoading(true);
+        try {
+          if (!id) return;
+          const inv = await api.invoices.get(id as string);
+          if (inv) {
+            setInvoice(inv);
+            const p = await api.parties.get(inv.partyId);
+            if (p) setParty(p);
+          }
+        } catch (e) { console.error(e); } finally { setLoading(false); }
+      })();
+    };
+    document.addEventListener('gurukrupa:data:updated', onData);
+    return () => document.removeEventListener('gurukrupa:data:updated', onData);
   }, [id]);
 
   useEffect(() => {
@@ -88,7 +117,12 @@ export default function InvoiceView() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print shadow-sm shrink-0">
         <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-3"><Button variant="ghost" onClick={() => router.back()} size="sm" className="text-slate-600"><ArrowLeft className="h-5 w-5" /> Back</Button><h2 className="font-bold text-slate-800">Preview</h2></div>
-          <div className="flex space-x-3"><Button variant="outline" icon={isDownloading ? Loader2 : Download} onClick={handleDownload} disabled={isDownloading}>{isDownloading ? 'Saving...' : 'PDF'}</Button><Button icon={Printer} onClick={() => window.print()}>Print</Button></div>
+          <div className="flex space-x-3">
+            <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
+              {isDownloading ? (<><SoftLoader size="sm" /> Saving...</>) : (<><Download className="h-4 w-4 mr-2" /> PDF</>)}
+            </Button>
+            <Button icon={Printer} onClick={() => window.print()}>Print</Button>
+          </div>
         </div>
       </div>
       {savedFlag && <div className="max-w-5xl mx-auto mt-4 p-3 text-sm rounded bg-green-100 text-green-800">Invoice saved successfully</div>}

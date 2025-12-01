@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Table, Modal, Select } from '../../../components/ui/Common';
-import { Plus, Search, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Button, Input, Table, Modal, Select, Skeleton, SoftLoader } from '../../../components/ui/Common';
+import { Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { Party, PartyType } from '../../../types';
 import { api } from '../../../lib/api';
 
@@ -29,6 +29,11 @@ export default function Parties() {
   };
 
   useEffect(() => { loadParties(); }, []);
+  useEffect(() => {
+    const onData = () => { loadParties().catch(() => {}); };
+    document.addEventListener('gurukrupa:data:updated', onData);
+    return () => document.removeEventListener('gurukrupa:data:updated', onData);
+  }, []);
 
   useEffect(() => {
     if (!notification) return;
@@ -83,7 +88,7 @@ export default function Parties() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-4">
         {isLoading ? (
-          <div className="text-center py-8 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Parties...</div></div>
+          <div className="text-center py-8 text-slate-500"><Skeleton variant="card" /></div>
         ) : parties.length === 0 ? (
           <div className="text-center py-8 text-slate-500">No parties found. Add your first party.</div>
         ) : (
@@ -121,7 +126,7 @@ export default function Parties() {
       <div className="hidden md:block">
         <Table headers={["Name", "Type", "Mobile", "GSTIN", "Balance", "Action"]}>
            {isLoading ? (
-             <tr><td colSpan={6} className="text-center py-12 text-slate-500"><div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 via-blue-300 to-blue-200 animate-[pulse_1.6s_ease-in-out_infinite] shadow-inner mx-auto" /><div className="text-sm text-slate-500 mt-2">Loading Parties...</div></td></tr>
+             <Skeleton variant="tableRow" lines={6} colSpan={6} />
            ) : parties.length === 0 ? (
             <tr><td colSpan={6} className="text-center py-8 text-slate-500">No parties found. Add your first party.</td></tr>
           ) : (
