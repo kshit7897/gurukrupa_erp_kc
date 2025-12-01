@@ -20,6 +20,16 @@ export default function Reports() {
   const [selectedParty, setSelectedParty] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [stockRows, setStockRows] = useState<any[] | null>(null);
+  const [outstandingRows, setOutstandingRows] = useState<any[] | null>(null);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [outstandingLoading, setOutstandingLoading] = useState(false);
+
+  const formatCurrency = (v: any) => {
+    const n = Number(v || 0);
+    // fixed 2 decimals and thousands separator
+    return `₹ ${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  };
 
   // load parties client-side and show skeletons while loading
   useEffect(() => {
@@ -39,15 +49,43 @@ export default function Reports() {
     return () => { mounted = false; };
   }, []);
 
-  const sampleStock = [
-    { name: 'Cement Bag (50kg)', unitLabel: '100 BAG', purchaseRate: 350, totalValue: '₹ 35,000' },
-    { name: 'Bricks (Red)', unitLabel: '5000 PCS', purchaseRate: 8, totalValue: '₹ 40,000' }
-  ];
+  // fetch stock when Stock tab active
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab !== 'Stock') return;
+    (async () => {
+      try {
+        setStockLoading(true);
+        const res = await fetch('/api/reports/stock');
+        if (!res.ok) { setStockRows([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        setStockRows(data || []);
+      } catch (e) { console.error(e); setStockRows([]); }
+      finally { if (mounted) setStockLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, [activeTab]);
 
-  const sampleOutstanding = [
-    { name: 'Ramesh Traders', mobile: '9876543210', type: 'receive', amount: 2500, opening: 2500, billed: 0, paid: 0 },
-    { name: 'Suresh Supplies', mobile: '9123456780', type: 'pay', amount: 5000, opening: 5000, billed: 0, paid: 0 }
-  ];
+  // fetch outstanding when Outstanding tab active
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab !== 'Outstanding') return;
+    (async () => {
+      try {
+        setOutstandingLoading(true);
+        const res = await fetch('/api/reports/outstanding');
+        if (!res.ok) { setOutstandingRows([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        setOutstandingRows(data || []);
+      } catch (e) { console.error(e); setOutstandingRows([]); }
+      finally { if (mounted) setOutstandingLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, [activeTab]);
+
+  
 
   return (
     <div className="space-y-6">
@@ -62,16 +100,21 @@ export default function Reports() {
       {activeTab === 'Stock' && (
         <>
           <div className="md:hidden space-y-4">
-            {sampleStock.map((s, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            {stockLoading ? (
+              <div className="space-y-2">
+                <div className="h-20 bg-slate-200 rounded animate-pulse" />
+                <div className="h-20 bg-slate-200 rounded animate-pulse" />
+              </div>
+            ) : (stockRows || []).map((s, idx) => (
+              <div key={s.id || idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-bold text-slate-800">{s.name}</h4>
-                    <p className="text-xs text-slate-400 mt-1">Purchase Rate<br/><span className="font-semibold text-slate-700">₹ {s.purchaseRate}</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Purchase Rate<br/><span className="font-semibold text-slate-700">{formatCurrency(s.purchaseRate)}</span></p>
                   </div>
                   <div className="text-right">
                     <div className="inline-block px-2 py-1 bg-slate-100 rounded text-xs font-semibold text-blue-600">{s.unitLabel}</div>
-                    <div className="mt-3 font-bold text-slate-800">{s.totalValue}</div>
+                    <div className="mt-3 font-bold text-slate-800">{formatCurrency(s.totalValue)}</div>
                   </div>
                 </div>
               </div>
@@ -80,12 +123,15 @@ export default function Reports() {
 
           <div className="hidden md:block">
             <Card title="Stock Summary">
-              <Table headers={[ 'Item Name', 'Purchase Rate', 'Total Value' ]}>
-                {sampleStock.map((s, idx) => (
-                  <tr key={idx}>
+              <Table headers={[ 'Item Name', 'Purchase Rate', 'Stock', 'Total Value' ]}>
+                {stockLoading ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">Loading stock...</td></tr>
+                ) : (stockRows || []).map((s, idx) => (
+                  <tr key={s.id || idx}>
                     <td className="px-4 py-3">{s.name}</td>
-                    <td className="px-4 py-3">₹ {s.purchaseRate}</td>
-                    <td className="px-4 py-3 font-bold">{s.totalValue}</td>
+                    <td className="px-4 py-3">{formatCurrency(s.purchaseRate)}</td>
+                    <td className="px-4 py-3">{s.unitLabel}</td>
+                    <td className="px-4 py-3 font-bold">{formatCurrency(s.totalValue)}</td>
                   </tr>
                 ))}
               </Table>
@@ -98,22 +144,27 @@ export default function Reports() {
       {activeTab === 'Outstanding' && (
         <>
           <div className="md:hidden space-y-4">
-            {sampleOutstanding.map((p, idx) => (
-              <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            {outstandingLoading ? (
+              <div className="space-y-2">
+                <div className="h-20 bg-slate-200 rounded animate-pulse" />
+                <div className="h-20 bg-slate-200 rounded animate-pulse" />
+              </div>
+            ) : (outstandingRows || []).map((p, idx) => (
+              <div key={p._id || p.id || idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-bold text-slate-800">{p.name}</h4>
-                    <p className="text-xs text-slate-500 mt-1">{p.mobile}</p>
+                    <p className="text-xs text-slate-500 mt-1">{p.mobile || ''}</p>
                   </div>
                   <div className="text-right">
-                    <div className={`text-sm font-bold ${p.type === 'receive' ? 'text-green-600' : 'text-rose-600'}`}>₹ {p.amount}</div>
-                    <div className="text-xs text-slate-400 mt-1">{p.type === 'receive' ? 'TO RECEIVE' : 'TO PAY'}</div>
+                    <div className={`text-sm font-bold ${p.currentBalance >= 0 ? 'text-green-600' : 'text-rose-600'}`}>{formatCurrency(Math.abs(p.currentBalance || 0))}</div>
+                    <div className="text-xs text-slate-400 mt-1">{(p.type || '').toString().toLowerCase() === 'customer' ? 'To Receive' : 'To Pay'}</div>
                   </div>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500">
-                  <div className="bg-slate-50 p-2 rounded">Opening<br/><span className="font-semibold text-slate-700">₹ {p.opening}</span></div>
-                  <div className="bg-slate-50 p-2 rounded">Billed<br/><span className="font-semibold text-slate-700">₹ {p.billed}</span></div>
-                  <div className="bg-slate-50 p-2 rounded">Paid/Recvd<br/><span className="font-semibold text-slate-700">₹ {p.paid}</span></div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-500">
+                  <div className="bg-slate-50 p-2 rounded">Opening<br/><span className="font-semibold text-slate-700">{formatCurrency(p.openingBalance || 0)}</span></div>
+                  <div className="bg-slate-50 p-2 rounded">Billed<br/><span className="font-semibold text-slate-700">{formatCurrency(p.billed || 0)}</span></div>
+                  <div className="bg-slate-50 p-2 rounded">Paid/Recvd<br/><span className="font-semibold text-slate-700">{formatCurrency(p.totalReceived || 0)}</span></div>
                 </div>
               </div>
             ))}
@@ -122,12 +173,14 @@ export default function Reports() {
           <div className="hidden md:block">
             <Card title="Outstanding Payments">
               <Table headers={[ 'Party', 'Mobile', 'Status', 'Amount' ]}>
-                {sampleOutstanding.map((p, idx) => (
-                  <tr key={idx}>
+                {outstandingLoading ? (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">Loading...</td></tr>
+                ) : (outstandingRows || []).map((p, idx) => (
+                  <tr key={p._id || p.id || idx}>
                     <td className="px-4 py-3">{p.name}</td>
-                    <td className="px-4 py-3">{p.mobile}</td>
-                    <td className="px-4 py-3 text-sm">{p.type === 'receive' ? 'To Receive' : 'To Pay'}</td>
-                    <td className="px-4 py-3 font-bold">₹ {p.amount}</td>
+                    <td className="px-4 py-3">{p.mobile || ''}</td>
+                    <td className="px-4 py-3 text-sm">{(p.type || '').toString().toLowerCase() === 'customer' ? 'To Receive' : 'To Pay'}</td>
+                    <td className="px-4 py-3 font-bold">{formatCurrency(Math.abs(p.currentBalance || 0))}</td>
                   </tr>
                 ))}
               </Table>
