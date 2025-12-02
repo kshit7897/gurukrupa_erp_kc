@@ -115,11 +115,11 @@ export async function GET() {
 
     // Unallocated payments within the current month (so monthReceivables/payables can be adjusted)
     const monthUnallocReceiptsAgg = await Payment.aggregate([
-      { $match: { type: 'receive', $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ], $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $match: { $and: [ { type: 'receive' }, { $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] }, { $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } ] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const monthUnallocPaymentsAgg = await Payment.aggregate([
-      { $match: { type: 'pay', $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ], $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $match: { $and: [ { type: 'pay' }, { $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] }, { $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } ] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const monthUnallocatedReceipts = monthUnallocReceiptsAgg[0]?.total || 0;

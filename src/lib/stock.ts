@@ -82,7 +82,8 @@ export async function revertStockForInvoice(invoice: any) {
           try {
             await StockMovement.create({ itemId: it.id, qty: it.qty, type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'item missing - recorded revert movement (sale)', prevStock: null, newStock: null });
           } catch (smErr) {
-            const msg = `Failed to record movement for missing SALE item ${it.id}: ${smErr?.message || smErr}`;
+            const serr = (smErr && (smErr as any).message) ? (smErr as any).message : String(smErr);
+            const msg = `Failed to record movement for missing SALE item ${it.id}: ${serr}`;
             console.error(msg);
             warnings.push(msg);
           }
@@ -104,7 +105,8 @@ export async function revertStockForInvoice(invoice: any) {
           try {
             await StockMovement.create({ itemId: it.id, qty: -it.qty, type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'item missing - recorded revert movement (purchase)', prevStock: null, newStock: null });
           } catch (smErr) {
-            const msg = `Failed to record movement for missing PURCHASE item ${it.id}: ${smErr?.message || smErr}`;
+            const serr = (smErr && (smErr as any).message) ? (smErr as any).message : String(smErr);
+            const msg = `Failed to record movement for missing PURCHASE item ${it.id}: ${serr}`;
             console.error(msg);
             warnings.push(msg);
           }

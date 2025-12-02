@@ -2,11 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Input, Select, Table, Card, SoftLoader, Modal } from '../../../components/ui/Common';
 import { api } from '../../../lib/api';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 export default function MakePaymentPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [parties, setParties] = useState<any[]>([]);
   const [selectedPartyObj, setSelectedPartyObj] = useState<any | null>(null);
@@ -25,15 +24,18 @@ export default function MakePaymentPage() {
 
   useEffect(() => {
     try {
-      const party = searchParams?.get('party');
-      const amount = searchParams?.get('amount');
-      if (party) {
-        setSelectedParty(party);
-        fetchAndSetParty(party);
+      if (typeof window !== 'undefined') {
+        const sp = new URLSearchParams(window.location.search || '');
+        const party = sp.get('party');
+        const amount = sp.get('amount');
+        if (party) {
+          setSelectedParty(party);
+          fetchAndSetParty(party);
+        }
+        if (amount) setAmount(amount);
       }
-      if (amount) setAmount(amount);
     } catch (e) {}
-  }, [searchParams]);
+  }, []);
 
   const load = async () => {
     setLoading(true);

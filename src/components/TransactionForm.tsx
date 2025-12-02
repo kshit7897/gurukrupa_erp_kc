@@ -7,7 +7,6 @@ import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText,
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
 import { api } from '../lib/api';
 import { useRouter } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
 
 interface TransactionFormProps {
   type: 'SALES' | 'PURCHASE';
@@ -16,7 +15,8 @@ interface TransactionFormProps {
 export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const isSales = type === 'SALES';
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // avoid using next/navigation's useSearchParams here to prevent SSR bailout during build
+  // we'll read window.location.search inside effects where needed
   
   const [parties, setParties] = useState<Party[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -81,34 +81,38 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // If URL contains ?id=..., load invoice for editing
+  // If URL contains ?id=..., load invoice for editing (read from window.location to avoid SSR bailout)
   useEffect(() => {
-    const id = searchParams?.get?.('id') || null;
-    if (!id) return;
-    setEditingId(id);
-    (async () => {
-      try {
-        const inv: any = await api.invoices.get(id);
-        if (!inv) return;
-        // populate fields
-        setInvoiceDate(inv.date || new Date().toISOString().split('T')[0]);
-        setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
-        setPaymentDetails(inv.paymentDetails || '');
-        setVehicleNo(inv.vehicle_no || '');
-        setDeliveryDateMeta(inv.delivery_date || '');
-        setDueDate(inv.dueDate || '');
-        setAddedItems(inv.items || []);
-        setBillingAddressState(inv.billingAddress || {});
-        setShippingAddress(inv.shippingAddress || {});
+    try {
+      if (typeof window === 'undefined') return;
+      const sp = new URLSearchParams(window.location.search);
+      const id = sp.get('id') || null;
+      if (!id) return;
+      setEditingId(id);
+      (async () => {
         try {
-          const p = await api.parties.get(inv.partyId);
-          if (p) setSelectedParty(p as Party);
-        } catch (e) { console.error('Failed to load party for edit', e); }
-      } catch (e) {
-        console.error('Failed to load invoice for edit', e);
-      }
-    })();
-  }, [searchParams]);
+          const inv: any = await api.invoices.get(id);
+          if (!inv) return;
+          // populate fields
+          setInvoiceDate(inv.date || new Date().toISOString().split('T')[0]);
+          setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
+          setPaymentDetails(inv.paymentDetails || '');
+          setVehicleNo(inv.vehicle_no || '');
+          setDeliveryDateMeta(inv.delivery_date || '');
+          setDueDate(inv.dueDate || '');
+          setAddedItems(inv.items || []);
+          setBillingAddressState(inv.billingAddress || {});
+          setShippingAddress(inv.shippingAddress || {});
+          try {
+            const p = await api.parties.get(inv.partyId);
+            if (p) setSelectedParty(p as Party);
+          } catch (e) { console.error('Failed to load party for edit', e); }
+        } catch (e) {
+          console.error('Failed to load invoice for edit', e);
+        }
+      })();
+    } catch (err) { /* ignore */ }
+  }, []);
 
   // Effect to calculate Due Date when mode changes to Credit
   useEffect(() => {
