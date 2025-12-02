@@ -20,9 +20,22 @@ export default function PaymentsPage() {
     setLoading(true);
     try {
       const p = await api.payments.list();
-      setPayments(p || []);
       const pts = await api.parties.list();
+      // keep parties for any selects/filters
       setParties((pts || []).map((x:any) => ({ label: x.name, value: x._id || x.id || x })));
+      // build a quick lookup for party id -> name so UI can show names instead of raw ids
+      const partyMap = new Map<string,string>();
+      (pts || []).forEach((x:any) => {
+        const id = x._1d || x._id || x.id || x;
+        const name = x.name || x.partyName || x.label || String(id);
+        if (id) partyMap.set(String(id), name);
+      });
+      // enrich payments with resolved partyName (if not already present)
+      const enriched = (p || []).map((pay:any) => {
+        const resolved = pay.partyName || partyMap.get(String(pay.partyId)) || partyMap.get(String(pay.partyId || '')) || pay.partyId;
+        return { ...(pay || {}), partyName: resolved };
+      });
+      setPayments(enriched);
       const inv = await api.invoices.list();
       setInvoices(inv || []);
     } catch (e) {

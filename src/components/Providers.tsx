@@ -1,7 +1,6 @@
 "use client";
 
 import React from 'react';
-import GlobalLoader from './ui/GlobalLoader';
 import Toasts from './ui/Toast';
 import { loaderEvents } from '../lib/loaderEvents';
 import { useEffect } from 'react';
@@ -29,7 +28,6 @@ export const Providers: React.FC<{ children: React.ReactNode }> = ({ children })
   return (
     <>
       {children}
-      <GlobalLoader />
       <Toasts />
     </>
   );

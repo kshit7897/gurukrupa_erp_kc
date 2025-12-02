@@ -52,6 +52,8 @@ export async function GET() {
 
     // Low stock count
     const lowStock = await Item.countDocuments({ stock: { $lt: 10 } });
+    // Current stock snapshot: top items by stock (positive stock), limit 4
+    const currentStockItems = await Item.find({ stock: { $exists: true } }).sort({ stock: -1 }).limit(4).select({ name: 1, stock: 1, sku: 1 }).lean();
 
     // Recent transactions (fetch more for sparkline computation client-side)
     const recentInvoices = await Invoice.find({}).sort({ createdAt: -1 }).limit(20).lean();
@@ -140,6 +142,7 @@ export async function GET() {
       cashIn: roundUp(cashIn),
       cashOut: roundUp(cashOut),
       lowStock: Number(lowStock || 0),
+      currentStock: (currentStockItems || []).map((it:any) => ({ id: it._id?.toString(), name: it.name || it.title || 'Unnamed', sku: it.sku || null, stock: Number(it.stock || 0) })),
       recentInvoices,
       recentPayments
     });

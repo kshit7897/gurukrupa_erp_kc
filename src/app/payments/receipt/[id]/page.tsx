@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { Button, SoftLoader } from '../../../../components/ui/Common';
+import { Button, SoftLoader, Skeleton } from '../../../../components/ui/Common';
 import { Printer, Download, ArrowLeft } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
@@ -105,7 +105,19 @@ export default function PaymentReceipt() {
     window.html2pdf().set({ margin: 0, filename: `Payment_${payment?.id || payment?._id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => setIsDownloading(false)).catch(() => setIsDownloading(false));
   };
 
-  if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><div><SoftLoader size="lg" text="Loading receipt..." /></div></div>;
+  if (loading) return (
+    <div className="flex h-full items-start justify-center text-slate-500 bg-slate-100 p-6">
+      <div className="max-w-5xl w-full space-y-4">
+        <Skeleton variant="card" />
+        <div className="grid grid-cols-3 gap-4">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+        <Skeleton variant="card" />
+      </div>
+    </div>
+  );
   if (!payment) return <div className="text-center py-20 bg-slate-50 h-full"><h2 className="text-2xl font-bold text-slate-700">Payment Not Found</h2><Button onClick={() => router.push('/admin/payments')} className="mt-4">Back to Payments</Button></div>;
 
   const title = String(payment?.type || '').toLowerCase() === 'receive' ? 'RECEIPT' : 'PAYMENT VOUCHER';

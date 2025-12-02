@@ -95,6 +95,11 @@ export default function LedgerPreviewPage() {
                 <div>
                   <h1 className="text-lg font-bold text-slate-900">{company?.name || 'Company Name'}</h1>
                   <div className="text-sm text-slate-600">{company?.address_line_1 || company?.address || ''}</div>
+                  {/* Party details placed under company details as requested */}
+                  <div className="mt-3 border-t pt-3">
+                    <h2 className="text-base font-semibold text-slate-800">{party?.name || 'Party Ledger'}</h2>
+                    {party && <div className="text-sm text-slate-600">{party.address || ''} • {party.mobile || ''}</div>}
+                  </div>
                   {company?.address_line_2 && <div className="text-sm text-slate-600">{company.address_line_2}</div>}
                   <div className="text-sm text-slate-600">{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
                   <div className="text-sm text-slate-600 mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
@@ -102,9 +107,11 @@ export default function LedgerPreviewPage() {
                 </div>
               </div>
               <div className="text-right">
-                <h2 className="text-lg font-bold text-slate-900">{party?.name || 'Party Ledger'}</h2>
-                {party && <div className="text-sm text-slate-600">{party.address || ''} • {party.mobile || ''}</div>}
-                <div className="text-sm text-slate-600 mt-3">{fromDate ? formatDate(fromDate) : 'Start'} - {toDate ? formatDate(toDate) : 'End'}</div>
+                <div className="w-56 text-right flex-shrink-0">
+                  <div className="text-sm text-slate-600">Period</div>
+                  <div className="text-base font-semibold">{fromDate ? formatDate(fromDate) : 'Start'} — {toDate ? formatDate(toDate) : 'End'}</div>
+                  <div className="mt-3 text-sm text-slate-600">(Cash sales are marked in the Cash column)</div>
+                </div>
               </div>
             </div>
 
@@ -122,10 +129,29 @@ export default function LedgerPreviewPage() {
                 <tbody className="text-slate-700">
                   {transactions.map((t, idx) => (
                     <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-3">{formatDate(t.date)}</td>
+                      <td className="py-3 px-3">{(() => {
+                        try {
+                          const isSaleOrPurchase = /sale|purchase/i.test(String(t.type || ''));
+                          if (isSaleOrPurchase) {
+                            const d = t.deliveryDate || t.date || new Date().toISOString();
+                            return formatDate(d);
+                          }
+                          return formatDate(t.date || new Date().toISOString());
+                        } catch (e) {
+                          return formatDate(t.date || new Date().toISOString());
+                        }
+                      })()}</td>
                       <td className="py-3 px-3">{t.ref}</td>
                       <td className="py-3 px-3">{t.type}</td>
-                      <td className="py-3 px-3">{t.cash ? <span className="text-green-600 font-medium">Cash</span> : <span className="text-slate-400">-</span>}</td>
+                      <td className="py-3 px-3">{
+                        t.cash ? (
+                          /sale/i.test(String(t.type || '')) ? (
+                            <span className="text-emerald-600 font-medium">Cash Sale</span>
+                          ) : (
+                            <span className="text-green-600 font-medium">Cash</span>
+                          )
+                        ) : <span className="text-slate-400">-</span>
+                      }</td>
                       <td className="py-3 px-3 text-right">{t.debit ? `₹ ${t.debit}` : '-'}</td>
                       <td className="py-3 px-3 text-right">{t.credit ? `₹ ${t.credit}` : '-'}</td>
                       <td className="py-3 px-3 text-right font-bold">₹ {t.balance}</td>
@@ -133,6 +159,35 @@ export default function LedgerPreviewPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+            {/* Totals summary */}
+            {!loading && transactions.length > 0 && (
+              (() => {
+                // compute cash sales total (sales marked with cash=true and type ~ sale)
+                const cashSalesTx = (transactions || []).filter((it: any) => it.cash && /sale/i.test(String(it.type || '')));
+                const cashSalesTotal = cashSalesTx.reduce((s: number, it: any) => s + (Number(it.credit || it.debit || 0) || 0), 0);
+                const visible = transactions || [];
+                const totalDebit = (visible || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
+                const totalCredit = (visible || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
+                const endingBalance = visible[visible.length - 1]?.balance || transactions[transactions.length - 1]?.balance || 0;
+                return (
+                  <div className="mt-4 p-4 bg-slate-50 border border-slate-100 rounded flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="text-sm text-slate-600">Totals</div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-sm text-slate-500">Total Debit</div>
+                      <div className="text-lg font-semibold">₹ {totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                      <div className="text-sm text-slate-500">Total Credit</div>
+                      <div className="text-lg font-semibold">₹ {totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                      <div className="text-sm text-slate-500">Ending Balance</div>
+                      <div className="text-lg font-semibold">₹ {Number(endingBalance || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
+                    <div className="text-sm text-slate-600 md:text-right">
+                      <div>Cash Sales Total</div>
+                      <div className="text-lg font-semibold">₹ {cashSalesTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
+                  </div>
+                );
+              })()
             )}
             {/* show skeleton rows briefly if loading took long: */}
             {loading && (

@@ -24,7 +24,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [paymentMode, setPaymentMode] = useState('cash');
   const [paymentDetails, setPaymentDetails] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
-  const [deliveryDateMeta, setDeliveryDateMeta] = useState('');
+  const [deliveryDateMeta, setDeliveryDateMeta] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [addedItems, setAddedItems] = useState<InvoiceItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -98,7 +98,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
           setPaymentDetails(inv.paymentDetails || '');
           setVehicleNo(inv.vehicle_no || '');
-          setDeliveryDateMeta(inv.delivery_date || '');
+          setDeliveryDateMeta(inv.delivery_date || new Date().toISOString().split('T')[0]);
           setDueDate(inv.dueDate || '');
           setAddedItems(inv.items || []);
           setBillingAddressState(inv.billingAddress || {});

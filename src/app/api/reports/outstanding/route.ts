@@ -37,8 +37,16 @@ export async function GET() {
         .reduce((s: number, pay: any) => s + (pay.amount || 0), 0);
 
       // Current balance mirrors dashboard logic: opening + outstanding invoices
-      // then adjust for this party's unallocated receipts/payments (advances)
-      let currentBalance = (p.openingBalance || 0) + outstandingFromInvoices - (partyUnallocatedReceipts || 0) + (partyUnallocatedPayments || 0);
+      // then adjust for this party's unallocated advances/payments.
+      // For customers, unallocated receipts reduce what they owe. For suppliers, unallocated payments
+      // (money we've already paid) should reduce what we owe to them — so subtract accordingly.
+      let currentBalance = (p.openingBalance || 0) + outstandingFromInvoices;
+      const pType = (p.type || '').toString().toLowerCase();
+      if (pType === 'customer') {
+        currentBalance = currentBalance - (partyUnallocatedReceipts || 0);
+      } else if (pType === 'supplier') {
+        currentBalance = currentBalance - (partyUnallocatedPayments || 0);
+      }
 
       // Keep the older-style fields for compatibility
       return { ...p, billed, totalReceived, currentBalance };

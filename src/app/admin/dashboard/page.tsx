@@ -5,7 +5,7 @@ import { TrendingUp, TrendingDown, Users, Package, AlertCircle } from 'lucide-re
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from 'recharts';
 import { api } from '../../../lib/api';
 import { formatDate } from '../../../lib/formatDate';
-import { SoftLoader } from '../../../components/ui/Common';
+import { SoftLoader, Skeleton } from '../../../components/ui/Common';
 import { Modal, Button, Table } from '../../../components/ui/Common';
 import { useRouter } from 'next/navigation';
 
@@ -23,6 +23,7 @@ const StatCard = ({ title, value, subtext, icon: Icon, color }: any) => (
       <div className={`p-2 rounded-lg bg-opacity-10`} style={{ backgroundColor: `${color}20` }}>
         <Icon className="h-6 w-6" style={{ color: color }} />
       </div>
+      
     </div>
   </Card>
 );
@@ -81,7 +82,34 @@ export default function Dashboard() {
   }, []);
 
   if (!stats) {
-    return <div className="p-10 text-center"><SoftLoader size="lg" text="Loading dashboard..." /></div>;
+    return (
+      <div className="space-y-6 pb-20">
+        <div className="flex justify-between items-center">
+          <div className="w-1/3">
+            <Skeleton variant="text" lines={2} />
+          </div>
+          <div className="w-1/6 hidden md:block">
+            <Skeleton variant="text" lines={1} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Skeleton variant="card" />
+          </div>
+          <div>
+            <Skeleton variant="card" />
+          </div>
+        </div>
+      </div>
+    );
   }
   const _d = new Date();
   const monthName = `${_d.toLocaleString(undefined, { month: 'short' })}-${_d.getFullYear().toString().slice(-2)}`;
@@ -139,7 +167,23 @@ export default function Dashboard() {
         <StatCard title={`Total Purchase — ${monthName}`} value={`₹ ${(Number(stats.monthPurchase || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="Month-to-date" icon={TrendingDown} color="#ef4444" />
         <StatCard title={`Parties Receivables — ${monthName}`} value={`₹ ${(Number(stats.monthReceivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="Month-to-date" icon={Users} color="#3b82f6" />
         <StatCard title="Payable (Supplier)" value={`${stats.payables ? `₹ ${Number(stats.payables || 0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}`} subtext="Outstanding" icon={TrendingDown} color="#ef4444" />
-        <StatCard title="Low Stock Items" value={`${stats.lowStock || 0} Items`} subtext="" icon={AlertCircle} color="#f59e0b" />
+      </div>
+      {/* Current Stock snapshot */}
+      <div className="mt-4">
+        <Card title="Current Stock (Top items)">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {(stats.currentStock || []).length === 0 && (
+              <div className="col-span-1 text-sm text-slate-500">No stock data available</div>
+            )}
+            {(stats.currentStock || []).map((it:any) => (
+              <div key={it.id} className="bg-white border border-slate-100 rounded p-3">
+                <div className="text-sm text-slate-500">{it.sku || 'SKU'}</div>
+                <div className="mt-1 font-semibold text-slate-800 truncate">{it.name}</div>
+                <div className="mt-2 text-lg font-bold text-slate-900">{Number(it.stock || 0).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
       {/* Receivables modal */}
       <Modal isOpen={showReceivableModal} onClose={() => setShowReceivableModal(false)} title="Receivables — Parties" full showBack>
