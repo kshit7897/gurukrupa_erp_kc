@@ -112,3 +112,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err?.message || 'Failed to create payment' }, { status: 500 });
   }
 }
+
+// DELETE: remove a payment and revert allocations
+export async function DELETE(request: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'payment id required' }, { status: 400 });
+
+    const session = await mongoose.startSession();
+    let deletedCount = 0;
+    try {
+      await session.withTransaction(async () => {
+        const payment = await Payment.findById(id).session(session);
+        if (!payment) return;
+
+        // revert allocations: for each allocation, reduce invoice.paidAmount and recompute dueAmount
+        if (Array.isArray(payment.allocations) && payment.allocations.length > 0) {
+          for (const a of payment.allocations) {
+            const inv = await Invoice.findById(a.invoiceId).session(session);
+            if (!inv) continue;
+            inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - Number(a.amount || 0));
+            inv.dueAmount = Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0));
+            await inv.save({ session });
+          }
+        }
+
+        const res = await Payment.deleteOne({ _id: id }).session(session);
+        deletedCount = res.deletedCount || 0;
+      });
+    } finally {
+      session.endSession();
+    }
+
+    if (!deletedCount) return NextResponse.json({ error: 'Payment not found or not deleted' }, { status: 404 });
+    return NextResponse.json({ deleted: true });
+  } catch (err: any) {
+    console.error('DELETE /api/payments error', err);
+    return NextResponse.json({ error: err?.message || 'Failed to delete payment' }, { status: 500 });
+  }
+}

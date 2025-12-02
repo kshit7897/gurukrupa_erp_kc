@@ -62,4 +62,62 @@ export async function updateStockForInvoice(invoice: any) {
   }
 }
 
-export default { increaseStock, decreaseStock, updateStockForInvoice };
+export async function revertStockForInvoice(invoice: any) {
+  // invoice.items expected: [{ itemId, qty }]
+  // Return an array of warning/error messages instead of throwing, so callers can decide how to proceed.
+  const warnings: string[] = [];
+  if (!invoice || !Array.isArray(invoice.items)) return warnings;
+  const ops: {id:string, qty:number}[] = invoice.items.map((it:any) => ({ id: it.itemId || it.itemId, qty: Number(it.qty || it.qty) }));
+
+  // For SALES we need to increase stock back; for PURCHASE we need to decrease stock (remove purchased qty)
+  if (invoice.type === 'SALES') {
+    for (const it of ops) {
+      try {
+        await increaseStock(it.id, it.qty, { type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'revert invoice (sale)' });
+      } catch (e: any) {
+        const errMsg = (e && e.message) ? e.message.toString() : String(e);
+        if (errMsg.includes('Item not found')) {
+          // Item was deleted from master. Create a StockMovement record so reports reflect the revert,
+          // but don't treat this as a blocking warning.
+          try {
+            await StockMovement.create({ itemId: it.id, qty: it.qty, type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'item missing - recorded revert movement (sale)', prevStock: null, newStock: null });
+          } catch (smErr) {
+            const msg = `Failed to record movement for missing SALE item ${it.id}: ${smErr?.message || smErr}`;
+            console.error(msg);
+            warnings.push(msg);
+          }
+        } else {
+          const msg = `Failed to revert SALE item ${it.id}: ${errMsg}`;
+          console.error(msg);
+          warnings.push(msg);
+        }
+      }
+    }
+  } else if (invoice.type === 'PURCHASE') {
+    for (const it of ops) {
+      try {
+        // this may throw if current stock is insufficient to remove the purchase quantity
+        await decreaseStock(it.id, it.qty, { type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'revert invoice (purchase)' });
+      } catch (e: any) {
+        const errMsg = (e && e.message) ? e.message.toString() : String(e);
+        if (errMsg.includes('Item not found')) {
+          try {
+            await StockMovement.create({ itemId: it.id, qty: -it.qty, type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'item missing - recorded revert movement (purchase)', prevStock: null, newStock: null });
+          } catch (smErr) {
+            const msg = `Failed to record movement for missing PURCHASE item ${it.id}: ${smErr?.message || smErr}`;
+            console.error(msg);
+            warnings.push(msg);
+          }
+        } else {
+          const msg = `Failed to revert PURCHASE item ${it.id}: ${errMsg}`;
+          console.error(msg);
+          warnings.push(msg);
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
+export default { increaseStock, decreaseStock, updateStockForInvoice, revertStockForInvoice };

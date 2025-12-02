@@ -9,13 +9,27 @@ export async function GET() {
   try {
     await dbConnect();
 
-    // Totals
+    // Totals (all-time)
     const totalSales = await Invoice.aggregate([
       { $match: { type: 'SALES' } },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
     ]);
     const totalPurchase = await Invoice.aggregate([
       { $match: { type: 'PURCHASE' } },
+      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+    ]);
+
+    // Month-to-date totals
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const monthSalesAgg = await Invoice.aggregate([
+      { $match: { type: 'SALES', $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+    ]);
+    const monthPurchaseAgg = await Invoice.aggregate([
+      { $match: { type: 'PURCHASE', $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
     ]);
 
@@ -27,6 +41,12 @@ export async function GET() {
     // Receivables: due amounts only for sales (customers)
     const receivablesAgg = await Invoice.aggregate([
       { $match: { type: 'SALES' } },
+      { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
+    ]);
+
+    // Month receivables (sales with dueAmount within month)
+    const monthReceivablesAgg = await Invoice.aggregate([
+      { $match: { type: 'SALES', $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
       { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
     ]);
 
@@ -93,10 +113,26 @@ export async function GET() {
     const unallocatedReceipts = unallocReceiptsAgg[0]?.total || 0;
     const unallocatedPayments = unallocPaymentsAgg[0]?.total || 0;
 
+    // Unallocated payments within the current month (so monthReceivables/payables can be adjusted)
+    const monthUnallocReceiptsAgg = await Payment.aggregate([
+      { $match: { type: 'receive', $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ], $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
+    ]);
+    const monthUnallocPaymentsAgg = await Payment.aggregate([
+      { $match: { type: 'pay', $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ], $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
+    ]);
+    const monthUnallocatedReceipts = monthUnallocReceiptsAgg[0]?.total || 0;
+    const monthUnallocatedPayments = monthUnallocPaymentsAgg[0]?.total || 0;
+
     const roundUp = (v: any) => Math.ceil(Number(v || 0));
     return NextResponse.json({
       totalSales: roundUp(totalSales[0]?.total),
       totalPurchase: roundUp(totalPurchase[0]?.total),
+      // month-to-date values
+      monthSales: roundUp(monthSalesAgg[0]?.total || 0),
+      monthPurchase: roundUp(monthPurchaseAgg[0]?.total || 0),
+      monthReceivables: roundUp(Math.max(0, (monthReceivablesAgg[0]?.receivable || 0) - monthUnallocatedReceipts)),
       // adjust outstanding/receivables/payables to account for unallocated advances
       outstanding: roundUp(Math.max(0, (outstandingAgg[0]?.totalDue || 0) - unallocatedReceipts + unallocatedPayments)),
       receivables: roundUp(Math.max(0, (receivablesAgg[0]?.receivable || 0) - unallocatedReceipts)),

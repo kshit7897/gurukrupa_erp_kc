@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Table, Card, Select, Input, Skeleton, SoftLoader } from '../../../components/ui/Common';
 import { Eye, Printer, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { formatDate } from '../../../lib/formatDate';
 
 export default function InvoiceList() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -93,7 +94,7 @@ export default function InvoiceList() {
                     <td className="px-4 py-3 font-medium">{inv.invoiceNo}</td>
                     <td className="px-4 py-3 text-slate-500">{inv.partyName}</td>
                     <td className="px-4 py-3">{inv.type}</td>
-                    <td className="px-4 py-3">{inv.date}</td>
+                    <td className="px-4 py-3">{formatDate(inv.date)}</td>
                     <td className="px-4 py-3 text-right">₹{(inv.grandTotal || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 flex gap-2 justify-end">
                       <Button size="sm" variant="ghost" onClick={() => router.push(`/admin/invoice/${inv.id || inv._id}`)} icon={Eye}>Preview</Button>

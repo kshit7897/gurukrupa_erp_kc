@@ -35,6 +35,7 @@ export interface Party {
   };
   openingBalance: number;
   type: PartyType;
+  cin?: string;
 }
 
 export interface Item {
@@ -124,6 +125,7 @@ export interface Company {
   name?: string;
   gstNumber?: string;
   gstin?: string;
+  cin?: string;
   phone?: string;
   contactNumbers?: string[];
   email?: string;

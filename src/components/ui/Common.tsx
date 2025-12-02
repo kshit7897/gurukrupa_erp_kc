@@ -1,5 +1,5 @@
 import React from 'react';
-import { LucideIcon, X } from 'lucide-react';
+import { LucideIcon, X, ChevronLeft } from 'lucide-react';
 
 // --- BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -137,20 +137,39 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  full?: boolean; // render full-screen overlay
+  showBack?: boolean; // show a Back button in header which calls onClose
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, full = false, showBack = false }) => {
   if (!isOpen) return null;
+  const outerCls = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200";
+  const innerCls = full
+    ? "w-full h-full max-w-none rounded-none bg-white shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100 overflow-hidden"
+    : "w-full max-w-lg rounded-xl bg-white shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100";
+  const bodyCls = full ? "p-4 h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar" : "p-6 max-h-[70vh] overflow-y-auto custom-scrollbar";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl animate-in zoom-in-95 duration-200 border border-slate-100">
-        <div className="flex items-center justify-between border-b border-slate-100 p-5">
-          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100 text-slate-500 transition-colors">
-            <X className="h-5 w-5" />
-          </button>
+    <div className={outerCls}>
+      <div className={innerCls}>
+        <div className={`flex items-center ${showBack ? 'justify-start' : 'justify-between'} border-b border-slate-100 p-5`}>
+          {showBack ? (
+            <div className="flex items-center gap-3 w-full">
+              <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100 text-slate-500 transition-colors">
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+              <button onClick={onClose} className="rounded-full p-2 hover:bg-slate-100 text-slate-500 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </>
+          )}
         </div>
-        <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <div className={bodyCls}>
           {children}
         </div>
         {footer && <div className="border-t border-slate-100 p-4 bg-slate-50/50 rounded-b-xl flex justify-end space-x-3">{footer}</div>}

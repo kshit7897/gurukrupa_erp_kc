@@ -5,6 +5,7 @@ import { Printer, ArrowLeft, Download } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
+import { formatDate } from '../../../../lib/formatDate';
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -139,23 +140,20 @@ export default function InvoiceView() {
         <div className={`max-w-5xl mx-auto mt-4 p-3 text-sm rounded ${notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{notification.message}</div>
       )}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 print:p-0 print:overflow-visible bg-slate-100/50 flex flex-col items-center" ref={containerRef}>
-        <div className="relative transition-transform print:transform-none print:w-full" style={{ width: '210mm', transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: `-${(1 - scale) * 297}mm` }}>
+        <style>{`@media print { #invoice-scaled { transform: none !important; width: 210mm !important; margin-bottom: 0 !important; } #invoice-content { box-shadow: none !important; min-height: auto !important; padding: 0 !important; } }`}</style>
+        <div id="invoice-scaled" className="relative transition-transform print:transform-none print:w-full" style={{ width: '210mm', transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: `-${(1 - scale) * 297}mm` }}>
           <div id="invoice-content" className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0" style={{ padding: '10mm 12mm' }}>
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4">
-              <div className="flex items-start gap-4 w-2/3">
-                <div className="w-20 h-20 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200">
-                  {/* dummy logo */}
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
+            <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
+              <div className="flex items-center gap-6 w-2/3">
+                <div className="w-28 h-28 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
+                  {company?.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
+                  )}
                 </div>
-                  <div className="w-20 h-20 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
-                    {company?.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
-                    ) : (
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
-                    )}
-                  </div>
                 <div>
                   <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{company?.name || 'Company Name'}</h1>
                   <div className="text-sm text-slate-600 leading-tight mt-1">
@@ -164,14 +162,15 @@ export default function InvoiceView() {
                     <div>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
                     <div className="mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
                     <div className="mt-1 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
+                    <div className="mt-1 font-semibold">CIN: {company?.cin || '-'}</div>
                   </div>
                 </div>
               </div>
               <div className="w-1/3 text-right">
                 <div className="inline-block text-sm text-slate-700 font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200">{invoiceTitle}</div>
-                <div className="mt-3 text-sm text-right">
+                  <div className="mt-3 text-sm text-right">
                   <div className="flex justify-end"><div className="w-40 text-slate-600">Invoice No.</div><div className="w-48 font-bold text-slate-900">{invoice.invoiceNo}</div></div>
-                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Inv. Date</div><div className="w-48">{invoice.date}</div></div>
+                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Inv. Date</div><div className="w-48">{formatDate(invoice.date)}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Payment Mode</div><div className="w-48">{invoice.payment_mode || invoice.paymentMode || '-'}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Reverse Charge</div><div className="w-48">{invoice.reverse_charge ? 'YES' : 'NO'}</div></div>
                 </div>
@@ -191,6 +190,7 @@ export default function InvoiceView() {
                       <div>{invoice.billingAddress?.city || party?.billingAddress?.city || ''}{(invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : ''}</div>
                       <div className="mt-1">Contact: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</div>
                       <div className="mt-1">GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                      <div className="mt-1">CIN: {party?.cin || '-'}</div>
                     </div>
                   </div>
                 </div>
@@ -205,9 +205,9 @@ export default function InvoiceView() {
                         <div className="w-40 font-medium text-slate-700">Supplier Invoice No.</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.supplier_ref || '-'}</div>
                       </div>
-                      <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Supplier Invoice Date</div>
-                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.delivery_date || invoice.date || '-'}</div>
+                        <div className="text-right text-slate-900 whitespace-nowrap ml-4">{formatDate(invoice.delivery_date || invoice.date)}</div>
                       </div>
                       <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Purchase Type</div>
@@ -223,13 +223,14 @@ export default function InvoiceView() {
                   <div className="bg-slate-50 border border-slate-100 rounded p-3">
                     <div className="text-xs font-semibold text-slate-500 uppercase">Bill To</div>
                     <div className="mt-2 text-sm font-semibold text-slate-800">{invoice.billingAddress?.name || party?.name || invoice.partyName}</div>
-                    <div className="mt-1 text-sm text-slate-600 leading-tight">
+                      <div className="mt-1 text-sm text-slate-600 leading-tight">
                       {(invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address) || ''}
                       {(invoice.billingAddress?.line2 || party?.billingAddress?.line2) && (<div>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</div>)}
                       <div>{invoice.billingAddress?.city || party?.billingAddress?.city || ''}{(invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : ''}</div>
                       <div>{invoice.billingAddress?.state || party?.billingAddress?.state || ''}</div>
                       <div className="mt-1">Phone: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</div>
                       <div className="mt-1">GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                      <div className="mt-1">CIN: {party?.cin || '-'}</div>
                     </div>
                   </div>
                   <div className="bg-slate-50 border border-slate-100 rounded p-3">
@@ -241,6 +242,7 @@ export default function InvoiceView() {
                         <div>{invoice.shippingAddress?.city || party?.shippingAddress?.city || ''}{(invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode) ? ` - ${invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode}` : ''}</div>
                         <div>{invoice.shippingAddress?.state || party?.shippingAddress?.state || ''}</div>
                         <div className="mt-1">GSTIN: {invoice.shippingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</div>
+                          <div className="mt-1">CIN: {party?.cin || '-'}</div>
                     </div>
                   </div>
                 </div>

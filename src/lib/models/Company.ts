@@ -5,6 +5,7 @@ const CompanySchema = new mongoose.Schema({
   // common existing fields
   gstNumber: String,
   phone: String,
+  mobile2: String,
   email: String,
   address: String,
   city: String,
@@ -12,6 +13,7 @@ const CompanySchema = new mongoose.Schema({
   pincode: String,
   // additional fields required by invoice template
   gstin: String,
+  cin: String,
   contactNumbers: [String],
   address_line_1: String,
   address_line_2: String,

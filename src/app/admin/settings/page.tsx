@@ -136,7 +136,7 @@ export default function Settings() {
   const CompanyCard = () => {
     const [company, setCompany] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState<any>({ name: '', gstNumber: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', bank_name: '', bank_branch: '', bank_account_no: '', ifsc_code: '', upi_id: '', logo: '', extraDetails: [] });
+    const [form, setForm] = useState<any>({ name: '', gstNumber: '', cin: '', phone: '', mobile2: '', email: '', address: '', city: '', state: '', pincode: '', bank_name: '', bank_branch: '', bank_account_no: '', ifsc_code: '', upi_id: '', logo: '', extraDetails: [] });
 
     useEffect(() => {
       let mounted = true;
@@ -148,7 +148,7 @@ export default function Settings() {
           if (!mounted) return;
           const c = data.company || null;
           setCompany(c);
-          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', phone: c.phone || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bank_name: c.bank_name || '', bank_branch: c.bank_branch || '', bank_account_no: c.bank_account_no || '', ifsc_code: c.ifsc_code || '', upi_id: c.upi_id || '', logo: c.logo || '', extraDetails: c.extraDetails || [] });
+          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', cin: c.cin || '', phone: c.phone || (Array.isArray(c.contactNumbers) && c.contactNumbers[0]) || '', mobile2: c.mobile2 || (Array.isArray(c.contactNumbers) && c.contactNumbers[1]) || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bank_name: c.bank_name || '', bank_branch: c.bank_branch || '', bank_account_no: c.bank_account_no || '', ifsc_code: c.ifsc_code || '', upi_id: c.upi_id || '', logo: c.logo || '', extraDetails: c.extraDetails || [] });
         } catch (err) {
           console.error(err);
         }
@@ -159,7 +159,9 @@ export default function Settings() {
     const save = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/company', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+          // Construct contactNumbers array from phone/mobile2 for backward compatibility
+          const body = { ...form, contactNumbers: [ ...(form.phone ? [form.phone] : []), ...(form.mobile2 ? [form.mobile2] : []) ] };
+          const res = await fetch('/api/company', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await res.json();
           if (!res.ok) {
           setNotification({ type: 'error', message: data?.error || 'Failed to save company' });
@@ -174,10 +176,12 @@ export default function Settings() {
     return (
       <Card title="Company Profile" className="animate-in fade-in duration-300">
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Input label="Company Name" value={form.name} onChange={(e) => setForm({ ...form, name: (e as any).target.value })} />
             <Input label="GST Number" value={form.gstNumber} onChange={(e) => setForm({ ...form, gstNumber: (e as any).target.value })} />
+            <Input label="CIN (Optional)" value={form.cin} onChange={(e) => setForm({ ...form, cin: (e as any).target.value })} />
             <Input label="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: (e as any).target.value })} />
+            <Input label="Alternate Phone (Optional)" value={form.mobile2} onChange={(e) => setForm({ ...form, mobile2: (e as any).target.value })} />
             <Input label="Email Address" value={form.email} onChange={(e) => setForm({ ...form, email: (e as any).target.value })} />
           </div>
           <Input label="Registered Address" value={form.address} onChange={(e) => setForm({ ...form, address: (e as any).target.value })} />

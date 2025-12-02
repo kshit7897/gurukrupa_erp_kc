@@ -16,7 +16,8 @@ export default function Parties() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Party>>({
-    name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0
+    name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0,
+    billingAddress: { pincode: '' }
   });
 
   const loadParties = async () => {
@@ -54,13 +55,40 @@ export default function Parties() {
   };
 
   const handleSave = async () => {
-    if(!formData.name || !formData.mobile) return;
+    // validation
+    if (!formData.name) {
+      setNotification({ type: 'error', message: 'Name is required' });
+      return;
+    }
+    const mobile = (formData.mobile || '').toString().replace(/\D/g, '');
+    if (!mobile) { setNotification({ type: 'error', message: 'Mobile number is required' }); return; }
+    if (mobile.length !== 10) { setNotification({ type: 'error', message: 'Mobile number must be 10 digits' }); return; }
+    if (formData.email) {
+      const em = (formData.email || '').toString();
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!re.test(em)) { setNotification({ type: 'error', message: 'Invalid email address' }); return; }
+    }
+    const pincode = (formData.billingAddress && (formData.billingAddress as any).pincode) || '';
+    if (pincode) {
+      const pc = pincode.toString().replace(/\D/g, '');
+      if (pc.length !== 6) { setNotification({ type: 'error', message: 'Pincode must be 6 digits' }); return; }
+      // ensure billingAddress.pincode normalized
+      setFormData(prev => ({ ...(prev || {}), billingAddress: { ...(prev?.billingAddress || {}), pincode: pc } }));
+    }
+
     setIsLoading(true);
-    if (editingId) await api.parties.update({ ...formData, id: editingId } as Party);
-    else await api.parties.add(formData as Party);
+    try {
+      if (editingId) await api.parties.update({ ...formData, id: editingId } as Party);
+      else await api.parties.add(formData as Party);
+    } catch (err) {
+      console.error('Failed to save party', err);
+      setNotification({ type: 'error', message: 'Failed to save party' });
+      setIsLoading(false);
+      return;
+    }
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0 });
+    setFormData({ name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0, billingAddress: { pincode: '' } });
     await loadParties();
     setNotification({ type: 'success', message: editingId ? 'Party updated' : 'Party created' });
   };
@@ -153,11 +181,14 @@ export default function Parties() {
         <div className="space-y-4">
           <Input label="Party Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Mobile Number" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} />
+            <Input label="Mobile Number" value={formData.mobile} onChange={e => setFormData({...formData, mobile: (e.target.value || '').toString().replace(/\D/g,'').slice(0,10)})} />
             <Select label="Party Type" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as PartyType})} options={[{label: 'Customer', value: PartyType.CUSTOMER}, {label: 'Supplier', value: PartyType.SUPPLIER}]} />
           </div>
           <Input label="Email Address" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-          <Input label="GSTIN" value={formData.gstNo} onChange={e => setFormData({...formData, gstNo: e.target.value})} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Pincode" value={(formData.billingAddress as any)?.pincode || ''} onChange={e => setFormData({...formData, billingAddress: { ...(formData.billingAddress || {}), pincode: (e.target.value || '').toString().replace(/\D/g,'').slice(0,6) }})} />
+            <Input label="GSTIN" value={formData.gstNo} onChange={e => setFormData({...formData, gstNo: e.target.value})} />
+          </div>
           <Input label="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
           <Input label="Opening Balance" type="number" value={formData.openingBalance} onChange={e => setFormData({...formData, openingBalance: parseFloat(e.target.value)})} />
         </div>

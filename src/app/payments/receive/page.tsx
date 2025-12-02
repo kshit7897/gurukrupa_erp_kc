@@ -1,13 +1,16 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Button, Input, Select, Table, Card, SoftLoader } from '../../../components/ui/Common';
+import { Button, Input, Select, Table, Card, SoftLoader, Modal } from '../../../components/ui/Common';
 import { api } from '../../../lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function ReceivePaymentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [parties, setParties] = useState<any[]>([]);
+  const [selectedPartyObj, setSelectedPartyObj] = useState<any | null>(null);
+  const [partyLoading, setPartyLoading] = useState(false);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selectedParty, setSelectedParty] = useState('');
   const [totalOutstanding, setTotalOutstanding] = useState<number>(0);
@@ -19,6 +22,20 @@ export default function ReceivePaymentPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    // pre-fill from query params if present
+    try {
+      const party = searchParams?.get('party');
+      const amount = searchParams?.get('amount');
+      if (party) {
+        setSelectedParty(party);
+        // immediately fetch authoritative balance when opened via link
+        fetchAndSetParty(party);
+      }
+      if (amount) setAmount(amount);
+    } catch (e) {}
+  }, [searchParams]);
 
   const load = async () => {
     setLoading(true);
@@ -40,12 +57,81 @@ export default function ReceivePaymentPage() {
   // compute total outstanding for selected party (sum of due on unpaid invoices)
   React.useEffect(() => {
     if (!selectedParty) { setTotalOutstanding(0); return; }
-    const total = (invoices || []).filter((i:any) => (i.partyId || '').toString() === selectedParty).reduce((s:number, inv:any) => {
+    // prefer party-level currentBalance (includes advances/unallocated). fallback to invoice due sum
+    const partyObj = (parties || []).find((p:any) => (p._id || p.id || '').toString() === selectedParty.toString());
+    if (partyObj && typeof partyObj.currentBalance === 'number') {
+      setTotalOutstanding(Number(partyObj.currentBalance || 0));
+      return;
+    }
+    const total = (invoices || []).filter((i:any) => (i.partyId || '').toString() === selectedParty.toString()).reduce((s:number, inv:any) => {
       const due = Number(inv.dueAmount != null ? inv.dueAmount : Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0)));
       return s + (due || 0);
     }, 0);
     setTotalOutstanding(total);
-  }, [selectedParty, invoices]);
+  }, [selectedParty, invoices, parties]);
+
+  // Auto-fetch fresh party details when a party is selected to get up-to-date balances
+  React.useEffect(() => {
+    if (!selectedParty) return;
+    let mounted = true;
+    (async () => {
+      try {
+        setPartyLoading(true);
+        const fresh = await api.parties.get(selectedParty);
+        if (!mounted || !fresh) return;
+        setSelectedPartyObj(fresh as any);
+        // update parties cache with fresh data
+        setParties((prev) => {
+          const exists = (prev || []).some((p:any) => (p._id || p.id || '').toString() === selectedParty.toString());
+          if (exists) return (prev || []).map((p:any) => ((p._id || p.id || '').toString() === selectedParty.toString() ? fresh : p));
+          return [(fresh as any), ...(prev || [])];
+        });
+        if (typeof fresh.currentBalance === 'number') {
+          setTotalOutstanding(Number(fresh.currentBalance || 0));
+        } else {
+          // fallback: fetch outstanding report and pick the party balance (matches dashboard source)
+          try {
+            const out = await api.reports.getOutstanding();
+            const found = (out || []).find((pp:any) => (pp._id || pp.id || '').toString() === selectedParty.toString());
+            if (found && typeof found.currentBalance === 'number') {
+              setTotalOutstanding(Number(found.currentBalance || 0));
+            }
+          } catch (e) { /* ignore */ }
+        }
+      } catch (e) { /* ignore */ }
+      finally { setPartyLoading(false); }
+    })();
+    return () => { mounted = false; };
+  }, [selectedParty]);
+
+  // Helper to fetch authoritative party balance and set state immediately
+  const fetchAndSetParty = async (partyId: string) => {
+    if (!partyId) return;
+    try {
+      setPartyLoading(true);
+      const fresh = await api.parties.get(partyId);
+      if (fresh) {
+        setSelectedPartyObj(fresh as any);
+        setParties((prev) => {
+          const exists = (prev || []).some((p:any) => (p._id || p.id || '').toString() === partyId.toString());
+          if (exists) return (prev || []).map((p:any) => ((p._id || p.id || '').toString() === partyId.toString() ? fresh : p));
+          return [(fresh as any), ...(prev || [])];
+        });
+        // accept numeric strings too
+        const cb = fresh.currentBalance;
+        if (typeof cb === 'number') setTotalOutstanding(Number(cb || 0));
+        else if (typeof cb === 'string' && !isNaN(Number(cb))) setTotalOutstanding(Number(cb));
+        else {
+          try {
+            const out = await api.reports.getOutstanding();
+            const found = (out || []).find((pp:any) => (pp._id || pp.id || '').toString() === partyId.toString());
+            if (found && typeof found.currentBalance === 'number') setTotalOutstanding(Number(found.currentBalance || 0));
+          } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    finally { setPartyLoading(false); }
+  };
 
   const handleSave = async () => {
     if (!selectedParty) return alert('Select party');
@@ -53,7 +139,14 @@ export default function ReceivePaymentPage() {
     if (amt <= 0) return alert('Invalid amount');
     setSaving(true);
     try {
-      const outstandingBefore = totalOutstanding;
+      // re-fetch fresh party details to ensure outstanding numbers are accurate
+      let outstandingBefore = totalOutstanding;
+      try {
+        const fresh = await api.parties.get(selectedParty);
+        if (fresh && typeof fresh.currentBalance === 'number') {
+          outstandingBefore = Number(fresh.currentBalance || 0);
+        }
+      } catch (e) { /* ignore */ }
       const outstandingAfter = Math.max(0, outstandingBefore - amt);
       const payload: any = {
         partyId: selectedParty,
@@ -68,10 +161,12 @@ export default function ReceivePaymentPage() {
         outstandingAfter
       };
       const res = await api.payments.add(payload);
-      // open receipt preview for the created payment
+      // open receipt modal for the created payment (mobile-friendly popup)
       const pid = res?._id || res?.id || res?.paymentId;
       if (pid) {
-        router.push(`/payments/receipt/${pid}`);
+        // show modal instead of navigating
+        setSavedReceiptId(pid);
+        setShowReceiptModal(true);
       } else {
         router.push('/admin/payments');
       }
@@ -81,20 +176,49 @@ export default function ReceivePaymentPage() {
     } finally { setSaving(false); }
   };
 
+  // modal state for receipt preview
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
+  const openReceiptInNewTab = (path: string) => {
+    try { window.open(path, '_blank'); } catch (e) { window.location.href = path; }
+  };
+  const downloadFromIframe = (id: string) => {
+    // simplified: open download URL in new tab to trigger download on mobile/desktop
+    const src = `/payments/receipt/${id}?download=1`;
+    openReceiptInNewTab(src);
+  };
+
+  const printIframe = () => {
+    // open receipt in new tab and try to trigger print there
+    if (!savedReceiptId) return;
+    const url = `/payments/receipt/${savedReceiptId}`;
+    try {
+      const w = window.open(url, '_blank');
+      if (w) {
+        w.focus();
+        setTimeout(() => { try { w.print(); } catch (e) { /* ignore */ } }, 600);
+      } else {
+        window.location.href = url;
+      }
+    } catch (e) {
+      window.location.href = url;
+    }
+  };
+
   if (loading) return <div className="p-6"><SoftLoader text="Loading..." /></div>;
 
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Receive Payment (Customer)</h1>
+        <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">Received Payment</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { /* export can be added later */ }}>Export</Button>
           <Button onClick={() => router.push('/admin/payments')}>Back</Button>
         </div>
       </div>
 
-      <Card>
-        <div className="grid grid-cols-2 gap-4">
+      <Card className="max-w-lg mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm block mb-1">Party</label>
             <Select value={selectedParty} onChange={(e:any)=> setSelectedParty(e.target.value)} options={[{ label: 'Select party', value: '' }, ...(parties || []).filter((p:any)=> (p.type||'').toString().toLowerCase()==='customer').map((p:any)=>({ label: p.name, value: p._id || p.id }))]} />
@@ -126,11 +250,27 @@ export default function ReceivePaymentPage() {
             <div><span className="font-medium">Total Outstanding:</span> ₹ {totalOutstanding.toFixed(2)}</div>
             <div><span className="font-medium">Remaining After Payment:</span> ₹ {(Math.max(0, totalOutstanding - Number(amount || 0))).toFixed(2)}</div>
           </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => router.push('/admin/payments')}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Payment'}</Button>
+          <div className="mt-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2">
+              <Button variant="ghost" className="w-full sm:w-auto" onClick={() => router.push('/admin/payments')}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">{saving ? 'Saving...' : 'Save Payment'}</Button>
+            </div>
           </div>
         </div>
+        {showReceiptModal && (
+          <Modal isOpen={showReceiptModal} onClose={() => setShowReceiptModal(false)} title="Payment Saved" full showBack>
+            <div className="flex flex-col h-full">
+              <div className="mb-3 flex gap-2">
+                <Button variant="outline" onClick={() => savedReceiptId && downloadFromIframe(savedReceiptId)}>Download PDF</Button>
+                <Button onClick={() => savedReceiptId && printIframe()}>Print</Button>
+                <Button variant="ghost" onClick={() => savedReceiptId && openReceiptInNewTab(`/payments/receipt/${savedReceiptId}`)}>Open in new tab</Button>
+              </div>
+              <div className="mt-2">
+                <div className="text-sm text-slate-600">Use the buttons above to download or open the receipt in a new tab for printing.</div>
+              </div>
+            </div>
+          </Modal>
+        )}
       </Card>
     </div>
   );

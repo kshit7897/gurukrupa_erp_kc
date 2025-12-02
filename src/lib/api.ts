@@ -194,12 +194,30 @@ export const api = {
         return await res.json();
       });
     }
+    ,
+    delete: async (id: string) => {
+      return withLoader(async () => {
+        const res = await fetch(`/api/payments?id=${id}`, { method: 'DELETE' });
+        let out: any = null;
+        try { out = await res.json(); } catch (e) { out = null; }
+        if (!res.ok) {
+          const err = out || {};
+          throw new Error(err?.error || 'Failed to delete payment');
+        }
+        dataEvents.dispatch();
+        try { notify('success', 'Payment deleted'); } catch (e) {}
+        return out;
+      });
+    }
   },
   invoices: {
     add: async (invoice: any) => {
       return withLoader(async () => {
         const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoice) });
-        if (!res.ok) throw new Error('Failed to create invoice');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Failed to create invoice');
+        }
         const out = await res.json();
         dataEvents.dispatch();
         try { notify('success', 'Invoice created'); } catch (e) {}
@@ -220,6 +238,36 @@ export const api = {
         return await res.json();
       });
     }
+      ,
+      update: async (id: string, invoice: any) => {
+        return withLoader(async () => {
+          const res = await fetch(`/api/invoices/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(invoice) });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err?.error || 'Failed to update invoice');
+          }
+          const out = await res.json();
+          dataEvents.dispatch();
+          try { notify('success', 'Invoice updated'); } catch (e) {}
+          return out;
+        });
+      },
+      delete: async (id: string) => {
+        return withLoader(async () => {
+          const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+          let out: any = null;
+          try {
+            out = await res.json();
+          } catch (e) { out = null; }
+          if (!res.ok) {
+            const err = out || {};
+            throw new Error(err?.error || 'Failed to delete invoice');
+          }
+          dataEvents.dispatch();
+          try { notify('success', out?.warnings && out.warnings.length ? 'Invoice deleted (with warnings)' : 'Invoice deleted'); } catch (e) {}
+          return out;
+        });
+      }
   },
   reports: {
     getOutstanding: async () => {

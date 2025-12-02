@@ -7,6 +7,7 @@ import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText,
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
 import { api } from '../lib/api';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 interface TransactionFormProps {
   type: 'SALES' | 'PURCHASE';
@@ -15,6 +16,7 @@ interface TransactionFormProps {
 export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const isSales = type === 'SALES';
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [parties, setParties] = useState<Party[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -26,6 +28,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [dueDate, setDueDate] = useState('');
   const [addedItems, setAddedItems] = useState<InvoiceItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
@@ -53,7 +56,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   
   const [newPartyData, setNewPartyData] = useState<Partial<Party>>({
-    name: '', mobile: '', type: isSales ? PartyType.CUSTOMER : PartyType.SUPPLIER, email: '', gstNo: '', address: '', openingBalance: 0
+    name: '', mobile: '', type: isSales ? PartyType.CUSTOMER : PartyType.SUPPLIER, email: '', gstNo: '', cin: '', address: '', openingBalance: 0
   });
 
   const [newItemData, setNewItemData] = useState<Partial<Item>>({
@@ -77,6 +80,35 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // If URL contains ?id=..., load invoice for editing
+  useEffect(() => {
+    const id = searchParams?.get?.('id') || null;
+    if (!id) return;
+    setEditingId(id);
+    (async () => {
+      try {
+        const inv: any = await api.invoices.get(id);
+        if (!inv) return;
+        // populate fields
+        setInvoiceDate(inv.date || new Date().toISOString().split('T')[0]);
+        setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
+        setPaymentDetails(inv.paymentDetails || '');
+        setVehicleNo(inv.vehicle_no || '');
+        setDeliveryDateMeta(inv.delivery_date || '');
+        setDueDate(inv.dueDate || '');
+        setAddedItems(inv.items || []);
+        setBillingAddressState(inv.billingAddress || {});
+        setShippingAddress(inv.shippingAddress || {});
+        try {
+          const p = await api.parties.get(inv.partyId);
+          if (p) setSelectedParty(p as Party);
+        } catch (e) { console.error('Failed to load party for edit', e); }
+      } catch (e) {
+        console.error('Failed to load invoice for edit', e);
+      }
+    })();
+  }, [searchParams]);
 
   // Effect to calculate Due Date when mode changes to Credit
   useEffect(() => {
@@ -152,9 +184,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   };
 
   const handleSaveNewParty = async () => {
-    if(!newPartyData.name || !newPartyData.mobile) {
-      showError("Party Name and Mobile Number are required.");
-      return;
+    // validation
+    if (!newPartyData.name) { showError('Party Name is required.'); return; }
+    const mobile = (newPartyData.mobile || '').toString().replace(/\D/g, '');
+    if (!mobile) { showError('Mobile number is required.'); return; }
+    if (mobile.length !== 10) { showError('Mobile number must be 10 digits.'); return; }
+    if (newPartyData.email) {
+      const em = (newPartyData.email || '').toString();
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!re.test(em)) { showError('Invalid email address.'); return; }
     }
     try {
       const created = await api.parties.add(newPartyData as Party);
@@ -295,6 +333,29 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       showError("Invoice is empty. Please add at least one item.");
       return;
     }
+    // Client-side stock validation to avoid server-side stock update failures
+    if (isSales) {
+      const itemMap: Record<string, Item> = {};
+      items.forEach(i => { if (i && (i as any).id) itemMap[(i as any).id] = i; });
+      const problems: string[] = [];
+      for (const line of addedItems) {
+        const iid = (line as any).itemId;
+        const master = itemMap[iid];
+        if (!master) {
+          problems.push(`Item not found: ${line.name || iid}`);
+          continue;
+        }
+        const available = Number(master.stock || 0);
+        const required = Number(line.qty || 0);
+        if (required > available) {
+          problems.push(`${master.name}: available ${available}, required ${required}`);
+        }
+      }
+      if (problems.length > 0) {
+        showError('Stock problems: ' + problems.join('; '));
+        return;
+      }
+    }
     if (paymentMode !== 'cash' && paymentMode !== 'credit' && !paymentDetails) {
        if(!confirm('You have not entered payment remarks (Cheque No/Trans ID). Continue?')) return;
     }
@@ -350,13 +411,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         }
       };
 
-      const savedInvoice = await api.invoices.add(newInvoice);
-      // Redirect to preview and indicate saved so preview can show a success banner
-      router.replace(`/admin/invoice/${savedInvoice.id}?saved=1`);
+      if (editingId) {
+        const savedInvoice = await api.invoices.update(editingId, newInvoice);
+        router.replace(`/admin/invoice/${savedInvoice.id}?saved=1`);
+      } else {
+        const savedInvoice = await api.invoices.add(newInvoice);
+        // Redirect to preview and indicate saved so preview can show a success banner
+        router.replace(`/admin/invoice/${savedInvoice.id}?saved=1`);
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save transaction", error);
-      showError("Failed to save transaction. Please check your connection and try again.");
+      const msg = (error && error.message) ? error.message : "Failed to save transaction. Please check your connection and try again.";
+      showError(msg);
     } finally {
       setIsSaving(false);
     }
@@ -540,12 +607,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
              <MapPin className="h-3 w-3" /> Delivery Address
            </h3>
            <div className="text-sm text-slate-500"> 
-             {isSales && (
                <label className="inline-flex items-center gap-2">
                  <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
                  <span className="text-sm">Delivery address same as party address</span>
                </label>
-             )}
            </div>
         </div>
 
@@ -769,7 +834,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         <div className="space-y-4">
           <Input label="Party Name" value={newPartyData.name} onChange={e => setNewPartyData({...newPartyData, name: e.target.value})} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Mobile Number" value={newPartyData.mobile} onChange={e => setNewPartyData({...newPartyData, mobile: e.target.value})} />
+            <Input label="Mobile Number" value={newPartyData.mobile} onChange={e => setNewPartyData({...newPartyData, mobile: (e.target.value || '').toString().replace(/\D/g,'').slice(0,10)})} />
             <Select 
               label="Party Type" 
               value={newPartyData.type}
@@ -778,7 +843,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             />
           </div>
           <Input label="GSTIN (Optional)" value={newPartyData.gstNo} onChange={e => setNewPartyData({...newPartyData, gstNo: e.target.value})} />
-          <Input label="Address" value={newPartyData.address} onChange={e => setNewPartyData({...newPartyData, address: e.target.value})} />
+          <Input label="CIN (Optional)" value={newPartyData.cin} onChange={e => setNewPartyData({...newPartyData, cin: e.target.value})} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Pincode (Optional)" value={(newPartyData.billingAddress as any)?.pincode || ''} onChange={e => setNewPartyData({...newPartyData, billingAddress: { ...(newPartyData.billingAddress || {}), pincode: (e.target.value || '').toString().replace(/\D/g,'').slice(0,6) }})} />
+            <Input label="Address" value={newPartyData.address} onChange={e => setNewPartyData({...newPartyData, address: e.target.value})} />
+          </div>
         </div>
       </Modal>
 

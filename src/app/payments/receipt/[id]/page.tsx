@@ -5,6 +5,7 @@ import { Printer, Download, ArrowLeft } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Party, Invoice } from '../../../../types';
+import { formatDate } from '../../../../lib/formatDate';
 
 export default function PaymentReceipt() {
   const { id } = useParams();
@@ -16,6 +17,8 @@ export default function PaymentReceipt() {
   const [loading, setLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [savedFlag, setSavedFlag] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -47,8 +50,35 @@ export default function PaymentReceipt() {
 
         // load invoice details for allocations
         const allocs = Array.isArray(pay.allocations) ? pay.allocations : [];
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setSavedFlag(params.get('saved') === '1');
+      if (params.get('download') === '1') {
+        setTimeout(() => {
+          const el = document.getElementById('receipt-content');
+          if (el) {
+            try { handleDownload(); } catch (e) { /* ignore */ }
+          }
+        }, 300);
+      }
+    } catch (e) { /* ignore */ }
         const loaded: Invoice[] = [];
         for (const a of allocs) {
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const a4WidthPx = 794; const padding = 24;
+        if (containerWidth < (a4WidthPx + padding)) {
+          setScale((containerWidth - padding) / a4WidthPx);
+        } else { setScale(1); }
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [loading]);
           if (!a.invoiceId) continue;
           try {
             const inv = await api.invoices.get(a.invoiceId);
@@ -78,14 +108,18 @@ export default function PaymentReceipt() {
   if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><div><SoftLoader size="lg" text="Loading receipt..." /></div></div>;
   if (!payment) return <div className="text-center py-20 bg-slate-50 h-full"><h2 className="text-2xl font-bold text-slate-700">Payment Not Found</h2><Button onClick={() => router.push('/admin/payments')} className="mt-4">Back to Payments</Button></div>;
 
-  const title = payment.type === 'RECEIVE' ? 'RECEIPT' : 'PAYMENT VOUCHER';
+  const title = String(payment?.type || '').toLowerCase() === 'receive' ? 'RECEIPT' : 'PAYMENT VOUCHER';
   const totalApplied = (Array.isArray(payment.allocations) ? payment.allocations.reduce((s: number, a: any) => s + (a.amount || 0), 0) : 0) || 0;
 
   return (
     <div className="h-full bg-slate-100 flex flex-col">
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print shadow-sm shrink-0">
         <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3"><Button variant="ghost" onClick={() => router.back()} size="sm" className="text-slate-600"><ArrowLeft className="h-5 w-5" /> Back</Button><h2 className="font-bold text-slate-800">Payment Receipt</h2></div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => router.back()} size="sm" className="text-slate-600"><ArrowLeft className="h-5 w-5" /> Back</Button>
+            {/* hide verbose label on small screens so mobile preview/PDF fits */}
+            <h2 className="font-bold text-slate-800 hidden sm:block">Payment Receipt</h2>
+          </div>
           <div className="flex space-x-3">
             <Button variant="outline" onClick={handleDownload} disabled={isDownloading}>
               {isDownloading ? (<><SoftLoader size="sm" /> Saving...</>) : (<><Download className="h-4 w-4 mr-2" /> PDF</>)}
@@ -94,9 +128,11 @@ export default function PaymentReceipt() {
           </div>
         </div>
       </div>
+      {savedFlag && <div className="max-w-5xl mx-auto mt-4 p-3 text-sm rounded bg-green-100 text-green-800">Payment saved successfully</div>}
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 print:p-0 print:overflow-visible bg-slate-100/50 flex flex-col items-center">
-        <div className="relative" style={{ width: '210mm' }}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 print:p-0 print:overflow-visible bg-slate-100/50 flex flex-col items-center" ref={containerRef}>
+        <style>{`@media print { #receipt-scaled { transform: none !important; width: 210mm !important; margin-bottom: 0 !important; } #receipt-content { box-shadow: none !important; min-height: auto !important; padding: 0 !important; } }`}</style>
+        <div id="receipt-scaled" className="relative transition-transform print:transform-none print:w-full" style={{ width: '210mm', transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: `-${(1 - scale) * 297}mm` }}>
           <div id="receipt-content" className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0" style={{ padding: '10mm 12mm' }}>
             <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4">
               <div className="flex items-start gap-4 w-2/3">
@@ -117,6 +153,7 @@ export default function PaymentReceipt() {
                     <div>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
                     <div className="mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
                     <div className="mt-1 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
+                    <div className="mt-1 font-semibold">CIN: {company?.cin || '-'}</div>
                   </div>
                 </div>
               </div>
@@ -136,7 +173,7 @@ export default function PaymentReceipt() {
                       })()}
                     </div>
                   </div>
-                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Date</div><div className="w-48">{(payment.date || '').toString().slice(0,10)}</div></div>
+                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Date</div><div className="w-48">{formatDate(payment.date)}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Payment Mode</div><div className="w-48">{payment.mode || payment.paymentMode || 'cash'}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Reference No.</div><div className="w-48">{payment.reference || '-'}</div></div>
                 </div>
@@ -145,7 +182,7 @@ export default function PaymentReceipt() {
 
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="col-span-2 bg-slate-50 border border-slate-100 rounded p-3">
-                <div className="text-xs font-semibold text-slate-500 uppercase">{payment.type === 'RECEIVE' ? 'Paid By' : 'Paid To'}</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase">{(String(payment.type || '').toLowerCase() === 'receive') ? 'Paid By' : 'Paid To'}</div>
                 <div className="mt-2 text-sm font-semibold text-slate-800">{party?.name || payment.partyName || '-'}</div>
                 <div className="mt-1 text-sm text-slate-600 leading-tight">
                   <div>{party?.billingAddress?.line1 || party?.address || ''}</div>
@@ -153,6 +190,7 @@ export default function PaymentReceipt() {
                   <div>{party?.billingAddress?.city || ''}{party?.billingAddress?.pincode ? ` - ${party.billingAddress.pincode}` : ''}</div>
                   <div className="mt-1">Contact: {party?.phone || party?.mobile || '-'}</div>
                   <div className="mt-1">GSTIN: {party?.gstin || party?.gstNo || '-'}</div>
+                  <div className="mt-1">CIN: {party?.cin || '-'}</div>
                 </div>
               </div>
               <div className="col-span-1 bg-white border border-slate-100 rounded p-3 text-sm">

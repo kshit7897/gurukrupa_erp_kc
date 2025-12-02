@@ -18,8 +18,9 @@ export default function Reports() {
   const [parties, setParties] = useState<{ label: string; value: string }[]>([]);
   const [partiesLoading, setPartiesLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const today = new Date().toISOString().slice(0,10);
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
   const [stockRows, setStockRows] = useState<any[] | null>(null);
   const [outstandingRows, setOutstandingRows] = useState<any[] | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
@@ -53,7 +54,7 @@ export default function Reports() {
   useEffect(() => {
     let mounted = true;
     if (activeTab !== 'Stock') return;
-    (async () => {
+    const load = async () => {
       try {
         setStockLoading(true);
         const res = await fetch('/api/reports/stock');
@@ -63,15 +64,18 @@ export default function Reports() {
         setStockRows(data || []);
       } catch (e) { console.error(e); setStockRows([]); }
       finally { if (mounted) setStockLoading(false); }
-    })();
-    return () => { mounted = false; };
+    };
+    load();
+    const onData = () => { load().catch(() => {}); };
+    document.addEventListener('gurukrupa:data:updated', onData);
+    return () => { mounted = false; document.removeEventListener('gurukrupa:data:updated', onData); };
   }, [activeTab]);
 
   // fetch outstanding when Outstanding tab active
   useEffect(() => {
     let mounted = true;
     if (activeTab !== 'Outstanding') return;
-    (async () => {
+    const load = async () => {
       try {
         setOutstandingLoading(true);
         const res = await fetch('/api/reports/outstanding');
@@ -81,17 +85,40 @@ export default function Reports() {
         setOutstandingRows(data || []);
       } catch (e) { console.error(e); setOutstandingRows([]); }
       finally { if (mounted) setOutstandingLoading(false); }
-    })();
-    return () => { mounted = false; };
+    };
+    load();
+    const onData = () => { load().catch(() => {}); };
+    document.addEventListener('gurukrupa:data:updated', onData);
+    return () => { mounted = false; document.removeEventListener('gurukrupa:data:updated', onData); };
   }, [activeTab]);
 
   
+
+  const handleExport = () => {
+    // Export the active tab's report area as PDF using html2pdf
+    let elId: string | null = null;
+    if (activeTab === 'Stock') elId = 'report-stock-content';
+    else if (activeTab === 'Outstanding') elId = 'report-outstanding-content';
+    else if (activeTab === 'Ledger') {
+      alert('Open the Ledger Preview (Get Ledger) and use its PDF/Print buttons to export.');
+      return;
+    }
+    if (!elId) return alert('No report selected for export');
+    let el = document.getElementById(elId);
+    // try desktop alternative ids
+    if (!el) el = document.getElementById(`${elId}-desktop`) || document.getElementById(`${elId}-content-desktop`);
+    if (!el) return alert('Report content not ready for export');
+    // @ts-ignore
+    if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
+    // @ts-ignore
+    window.html2pdf().set({ margin: 0, filename: `${activeTab}_Report.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(el).save();
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
         <h1 className="text-2xl font-bold text-slate-800">Business Reports</h1>
-        <Button variant="outline" icon={Download}>Export PDF</Button>
+        <Button variant="outline" icon={Download} onClick={handleExport}>Export PDF</Button>
       </div>
 
       <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger' ]} />
@@ -99,7 +126,7 @@ export default function Reports() {
       {/* Stock Tab */}
       {activeTab === 'Stock' && (
         <>
-          <div className="md:hidden space-y-4">
+          <div id="report-stock-content" className="md:hidden space-y-4">
             {stockLoading ? (
               <div className="space-y-2">
                 <div className="h-20 bg-slate-200 rounded animate-pulse" />
@@ -121,7 +148,7 @@ export default function Reports() {
             ))}
           </div>
 
-          <div className="hidden md:block">
+          <div id="report-stock-content-desktop" className="hidden md:block">
             <Card title="Stock Summary">
               <Table headers={[ 'Item Name', 'Purchase Rate', 'Stock', 'Total Value' ]}>
                 {stockLoading ? (
@@ -143,7 +170,7 @@ export default function Reports() {
       {/* Outstanding Tab */}
       {activeTab === 'Outstanding' && (
         <>
-          <div className="md:hidden space-y-4">
+          <div id="report-outstanding-content" className="md:hidden space-y-4">
             {outstandingLoading ? (
               <div className="space-y-2">
                 <div className="h-20 bg-slate-200 rounded animate-pulse" />
@@ -170,7 +197,7 @@ export default function Reports() {
             ))}
           </div>
 
-          <div className="hidden md:block">
+          <div id="report-outstanding-content-desktop" className="hidden md:block">
             <Card title="Outstanding Payments">
               <Table headers={[ 'Party', 'Mobile', 'Status', 'Amount' ]}>
                 {outstandingLoading ? (

@@ -22,6 +22,7 @@ const PartySchema = new mongoose.Schema({
     pincode: String
   },
   gstin: String,
+  cin: String,
   phone: String,
   openingBalance: { type: Number, default: 0 },
   type: { type: String, required: true, enum: ['Customer', 'Supplier'] },

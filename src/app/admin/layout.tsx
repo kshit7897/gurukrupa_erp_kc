@@ -25,15 +25,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <LayoutDashboard className="h-5 w-5" />
           <span className="text-[10px] mt-1 font-medium">Home</span>
         </Link>
-        <Link href="/admin/sales/create" className="flex flex-col items-center p-2 text-slate-500 relative">
-          <div className="absolute -top-6 bg-blue-600 text-white rounded-full h-12 w-12 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-slate-50">
-            <span className="text-2xl font-light mb-1">+</span>
-          </div>
-          <span className="text-[10px] mt-8 font-medium">Sale</span>
+        <Link href="/admin/sales/create" className="flex flex-col items-center p-2 text-slate-500">
+          <div className="h-5 w-5 flex items-center justify-center"><ShoppingCart className="h-5 w-5" /></div>
+          <span className="text-[10px] mt-1 font-medium">Sale</span>
         </Link>
         <Link href="/admin/parties" className={`flex flex-col items-center p-2 ${pathname.includes('parties') ? 'text-blue-600' : 'text-slate-500'}`}>
           <Users className="h-5 w-5" />
           <span className="text-[10px] mt-1 font-medium">Parties</span>
+        </Link>
+        <Link href="/admin/purchase/create" className={`flex flex-col items-center p-2 ${pathname.includes('purchase') ? 'text-blue-600' : 'text-slate-500'}`}>
+          <ShoppingCart className="h-5 w-5" />
+          <span className="text-[10px] mt-1 font-medium">Purchase</span>
         </Link>
       </nav>
     </div>

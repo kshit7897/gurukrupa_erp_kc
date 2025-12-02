@@ -21,15 +21,23 @@ export async function GET(req: Request) {
 
     const invoices = await Invoice.find(q).sort({ date: 1 }).lean();
 
-    const invTx = invoices.map(i => ({
-      id: i.invoiceNo || (i._id || ''),
-      date: i.date,
-      ref: i.invoiceNo || (i._id || ''),
-      type: i.type === 'SALES' ? 'SALE' : 'PURCHASE',
-      credit: i.type === 'PURCHASE' ? (i.grandTotal || 0) : 0,
-      debit: i.type === 'SALES' ? (i.grandTotal || 0) : 0,
-      desc: `${i.type === 'SALES' ? 'Sale' : 'Purchase'} Invoice`
-    }));
+    const invTx = invoices.map(i => {
+      const due = (i as any).dueAmount != null ? (i as any).dueAmount : Math.max(0, (i.grandTotal || 0) - ((i as any).paidAmount || 0));
+      const paymentMode = ((i as any).paymentMode || (i as any).payment_mode || '') as string;
+      const isCashInvoice = paymentMode.toString().toLowerCase() === 'cash';
+      return {
+        id: i.invoiceNo || (i._id || ''),
+        date: i.date,
+        ref: i.invoiceNo || (i._id || ''),
+        type: i.type === 'SALES' ? 'SALE' : 'PURCHASE',
+        // use due amount (outstanding) instead of full grandTotal so fully-paid invoices
+        // or cash-paid invoices don't artificially inflate the party ledger balance
+        credit: i.type === 'PURCHASE' ? due : 0,
+        debit: i.type === 'SALES' ? due : 0,
+        cash: isCashInvoice,
+        desc: `${i.type === 'SALES' ? 'Sale' : 'Purchase'} Invoice`
+      };
+    });
 
     // include payments for this party in the date range
     const payQuery: any = { partyId };
@@ -50,6 +58,7 @@ export async function GET(req: Request) {
         type: 'PAYMENT',
         credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (p.amount || 0) : 0,
         debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (p.amount || 0) : 0,
+        cash: ((p.mode || '').toString().toLowerCase() === 'cash'),
         desc: `Payment ${p.mode || ''}`
       });
 
@@ -65,6 +74,7 @@ export async function GET(req: Request) {
             type: 'PAYMENT_ALLOC',
             credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (a.amount || 0) : 0,
             debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (a.amount || 0) : 0,
+            cash: ((p.mode || '').toString().toLowerCase() === 'cash'),
             desc: `Allocated to Invoice ${invRef}`
           });
         }

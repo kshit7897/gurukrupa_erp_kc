@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { formatDate } from '../../../lib/formatDate';
 
 // Client-side printable invoice page — reads ?id and optional ?print=1
 export default function ReprintInvoicePage() {
@@ -39,7 +40,7 @@ export default function ReprintInvoicePage() {
 
       <div className="mt-4">
         <div><strong>Party:</strong> {invoice.partyName || invoice.partyId}</div>
-        <div><strong>Date:</strong> {(invoice.date||'').slice(0,10)}</div>
+        <div><strong>Date:</strong> {formatDate(invoice.date)}</div>
         <div className="mt-4">
           <table className="w-full table-auto border-collapse">
             <thead>

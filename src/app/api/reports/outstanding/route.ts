@@ -20,14 +20,25 @@ export async function GET() {
         .filter(i => ((p.type || '').toString().toLowerCase() === 'customer' ? i.type === 'SALES' : i.type === 'PURCHASE'))
         .reduce((s, i) => s + (i.grandTotal || 0), 0);
 
-      // Sum payments for this party, but consider payment.type to distinguish receive vs pay
+      // Sum payments for this party (all payments)
       const totalReceived = payments
         .filter((pay: any) => (pay.partyId || '').toString() === partyId && (pay.type === 'receive' || pay.type === 'pay'))
         .reduce((s: number, pay: any) => s + (pay.amount || 0), 0);
 
-      // Current balance: opening + outstanding invoices (dueAmount)
+      // Outstanding from invoices (uses invoice.dueAmount when available)
       const outstandingFromInvoices = partyInvoices.reduce((s, i) => s + (i.dueAmount != null ? i.dueAmount : Math.max(0, (i.grandTotal || 0) - (i.paidAmount || 0))), 0);
-      let currentBalance = (p.openingBalance || 0) + outstandingFromInvoices;
+
+      // Compute unallocated payments for this party (advances)
+      const partyUnallocatedReceipts = payments
+        .filter((pay: any) => (pay.partyId || '').toString() === partyId && pay.type === 'receive' && (!pay.allocations || (Array.isArray(pay.allocations) && pay.allocations.length === 0)))
+        .reduce((s: number, pay: any) => s + (pay.amount || 0), 0);
+      const partyUnallocatedPayments = payments
+        .filter((pay: any) => (pay.partyId || '').toString() === partyId && pay.type === 'pay' && (!pay.allocations || (Array.isArray(pay.allocations) && pay.allocations.length === 0)))
+        .reduce((s: number, pay: any) => s + (pay.amount || 0), 0);
+
+      // Current balance mirrors dashboard logic: opening + outstanding invoices
+      // then adjust for this party's unallocated receipts/payments (advances)
+      let currentBalance = (p.openingBalance || 0) + outstandingFromInvoices - (partyUnallocatedReceipts || 0) + (partyUnallocatedPayments || 0);
 
       // Keep the older-style fields for compatibility
       return { ...p, billed, totalReceived, currentBalance };
