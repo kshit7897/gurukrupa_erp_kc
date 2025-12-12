@@ -5,8 +5,6 @@ import { useSearchParams } from 'next/navigation';
 import { Button, Table, Card, Select, Input } from '../../../components/ui/Common';
 import { Download } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-
 const Tabs = ({ active, setActive, tabs }: any) => (
   <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-full md:w-auto mb-6 overflow-x-auto">
     {tabs.map((tab: string) => (
