@@ -107,27 +107,71 @@ export default function Settings() {
     </Card>
   );
 
+  const PERMISSION_CATALOG = [
+    { id: 'dashboard', label: 'Dashboard', desc: 'View dashboard stats' },
+    { id: 'sales', label: 'Sales', desc: 'Create and view sales invoices' },
+    { id: 'purchase', label: 'Purchase', desc: 'Create and view purchase vouchers' },
+    { id: 'invoices', label: 'Invoices', desc: 'View/print invoice history' },
+    { id: 'parties', label: 'Parties', desc: 'Manage customers and suppliers' },
+    { id: 'items', label: 'Items', desc: 'Manage products/items' },
+    { id: 'payments', label: 'Payments', desc: 'Record and manage payments' },
+    { id: 'reports', label: 'Reports', desc: 'Access reports' },
+    { id: 'settings', label: 'Settings', desc: 'Access settings' }
+  ];
+
   const PermissionSettings = () => {
     const [selectedRole, setSelectedRole] = useState('staff');
-    const [permissions, setPermissions] = useState([
-      { id: 'create_invoice', label: 'Create Invoice', desc: 'Can create new sales invoices', checked: true },
-      { id: 'edit_invoice', label: 'Edit Invoice', desc: 'Can edit existing invoices', checked: false },
-      { id: 'view_reports', label: 'View Reports', desc: 'Access to financial reports', checked: false },
-    ]);
-    const handleToggle = (id: string) => setPermissions(prev => prev.map(p => p.id === id ? { ...p, checked: !p.checked } : p));
+    const [permissions, setPermissions] = useState<string[]>([]);
+    const [savingPerms, setSavingPerms] = useState(false);
+
+    const loadPerms = async (role: string) => {
+      try {
+        const res = await fetch(`/api/permissions?role=${role}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setPermissions(data.permissions || []);
+      } catch (e) { /* ignore */ }
+    };
+
+    useEffect(() => { loadPerms(selectedRole); }, [selectedRole]);
+
+    const handleToggle = (id: string) => {
+      setPermissions(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+    };
     const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => setSelectedRole(e.target.value);
+    const handleSave = async () => {
+      setSavingPerms(true);
+      try {
+        const res = await fetch('/api/permissions', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: selectedRole, permissions }) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Failed to save permissions');
+        setNotification({ type: 'success', message: 'Permissions saved' });
+      } catch (err: any) {
+        setNotification({ type: 'error', message: err?.message || 'Failed to save permissions' });
+      }
+      setSavingPerms(false);
+    };
     return (
       <Card title="Role Permissions" className="animate-in fade-in duration-300">
          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
             <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Select Role to Edit:</label>
             <select value={selectedRole} onChange={handleRoleChange} className="w-full sm:w-auto border-slate-300 rounded-md text-sm p-2 bg-white shadow-sm outline-none">
-              <option value="admin">Admin</option>
+              <option value="admin">Admin (all access)</option>
               <option value="manager">Manager</option>
               <option value="staff">Staff</option>
             </select>
          </div>
-         <div className="space-y-1">{permissions.map((perm) => (<div key={perm.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors"><div className="pr-4"><p className="text-sm font-medium text-slate-900">{perm.label}</p><p className="text-xs text-slate-500">{perm.desc}</p></div><Switch checked={perm.checked} onChange={() => handleToggle(perm.id)} /></div>))}</div>
-         <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><Button onClick={() => setNotification({ type: 'success', message: 'Permissions saved' })}><CheckCircle2 className="w-4 h-4 mr-2" />Save Permissions</Button></div>
+         <div className="space-y-1">{PERMISSION_CATALOG.map((perm) => (
+          <div key={perm.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
+            <div className="pr-4"><p className="text-sm font-medium text-slate-900">{perm.label}</p><p className="text-xs text-slate-500">{perm.desc}</p></div>
+            {selectedRole === 'admin' ? (
+              <div className="w-10 h-6 bg-blue-500 rounded-full" />
+            ) : (
+              <Switch checked={permissions.includes(perm.id)} onChange={() => handleToggle(perm.id)} />
+            )}
+          </div>
+         ))}</div>
+         <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end"><Button onClick={handleSave} disabled={savingPerms || selectedRole === 'admin'}>{savingPerms ? (<><SoftLoader size="sm" /> Saving...</>) : (<><CheckCircle2 className="w-4 h-4 mr-2" />Save Permissions</>)} </Button></div>
       </Card>
     );
   };
@@ -136,7 +180,7 @@ export default function Settings() {
   const CompanyCard = () => {
     const [company, setCompany] = useState<any | null>(null);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState<any>({ name: '', gstNumber: '', cin: '', phone: '', mobile2: '', email: '', address: '', city: '', state: '', pincode: '', bank_name: '', bank_branch: '', bank_account_no: '', ifsc_code: '', upi_id: '', logo: '', extraDetails: [] });
+    const [form, setForm] = useState<any>({ name: '', gstNumber: '', cin: '', phone: '', mobile2: '', email: '', address: '', city: '', state: '', pincode: '', bank_name: '', bank_branch: '', bank_account_no: '', ifsc_code: '', upi_id: '', logo: '', extraDetails: [], openingBalance: 0 });
 
     useEffect(() => {
       let mounted = true;
@@ -148,7 +192,7 @@ export default function Settings() {
           if (!mounted) return;
           const c = data.company || null;
           setCompany(c);
-          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', cin: c.cin || '', phone: c.phone || (Array.isArray(c.contactNumbers) && c.contactNumbers[0]) || '', mobile2: c.mobile2 || (Array.isArray(c.contactNumbers) && c.contactNumbers[1]) || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bank_name: c.bank_name || '', bank_branch: c.bank_branch || '', bank_account_no: c.bank_account_no || '', ifsc_code: c.ifsc_code || '', upi_id: c.upi_id || '', logo: c.logo || '', extraDetails: c.extraDetails || [] });
+          if (c) setForm({ name: c.name || '', gstNumber: c.gstNumber || '', cin: c.cin || '', phone: c.phone || (Array.isArray(c.contactNumbers) && c.contactNumbers[0]) || '', mobile2: c.mobile2 || (Array.isArray(c.contactNumbers) && c.contactNumbers[1]) || '', email: c.email || '', address: c.address || '', city: c.city || '', state: c.state || '', pincode: c.pincode || '', bank_name: c.bank_name || '', bank_branch: c.bank_branch || '', bank_account_no: c.bank_account_no || '', ifsc_code: c.ifsc_code || '', upi_id: c.upi_id || '', logo: c.logo || '', extraDetails: c.extraDetails || [], openingBalance: c.openingBalance ?? 0 });
         } catch (err) {
           console.error(err);
         }
@@ -189,6 +233,9 @@ export default function Settings() {
             <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: (e as any).target.value })} />
             <Input label="State" value={form.state} onChange={(e) => setForm({ ...form, state: (e as any).target.value })} />
             <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: (e as any).target.value })} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
+            <Input label="Opening Cash Balance" type="number" value={form.openingBalance} onChange={(e) => setForm({ ...form, openingBalance: Number((e as any).target.value || 0) })} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-4">
             <Input label="Bank Name" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: (e as any).target.value })} />

@@ -13,15 +13,15 @@ import { useRouter } from 'next/navigation';
 const emptyWeek = [{ name: 'Mon', sales: 0, purchase: 0 }, { name: 'Tue', sales: 0, purchase: 0 }, { name: 'Wed', sales: 0, purchase: 0 }, { name: 'Thu', sales: 0, purchase: 0 }, { name: 'Fri', sales: 0, purchase: 0 }, { name: 'Sat', sales: 0, purchase: 0 }, { name: 'Sun', sales: 0, purchase: 0 }];
 
 const StatCard = ({ title, value, subtext, icon: Icon, color }: any) => (
-  <Card className="border-l-4" style={{ borderLeftColor: color }}>
+  <Card size="sm" className="border-l-4" style={{ borderLeftColor: color }}>
     <div className="flex justify-between items-start">
       <div>
-        <p className="text-sm font-medium text-slate-500">{title}</p>
-        <h3 className="text-2xl font-bold mt-1">{value}</h3>
+        <p className="text-xs sm:text-sm font-medium text-slate-500">{title}</p>
+        <h3 className="text-xl sm:text-2xl font-bold mt-1">{value}</h3>
         <p className="text-xs text-slate-400 mt-1">{subtext}</p>
       </div>
       <div className={`p-2 rounded-lg bg-opacity-10`} style={{ backgroundColor: `${color}20` }}>
-        <Icon className="h-6 w-6" style={{ color: color }} />
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: color }} />
       </div>
       
     </div>
@@ -151,9 +151,16 @@ export default function Dashboard() {
 
   const receivableSpark = buildSpark((stats?.recentInvoices || []).filter((inv:any)=>inv.type==='SALES'), 'dueAmount');
   const payableSpark = buildSpark((stats?.recentInvoices || []).filter((inv:any)=>inv.type==='PURCHASE'), 'dueAmount');
-  const cashInSpark = buildSpark((stats?.recentPayments || payments || []), 'amount');
-  // cashOut per-party type isn't available client-side; approximate with zero or same as payments split if server provides
-  const cashOutSpark = buildSpark([], 'amount');
+  const cashInEvents = [
+    ...((stats?.recentPayments || payments || []).filter((p:any) => (p.type || p.subtype) === 'receive').map((p:any) => ({ date: p.date || p.createdAt, amount: p.amount }))),
+    ...((stats?.recentOtherTxns || []).filter((o:any) => (o.kind || o.subtype) === 'income').map((o:any) => ({ date: o.date || o.createdAt, amount: o.amount })))
+  ];
+  const cashOutEvents = [
+    ...((stats?.recentPayments || payments || []).filter((p:any) => (p.type || p.subtype) === 'pay').map((p:any) => ({ date: p.date || p.createdAt, amount: p.amount }))),
+    ...((stats?.recentOtherTxns || []).filter((o:any) => (o.kind || o.subtype) === 'expense').map((o:any) => ({ date: o.date || o.createdAt, amount: o.amount })))
+  ];
+  const cashInSpark = buildSpark(cashInEvents, 'amount');
+  const cashOutSpark = buildSpark(cashOutEvents, 'amount');
 
   return (
     <div className="space-y-6 pb-20">
@@ -162,7 +169,7 @@ export default function Dashboard() {
         <div className="text-sm text-slate-500 hidden md:block">Gurukrupa Multi Ventures Pvt Ltd</div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title={`Total Sales — ${monthName}`} value={`₹ ${(Number(stats.monthSales || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="Month-to-date" icon={TrendingUp} color="#10b981" />
         <StatCard title={`Total Purchase — ${monthName}`} value={`₹ ${(Number(stats.monthPurchase || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="Month-to-date" icon={TrendingDown} color="#ef4444" />
         <StatCard title={`Parties Receivables — ${monthName}`} value={`₹ ${(Number(stats.monthReceivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} subtext="Month-to-date" icon={Users} color="#3b82f6" />
@@ -309,77 +316,40 @@ export default function Dashboard() {
         </div>
 
         {/* Mobile: show summary stats with sparklines and progress */}
-        {/* Mobile summary (small cards) */}
+        {/* Mobile summary (compact, simple cards) */}
         <div className="md:hidden space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Card onClick={() => setShowReceivableModal(true)} className="cursor-pointer">
+            <Card size="sm" onClick={() => setShowReceivableModal(true)} className="cursor-pointer">
               <p className="text-xs text-slate-500">Receivable (Customer)</p>
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Outstanding from customers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={receivableSpark}><Line type="monotone" dataKey="y" stroke="#3b82f6" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
-              <div className="h-2 bg-slate-100 rounded mt-3">
-                <div className="h-2 rounded bg-green-500" style={{ width: `${Math.min(100, (stats.receivables || 0) / Math.max(1, stats.totalSales || 1) * 100)}%` }}></div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Outstanding from customers</div>
               </div>
             </Card>
 
-            <Card onClick={() => setShowPayableModal(true)} className="cursor-pointer">
+            <Card size="sm" onClick={() => setShowPayableModal(true)} className="cursor-pointer">
               <p className="text-xs text-slate-500">Payable (Supplier)</p>
-                  <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.payables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={payableSpark}><Line type="monotone" dataKey="y" stroke="#ef4444" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="h-2 bg-slate-100 rounded mt-3">
-                <div className="h-2 rounded bg-red-500" style={{ width: `${Math.min(100, (stats.payables || 0) / Math.max(1, stats.totalPurchase || 1) * 100)}%` }}></div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.payables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Outstanding to suppliers</div>
               </div>
             </Card>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Card>
+            <Card size="sm">
               <p className="text-xs text-slate-500">Cash In</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.cashIn || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Received from customers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={cashInSpark}><Line type="monotone" dataKey="y" stroke="#10b981" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="h-2 bg-slate-100 rounded mt-3">
-                <div className="h-2 rounded bg-green-600" style={{ width: `${Math.min(100, (stats.cashIn || 0) / Math.max(1, stats.totalSales || 1) * 100)}%` }}></div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.cashIn || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Receipts + other income</div>
               </div>
             </Card>
 
-            <Card>
+            <Card size="sm">
               <p className="text-xs text-slate-500">Cash Out</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.cashOut || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Paid to suppliers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={cashOutSpark}><Line type="monotone" dataKey="y" stroke="#f59e0b" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="h-2 bg-slate-100 rounded mt-3">
-                <div className="h-2 rounded bg-yellow-500" style={{ width: `${Math.min(100, (stats.cashOut || 0) / Math.max(1, stats.totalPurchase || 1) * 100)}%` }}></div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.cashOut || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Payments + other expense</div>
               </div>
             </Card>
           </div>
@@ -388,68 +358,36 @@ export default function Dashboard() {
         {/* Desktop small summary grid (clickable Receivable/Payable) */}
         <div className="hidden md:block lg:col-span-1">
           <div className="grid grid-cols-2 gap-3">
-            <Card onClick={() => setShowReceivableModal(true)} className="cursor-pointer">
+            <Card size="sm" onClick={() => setShowReceivableModal(true)} className="cursor-pointer">
               <p className="text-xs text-slate-500">Receivable (Customer)</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Outstanding from customers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={receivableSpark}><Line type="monotone" dataKey="y" stroke="#3b82f6" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.receivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Outstanding from customers</div>
               </div>
-              <div className="h-2 bg-slate-100 rounded mt-3"><div className="h-2 rounded bg-green-500" style={{ width: `${Math.min(100, (stats.receivables || 0) / Math.max(1, stats.totalSales || 1) * 100)}%` }}></div></div>
             </Card>
 
-            <Card onClick={() => setShowPayableModal(true)} className="cursor-pointer">
+            <Card size="sm" onClick={() => setShowPayableModal(true)} className="cursor-pointer">
               <p className="text-xs text-slate-500">Payable (Supplier)</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.payables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Outstanding to suppliers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={payableSpark}><Line type="monotone" dataKey="y" stroke="#ef4444" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.payables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Outstanding to suppliers</div>
               </div>
-              <div className="h-2 bg-slate-100 rounded mt-3"><div className="h-2 rounded bg-red-500" style={{ width: `${Math.min(100, (stats.payables || 0) / Math.max(1, stats.totalPurchase || 1) * 100)}%` }}></div></div>
             </Card>
 
-            <Card>
+            <Card size="sm">
               <p className="text-xs text-slate-500">Cash In</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.cashIn || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Received from customers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={cashInSpark}><Line type="monotone" dataKey="y" stroke="#10b981" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.cashIn || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Receipts + other income</div>
               </div>
-              <div className="h-2 bg-slate-100 rounded mt-3"><div className="h-2 rounded bg-green-600" style={{ width: `${Math.min(100, (stats.cashIn || 0) / Math.max(1, stats.totalSales || 1) * 100)}%` }}></div></div>
             </Card>
 
-            <Card>
+            <Card size="sm">
               <p className="text-xs text-slate-500">Cash Out</p>
-              <div className="flex items-center justify-between mt-2">
-                <div>
-                  <div className="text-lg font-bold">₹ {(Number(stats.cashOut || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
-                  <div className="text-xs text-slate-400">Paid to suppliers</div>
-                </div>
-                <div style={{width:80, height:40}}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={cashOutSpark}><Line type="monotone" dataKey="y" stroke="#f59e0b" strokeWidth={2} dot={false} /></LineChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="mt-1">
+                <div className="text-base font-bold">₹ {(Number(stats.cashOut || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+                <div className="text-[11px] text-slate-400">Payments + other expense</div>
               </div>
-              <div className="h-2 bg-slate-100 rounded mt-3"><div className="h-2 rounded bg-yellow-500" style={{ width: `${Math.min(100, (stats.cashOut || 0) / Math.max(1, stats.totalPurchase || 1) * 100)}%` }}></div></div>
             </Card>
           </div>
         </div>

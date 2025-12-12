@@ -4,10 +4,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  LayoutDashboard, Users, Package, ShoppingCart, 
-  FileText, TrendingUp, BarChart3, Settings, 
-  Menu, X, LogOut, ChevronRight, ShieldCheck, FileBarChart
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  ShoppingCart,
+  FileText,
+  TrendingUp,
+  BarChart3,
+  Settings,
+  Menu,
+  X,
+  LogOut,
+  ChevronRight,
+  ShieldCheck,
+  FileBarChart,
 } from 'lucide-react';
 
 const MENU_ITEMS = [
@@ -16,7 +27,10 @@ const MENU_ITEMS = [
   { path: '/admin/items', label: 'Inventory', icon: Package },
   { path: '/admin/sales/create', label: 'Sale Entry', icon: ShoppingCart },
   { path: '/admin/purchase/create', label: 'Purchase Entry', icon: ShoppingCart },
-  { path: '/admin/reports', label: 'Reports', icon: FileText },
+  { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/admin/other-txns', label: 'Other Income/Expense', icon: TrendingUp },
+  { path: '/invoices/all', label: 'Invoices', icon: FileText },
+  { path: '/admin/payments', label: 'Payments', icon: FileBarChart },
   { path: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -164,6 +178,10 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
         <Link href="/admin/purchase/create" className={`flex flex-col items-center p-2 ${pathname?.includes('purchase') ? 'text-blue-600' : 'text-slate-500'}`}>
           <ShoppingCart className="h-5 w-5" />
           <span className="text-[10px] mt-1 font-medium">Purchase</span>
+        </Link>
+        <Link href="/admin/other-txns" className={`flex flex-col items-center p-2 ${pathname?.includes('other-txns') ? 'text-blue-600' : 'text-slate-500'}`}>
+          <TrendingUp className="h-5 w-5" />
+          <span className="text-[10px] mt-1 font-medium">Other I/E</span>
         </Link>
       </nav>
     </div>

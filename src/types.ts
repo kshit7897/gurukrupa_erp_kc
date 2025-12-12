@@ -159,6 +159,7 @@ export interface User {
   email: string;
   mobile: string;
   role: UserRole;
+  permissions?: string[];
 }
 
 export interface PermissionNode {

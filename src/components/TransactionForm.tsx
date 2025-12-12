@@ -29,6 +29,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [addedItems, setAddedItems] = useState<InvoiceItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [existingInvoiceNo, setExistingInvoiceNo] = useState<string>('');
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
@@ -94,18 +95,61 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           const inv: any = await api.invoices.get(id);
           if (!inv) return;
           // populate fields
+          setExistingInvoiceNo(inv.invoiceNo || inv.invoice_no || '');
           setInvoiceDate(inv.date || new Date().toISOString().split('T')[0]);
           setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
           setPaymentDetails(inv.paymentDetails || '');
           setVehicleNo(inv.vehicle_no || '');
           setDeliveryDateMeta(inv.delivery_date || new Date().toISOString().split('T')[0]);
           setDueDate(inv.dueDate || '');
-          setAddedItems(inv.items || []);
+          // normalize item lines to the form's expected shape
+          const normalizedItems = (Array.isArray(inv.items) ? inv.items : []).map((it: any) => {
+            const qty = Number(it.qty || 0);
+            const rate = Number((it.rate != null ? it.rate : it.price) || 0);
+            const discountPercent = Number((it.discountPercent != null ? it.discountPercent : it.discount) || 0);
+            const base = qty * rate;
+            const discountAmount = base * (discountPercent / 100);
+            const taxable = (it.amount != null) ? Number(it.amount) : (base - discountAmount);
+            const taxPercent = Number((it.taxPercent != null ? it.taxPercent : it.tax) || 0);
+            const cgst = Number(it.cgstAmount || 0);
+            const sgst = Number(it.sgstAmount || 0);
+            const igst = Number(it.igstAmount || 0);
+            const taxType = it.taxType || 'CGST_SGST';
+            // fallback name from master items if missing
+            let name = it.name || '';
+            try {
+              if (!name && it.itemId) {
+                const master = items.find(m => (m as any).id === it.itemId);
+                if (master) name = master.name;
+              }
+            } catch { /* ignore */ }
+            return {
+              itemId: it.itemId || it.item_id || '',
+              name,
+              qty,
+              rate,
+              discountPercent,
+              taxPercent,
+              amount: taxable,
+              cgstAmount: cgst,
+              sgstAmount: sgst,
+              igstAmount: igst,
+              taxType
+            } as any;
+          });
+          setAddedItems(normalizedItems);
           setBillingAddressState(inv.billingAddress || {});
           setShippingAddress(inv.shippingAddress || {});
           try {
             const p = await api.parties.get(inv.partyId);
-            if (p) setSelectedParty(p as Party);
+            if (p) {
+              setSelectedParty(p as Party);
+              setPartySearchQuery((p as Party).name || inv.partyName || '');
+              setShowPartyDropdown(false);
+            } else {
+              // fallback to invoice partyName so input shows a value
+              setPartySearchQuery(inv.partyName || '');
+            }
           } catch (e) { console.error('Failed to load party for edit', e); }
         } catch (e) {
           console.error('Failed to load invoice for edit', e);
@@ -367,7 +411,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setIsSaving(true);
     setFormError(null);
     try {
-      const invoiceNo = `INV-${Math.floor(Math.random() * 100000)}`;
+      const invoiceNo = editingId ? (existingInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`) : `INV-${Math.floor(Math.random() * 100000)}`;
       const newInvoice: Omit<Invoice, 'id'> = {
         invoiceNo,
         date: invoiceDate,
@@ -464,7 +508,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           {isSales ? <ShoppingCart className="text-blue-600" /> : <ShoppingCart className="text-amber-600" />}
-          {isSales ? 'New Sale Entry' : 'New Purchase Entry'}
+          {editingId ? (isSales ? 'Edit Sale Entry' : 'Edit Purchase Entry') : (isSales ? 'New Sale Entry' : 'New Purchase Entry')}
         </h1>
 
         {formError && (

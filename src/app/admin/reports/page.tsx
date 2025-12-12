@@ -1,8 +1,11 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Button, Table, Card, Select, Input } from '../../../components/ui/Common';
 import { Download } from 'lucide-react';
+
+export const dynamic = 'force-dynamic';
 
 const Tabs = ({ active, setActive, tabs }: any) => (
   <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg w-full md:w-auto mb-6 overflow-x-auto">
@@ -23,6 +26,8 @@ export default function Reports() {
   const [toDate, setToDate] = useState(today);
   const [stockRows, setStockRows] = useState<any[] | null>(null);
   const [outstandingRows, setOutstandingRows] = useState<any[] | null>(null);
+  const [plData, setPlData] = useState<any | null>(null);
+  const [plLoading, setPlLoading] = useState(false);
   const [stockLoading, setStockLoading] = useState(false);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
 
@@ -48,6 +53,33 @@ export default function Reports() {
       finally { if (mounted) setPartiesLoading(false); }
     })();
     return () => { mounted = false; };
+  }, []);
+
+  // fetch P&L when tab active
+  useEffect(() => {
+    if (activeTab !== 'P&L') return;
+    const load = async () => {
+      try {
+        setPlLoading(true);
+        const res = await fetch(`/api/reports/profitloss?from=${fromDate}&to=${toDate}`);
+        const data = await res.json();
+        setPlData(res.ok ? data : null);
+      } catch (e) {
+        console.error(e);
+        setPlData(null);
+      } finally { setPlLoading(false); }
+    };
+    load();
+  }, [activeTab, fromDate, toDate]);
+
+  // pick tab from query param for deep links
+  useEffect(() => {
+    const searchParams = useSearchParams();
+    const tabParam = (searchParams.get('tab') || '').toLowerCase();
+    if (!tabParam) return;
+    if (tabParam === 'pl') setActiveTab('P&L');
+    else if (tabParam === 'stock') setActiveTab('Stock');
+    else if (tabParam === 'outstanding') setActiveTab('Outstanding');
   }, []);
 
   // fetch stock when Stock tab active
@@ -121,7 +153,7 @@ export default function Reports() {
         <Button variant="outline" icon={Download} onClick={handleExport}>Export PDF</Button>
       </div>
 
-      <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger' ]} />
+      <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger', 'P&L' ]} />
 
       {/* Stock Tab */}
       {activeTab === 'Stock' && (
@@ -246,6 +278,134 @@ export default function Reports() {
           </div>
         </div>
       )}
+
+      {/* Profit & Loss Tab */}
+      {activeTab === 'P&L' && (
+        <Card title="Profit & Loss Statement">
+          <div className="flex flex-col md:flex-row md:items-end md:gap-4 mb-6">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">From</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">To</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+            <Button variant="outline" icon={Download} onClick={() => {
+              const el = document.getElementById('pl-content');
+              if (!el) return alert('Content not ready for export');
+              // @ts-ignore
+              if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
+              // Clone element to avoid CSS issues
+              const clone = el.cloneNode(true) as HTMLElement;
+              clone.style.background = 'white';
+              clone.style.padding = '20px';
+              clone.style.color = '#000';
+              // @ts-ignore
+              window.html2pdf().set({ margin: [10, 10, 10, 10], filename: `Profit_Loss_${fromDate}_to_${toDate}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(clone).save();
+            }}>Export PDF</Button>
+          </div>
+          <div id="pl-content" className="bg-white p-6" style={{ color: '#000' }}>
+            {plLoading ? (
+              <div className="py-12 text-center text-slate-500">Loading...</div>
+            ) : plData ? (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="text-center border-b-2 border-slate-400 pb-4">
+                  <h2 className="text-2xl font-bold text-slate-900">Profit & Loss Statement</h2>
+                  <p className="text-sm text-slate-700 mt-2">For the period {fromDate} to {toDate}</p>
+                </div>
+
+                {/* Opening Balance */}
+                {plData.openingBalance > 0 && (
+                  <div className="border-l-4 border-blue-600 bg-blue-50 p-4 rounded">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-900">Opening Balance</span>
+                      <span className="font-bold text-lg text-slate-900">₹ {Number(plData.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Revenue Section */}
+                <div className="space-y-3">
+                  <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Revenue</h3>
+                  <div className="bg-slate-100 p-5 rounded space-y-3 border-2 border-slate-300">
+                    <div className="flex justify-between text-slate-800">
+                      <span className="font-semibold">Sales</span>
+                      <span className="font-bold">₹ {Number(plData.sales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-800">
+                      <span className="font-semibold">Other Income</span>
+                      <span className="font-bold text-green-900">₹ {Number(plData.otherIncome || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="border-t-2 border-slate-400 pt-3 flex justify-between font-bold text-slate-900">
+                      <span>Total Revenue</span>
+                      <span className="text-green-900">₹ {Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expenses Section */}
+                <div className="space-y-3">
+                  <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Expenses</h3>
+                  <div className="bg-slate-100 p-5 rounded space-y-3 border-2 border-slate-300">
+                    <div className="flex justify-between text-slate-800">
+                      <span className="font-semibold">Purchase</span>
+                      <span className="font-bold">₹ {Number(plData.purchase || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-800">
+                      <span className="font-semibold">Other Expenses</span>
+                      <span className="font-bold text-red-900">₹ {Number(plData.otherExpense || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="border-t-2 border-slate-400 pt-3 flex justify-between font-bold text-slate-900">
+                      <span>Total Expenses</span>
+                      <span className="text-red-900">₹ {Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profit/Loss Summary */}
+                <div className="space-y-3">
+                  <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Summary</h3>
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded border-2 border-blue-400 space-y-4">
+                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                      <span className="text-slate-900 font-semibold">Total Revenue</span>
+                      <span className="font-bold text-lg text-green-900">₹ {Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                      <span className="text-slate-900 font-semibold">Total Expenses</span>
+                      <span className="font-bold text-lg text-red-900">₹ {Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                      <span className="text-slate-900 font-semibold">Gross Profit (Sales - Purchase)</span>
+                      <span className="font-bold text-lg text-slate-900">₹ {Number(plData.grossProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-extrabold text-slate-900">Net Profit/Loss</span>
+                      <span className={`font-extrabold text-2xl ${(plData.netProfit || 0) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
+                        ₹ {Number(plData.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Closing Balance */}
+                {(plData.openingBalance || plData.netProfit) !== 0 && (
+                  <div className="border-l-4 border-green-600 bg-green-100 p-5 rounded">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-900">Closing Balance</span>
+                      <span className="font-extrabold text-lg text-green-900">₹ {Number((plData.openingBalance || 0) + (plData.netProfit || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-slate-500">No data available for selected period</div>
+            )}
+          </div>
+        </Card>
+      )}
+
     </div>
   );
 }

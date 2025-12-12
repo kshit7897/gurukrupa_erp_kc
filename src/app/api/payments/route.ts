@@ -73,8 +73,15 @@ export async function POST(request: Request) {
     let payment: any = null;
     try {
       await session.withTransaction(async () => {
+        // Generate simple voucher number based on type and timestamp
+        const prefix = body.type === 'receive' ? 'RCV' : 'PAY';
+        const timestamp = Date.now().toString().slice(-8);
+        const voucherNo = `${prefix}-${timestamp}`;
+        
         payment = await Payment.create([{
+          voucherNo,
           partyId: body.partyId,
+          partyName: body.partyName || '',
           type: body.type,
           invoiceIds: allocations.map(a => a.invoiceId),
           allocations,

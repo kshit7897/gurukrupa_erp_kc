@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 
 const PaymentSchema = new mongoose.Schema({
+  voucherNo: { type: String },
   partyId: { type: String, required: true },
+  partyName: { type: String },
   // type: receive => customer receipt, pay => supplier payment
   type: { type: String, enum: ['receive', 'pay'], required: true },
   invoiceIds: [{ type: String }],

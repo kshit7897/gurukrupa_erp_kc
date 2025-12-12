@@ -56,6 +56,10 @@ export default function AllInvoicesPage() {
                   <td className="px-4 py-3">₹ {Number(r.dueAmount || 0).toFixed(2)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      <button className="px-2 py-1 text-sm bg-blue-600 text-white rounded" onClick={() => {
+                        const path = (r.type === 'PURCHASE') ? `/admin/purchase/create?id=${r.id}` : `/admin/sales/create?id=${r.id}`;
+                        window.location.href = path;
+                      }}>Edit</button>
                       <button className="px-2 py-1 text-sm bg-green-600 text-white rounded" onClick={() => window.open(`${window.location.origin}/admin/invoice/${r.id}`, '_blank')}>Reprint</button>
                       <button className="px-2 py-1 text-sm bg-red-600 text-white rounded" onClick={() => { setToDelete(r); setDeleteResult(null); }}>Delete</button>
                     </div>
@@ -90,6 +94,10 @@ export default function AllInvoicesPage() {
                 </div>
                 <div className="mt-3 flex justify-end">
                   <div className="flex items-center gap-2">
+                    <button className="px-3 py-1 text-sm bg-blue-600 text-white rounded" onClick={() => {
+                      const path = (r.type === 'PURCHASE') ? `/admin/purchase/create?id=${r.id}` : `/admin/sales/create?id=${r.id}`;
+                      window.location.href = path;
+                    }}>Edit</button>
                     <button className="px-3 py-1 text-sm bg-green-600 text-white rounded" onClick={() => window.open(`${window.location.origin}/admin/invoice/${r.id}`, '_blank')}>Reprint</button>
                     <button className="px-3 py-1 text-sm bg-red-600 text-white rounded" onClick={() => { setToDelete(r); setDeleteResult(null); }}>Delete</button>
                   </div>

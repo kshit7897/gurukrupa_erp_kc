@@ -24,6 +24,7 @@ const CompanySchema = new mongoose.Schema({
   upi_id: String,
   declaration_text: [String]
   ,
+  openingBalance: { type: Number, default: 0 },
   // logo as data URL or image path
   logo: String,
   // arbitrary extra details to show on invoices (array of { label, value })

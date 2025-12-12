@@ -117,16 +117,18 @@ export const Select: React.FC<SelectProps> = ({ label, options, className = '', 
 // --- CARD ---
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
+  size?: 'sm' | 'md';
+  contentClassName?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', title, ...props }) => (
+export const Card: React.FC<CardProps> = ({ children, className = '', title, size = 'md', contentClassName = '', ...props }) => (
   <div className={`rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm ${className}`} {...props}>
     {title && (
-      <div className="flex flex-col space-y-1.5 p-6 border-b border-slate-100">
+      <div className={`flex flex-col space-y-1.5 ${size === 'sm' ? 'p-4' : 'p-6'} border-b border-slate-100`}>
         <h3 className="font-semibold text-lg leading-none tracking-tight text-slate-900">{title}</h3>
       </div>
     )}
-    <div className="p-6">{children}</div>
+    <div className={`${size === 'sm' ? 'p-4' : 'p-6'} ${contentClassName}`}>{children}</div>
   </div>
 );
 

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
 import { Invoice, Party } from '../../../../types';
 import { formatDate } from '../../../../lib/formatDate';
+import { numberToWords } from '../../../../lib/numberToWords';
 
 export default function InvoiceView() {
   const { id } = useParams();
@@ -121,6 +122,31 @@ export default function InvoiceView() {
 
   const invoiceTitle = invoice.type === 'PURCHASE' ? 'PURCHASE VOUCHER' : (invoice.paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE');
   const freight = Number((invoice as any)?.freight || 0);
+
+  // Derive totals from line items so header/table and footer stay in sync
+  const totals = (() => {
+    let subtotal = 0;
+    let cgst = 0;
+    let sgst = 0;
+    let igst = 0;
+    (invoice.items || []).forEach((item: any) => {
+      const qty = Number(item.qty || 0);
+      const rate = Number(item.rate || 0);
+      const taxable = Number(item.amount != null ? item.amount : qty * rate);
+      const gstAmt = taxable * (Number(item.taxPercent || 0) / 100);
+      const taxType = (item.taxType || 'CGST_SGST').toUpperCase();
+      subtotal += taxable;
+      if (taxType === 'IGST') {
+        igst += gstAmt;
+      } else {
+        cgst += gstAmt / 2;
+        sgst += gstAmt / 2;
+      }
+    });
+    const taxTotal = cgst + sgst + igst;
+    const grand = subtotal + taxTotal + freight + Number(invoice.roundOff || 0);
+    return { subtotal, cgst, sgst, igst, taxTotal, grand };
+  })();
 
   return (
     <div className="h-full bg-slate-100 flex flex-col">
@@ -288,9 +314,11 @@ export default function InvoiceView() {
                       <th className="py-2 px-2 w-8">Sr</th>
                       <th className="py-2 px-2">Item Name</th>
                       <th className="py-2 px-2 w-16 text-right">HSN</th>
+                      <th className="py-2 px-2 w-20 text-right">Quantity</th>
                       <th className="py-2 px-2 w-24 text-right">Rate</th>
                       <th className="py-2 px-2 w-16 text-right">GST %</th>
                       <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
+                      <th className="py-2 px-2 w-28 text-right">Value</th>
                     </tr>
                   ) : (
                     <tr className="bg-slate-100 text-slate-700 text-left text-xs">
@@ -318,9 +346,11 @@ export default function InvoiceView() {
                         <td className="py-3 px-2 text-right text-slate-500">{(item as any).hsn || '-'}</td>
                         {invoice.type === 'PURCHASE' ? (
                           <>
+                            <td className="py-3 px-2 text-right">{item.qty}</td>
                             <td className="py-3 px-2 text-right">{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</td>
                             <td className="py-3 px-2 text-right">{item.taxPercent}%</td>
                             <td className="py-3 px-2 text-right">{gstAmt.toFixed(2)}</td>
+                            <td className="py-3 px-2 text-right font-semibold">{lineTotal.toFixed(2)}</td>
                           </>
                         ) : (
                           <>
@@ -358,32 +388,34 @@ export default function InvoiceView() {
                     </div>
                   )}
                 <div className="mt-4 text-slate-700 font-medium">Invoice Total in Word</div>
-                <div className="mt-1 text-slate-600">{invoice.total_amount_in_words || invoice.total_amount_in_words || ''}</div>
+                <div className="mt-1 text-slate-600">{invoice.total_amount_in_words || numberToWords(invoice.grandTotal || 0)}</div>
               </div>
               <div className="w-1/2">
                 <div className="bg-white border border-slate-100 rounded p-3">
                   {invoice.type === 'PURCHASE' ? (
                     <div>
-                      <div className="text-sm text-slate-600 flex justify-between"><div>Subtotal</div><div className="font-bold">₹ {(invoice.subtotal || 0).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST</div><div className="font-bold">₹ {(invoice.cgstAmount != null ? invoice.cgstAmount : 0).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST</div><div className="font-bold">₹ {(invoice.sgstAmount != null ? invoice.sgstAmount : 0).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>GST</div><div className="font-bold">₹ {(((invoice.cgstAmount || 0) + (invoice.sgstAmount || 0) + (invoice.igstAmount || 0))).toFixed(2)}</div></div>
-                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Grand Total</div><div>₹ {(invoice.grandTotal || 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between"><div>Subtotal</div><div className="font-bold">₹ {totals.subtotal.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST</div><div className="font-bold">₹ {totals.cgst.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST</div><div className="font-bold">₹ {totals.sgst.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Total GST</div><div className="font-bold">₹ {totals.taxTotal.toFixed(2)}</div></div>
+                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Grand Total</div><div>₹ {totals.grand.toFixed(2)}</div></div>
                     </div>
                   ) : (
                     <div>
-                      <div className="text-sm text-slate-600 flex justify-between"><div>Sub-Total:</div><div className="font-bold">{(invoice.subtotal || 0).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST Amt :</div><div className="font-bold">{(invoice.cgstAmount != null ? invoice.cgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST Amt :</div><div className="font-bold">{(invoice.sgstAmount != null ? invoice.sgstAmount : (invoice.taxAmount ? (invoice.taxAmount/2) : 0)).toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>IGST Amt :</div><div className="font-bold">{(invoice.igstAmount || 0).toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between"><div>Sub-Total:</div><div className="font-bold">{totals.subtotal.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>CGST Amt :</div><div className="font-bold">{totals.cgst.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST Amt :</div><div className="font-bold">{totals.sgst.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>IGST Amt :</div><div className="font-bold">{totals.igst.toFixed(2)}</div></div>
+                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Total GST :</div><div className="font-bold">{totals.taxTotal.toFixed(2)}</div></div>
                       <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Freight/Packing:</div><div className="font-bold">{freight.toFixed(2)}</div></div>
                       <div className="text-sm text-slate-600 flex justify-between mt-2 border-t border-slate-100 pt-2"><div>Round off :</div><div className="font-bold">{(invoice.roundOff || 0).toFixed(2)}</div></div>
-                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Total Amount :</div><div>₹ {(invoice.grandTotal || 0).toFixed(2)}</div></div>
+                      <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Total Amount :</div><div>₹ {totals.grand.toFixed(2)}</div></div>
                     </div>
                   )}
                 </div>
                 <div className="mt-6 flex justify-end">
                   <div className="text-center">
+                    <div className="text-xs font-semibold text-slate-800 mb-4">GuruKrupa Multi Venture Pvt. Ltd</div>
                     <div className="h-20 w-36 border-t border-slate-300 text-sm font-semibold text-slate-700">Authorized Signatory</div>
                   </div>
                 </div>

@@ -3,7 +3,11 @@ import dbConnect from '../../../lib/mongodb';
 import Invoice from '../../../lib/models/Invoice';
 import Payment from '../../../lib/models/Payment';
 import Item from '../../../lib/models/Item';
+import OtherTxn from '../../../lib/models/OtherTxn';
 import mongoose from 'mongoose';
+
+// Always serve fresh metrics; dashboard must not be cached
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -58,6 +62,7 @@ export async function GET() {
     // Recent transactions (fetch more for sparkline computation client-side)
     const recentInvoices = await Invoice.find({}).sort({ createdAt: -1 }).limit(20).lean();
     const recentPayments = await Payment.find({}).sort({ createdAt: -1 }).limit(20).lean();
+    const recentOther = await OtherTxn.find({}).sort({ createdAt: -1 }).limit(20).lean();
 
     // Combine invoices and payments into a unified recent transactions list (sorted by createdAt desc)
     const mappedInvoices = (recentInvoices || []).map((inv: any) => ({
@@ -82,7 +87,17 @@ export async function GET() {
       outstandingBefore: p.outstandingBefore,
       outstandingAfter: p.outstandingAfter
     }));
-    const combined = [...mappedInvoices, ...mappedPayments].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const mappedOther = (recentOther || []).map((o: any) => ({
+      id: o._id?.toString(),
+      kind: 'other',
+      subtype: o.kind,
+      amount: Number(o.amount || 0),
+      partyId: null,
+      partyName: o.category || null,
+      date: o.createdAt || o.date,
+      ref: o.note || null
+    }));
+    const combined = [...mappedInvoices, ...mappedPayments, ...mappedOther].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const recentTransactions = combined.slice(0, 5);
 
     // Payables: due amounts for PURCHASE invoices
@@ -91,16 +106,22 @@ export async function GET() {
       { $group: { _id: null, payable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
     ]);
 
-    // Cash In / Cash Out from payments — use payment.type to determine direction
-    // receive => cash in, pay => cash out
+    // Cash In / Cash Out include payments and other income/expense entries
     const cashAgg = await Payment.aggregate([
       { $group: { _id: '$type', total: { $sum: { $ifNull: ['$amount', 0] } } } }
+    ]);
+    const otherAgg = await OtherTxn.aggregate([
+      { $group: { _id: '$kind', total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
 
     let cashIn = 0, cashOut = 0;
     (cashAgg || []).forEach((c: any) => {
-      if ((c._id || '').toString() === 'receive') cashIn = c.total || 0;
-      if ((c._id || '').toString() === 'pay') cashOut = c.total || 0;
+      if ((c._id || '').toString() === 'receive') cashIn += c.total || 0;
+      if ((c._id || '').toString() === 'pay') cashOut += c.total || 0;
+    });
+    (otherAgg || []).forEach((o: any) => {
+      if ((o._id || '').toString() === 'income') cashIn += o.total || 0;
+      if ((o._id || '').toString() === 'expense') cashOut += o.total || 0;
     });
 
     // Unallocated payments (advances) — these are payments without allocations
@@ -144,7 +165,8 @@ export async function GET() {
       lowStock: Number(lowStock || 0),
       currentStock: (currentStockItems || []).map((it:any) => ({ id: it._id?.toString(), name: it.name || it.title || 'Unnamed', sku: it.sku || null, stock: Number(it.stock || 0) })),
       recentInvoices,
-      recentPayments
+      recentPayments,
+      recentOtherTxns: recentOther
     });
   } catch (err: any) {
     console.error('GET /api/dashboard error:', err);

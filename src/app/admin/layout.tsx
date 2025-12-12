@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { AdminSidebar } from '../../components/AdminSidebar';
-import { Users, LayoutDashboard, ShoppingCart } from 'lucide-react';
+import { Users, LayoutDashboard, ShoppingCart, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -36,6 +36,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <Link href="/admin/purchase/create" className={`flex flex-col items-center p-2 ${pathname.includes('purchase') ? 'text-blue-600' : 'text-slate-500'}`}>
           <ShoppingCart className="h-5 w-5" />
           <span className="text-[10px] mt-1 font-medium">Purchase</span>
+        </Link>
+        <Link href="/admin/other-txns" className={`flex flex-col items-center p-2 ${pathname.includes('other-txns') ? 'text-blue-600' : 'text-slate-500'}`}>
+          <TrendingUp className="h-5 w-5" />
+          <span className="text-[10px] mt-1 font-medium">Other I/E</span>
         </Link>
       </nav>
     </div>

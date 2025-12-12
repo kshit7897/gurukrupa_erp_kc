@@ -3,10 +3,21 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
-  LayoutDashboard, Users, Package, ShoppingCart, 
-  FileText, TrendingUp, BarChart3, Settings, 
-  Menu, X, LogOut, ChevronRight, ShieldCheck, FileBarChart
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  ShoppingCart,
+  FileText,
+  TrendingUp,
+  BarChart3,
+  Settings,
+  Menu,
+  X,
+  LogOut,
+  ChevronRight,
+  ShieldCheck,
+  FileBarChart,
 } from 'lucide-react';
 
 const MENU_ITEMS = [
@@ -16,6 +27,7 @@ const MENU_ITEMS = [
   { path: '/admin/sales/create', label: 'Sale Entry', icon: ShoppingCart },
   { path: '/admin/purchase/create', label: 'Purchase Entry', icon: ShoppingCart },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { path: '/admin/other-txns', label: 'Other Income/Expense', icon: TrendingUp },
   { path: '/invoices/all', label: 'Invoices', icon: FileText },
   { path: '/admin/payments', label: 'Payments', icon: FileBarChart },
   { path: '/admin/settings', label: 'Settings', icon: Settings },
@@ -50,10 +62,11 @@ export const AdminSidebar = () => {
       </header>
 
       {/* SIDEBAR (Desktop + Mobile Drawer) */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-40 w-72 bg-[#0f172a] text-white transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) md:translate-x-0 md:static md:h-screen
-        ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
-      `}>
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#0f172a] text-white transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) md:translate-x-0 md:static md:h-screen ${
+          isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        }`}
+      >
         {/* Sidebar Header */}
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/50 bg-[#0f172a]">
           <div className="flex items-center gap-3">
@@ -78,13 +91,17 @@ export const AdminSidebar = () => {
                   href={item.path}
                   onClick={() => setIsSidebarOpen(false)}
                   className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
                   }`}
                 >
                   <div className="flex items-center">
-                    <item.icon className={`h-5 w-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
+                    <item.icon
+                      className={`h-5 w-5 mr-3 transition-colors ${
+                        isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'
+                      }`}
+                    />
                     {item.label}
                   </div>
                   {isActive && <ChevronRight className="h-4 w-4 opacity-50" />}
@@ -95,7 +112,7 @@ export const AdminSidebar = () => {
 
           {/* Sidebar Footer */}
           <div className="p-4 border-t border-slate-800 bg-[#0f172a]">
-            <button 
+            <button
               onClick={handleLogout}
               className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-red-400 hover:bg-red-400/10 hover:text-red-300 rounded-lg transition-colors mb-2"
             >
@@ -117,7 +134,7 @@ export const AdminSidebar = () => {
 
       {/* OVERLAY for Mobile */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 md:hidden transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         />

@@ -1,9 +1,28 @@
 import Item from './models/Item';
 import StockMovement from './models/StockMovement';
 
-export async function increaseStock(itemId: string, qty: number, opts: { type?: string; refId?: string; note?: string } = {}) {
+type StockOpts = { type?: string; refId?: string; note?: string };
+
+function normalizeLine(line: any) {
+  // Accept multiple shapes to avoid silent no-ops when fields come differently from UI/DB
+  const id = line?.itemId || line?.item_id || line?.id || line?._id;
+  const qtyRaw = line?.qty ?? line?.quantity ?? line?.qtyOrdered ?? line?.qty_ordered;
+  const qty = Number(qtyRaw);
+  if (!id) throw new Error('itemId required');
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error(`qty must be > 0 for item ${id}`);
+  return { id: String(id), qty };
+}
+
+function normalizeType(type: any) {
+  const t = String(type || '').trim().toUpperCase();
+  if (t === 'SALE') return 'SALES';
+  if (t === 'PUR') return 'PURCHASE';
+  return t as 'SALES' | 'PURCHASE' | '';
+}
+
+export async function increaseStock(itemId: string, qty: number, opts: StockOpts = {}) {
   if (!itemId) throw new Error('itemId required');
-  if (qty <= 0) throw new Error('qty must be > 0');
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty must be > 0');
 
   const updated = await Item.findByIdAndUpdate(itemId, { $inc: { stock: qty } }, { new: true });
   if (!updated) throw new Error('Item not found');
@@ -12,9 +31,9 @@ export async function increaseStock(itemId: string, qty: number, opts: { type?: 
   return updated;
 }
 
-export async function decreaseStock(itemId: string, qty: number, opts: { type?: string; refId?: string; note?: string } = {}) {
+export async function decreaseStock(itemId: string, qty: number, opts: StockOpts = {}) {
   if (!itemId) throw new Error('itemId required');
-  if (qty <= 0) throw new Error('qty must be > 0');
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty must be > 0');
 
   // Try conditional update to prevent negative stock
   const updated = await Item.findOneAndUpdate({ _id: itemId, stock: { $gte: qty } }, { $inc: { stock: -qty } }, { new: true });
@@ -27,16 +46,21 @@ export async function decreaseStock(itemId: string, qty: number, opts: { type?: 
 export async function updateStockForInvoice(invoice: any) {
   // invoice.items expected: [{ itemId, qty }]
   if (!invoice || !Array.isArray(invoice.items)) return;
-  const ops: {id:string, qty:number, name?:string}[] = invoice.items.map((it:any) => ({ id: it.itemId || it.itemId, qty: Number(it.qty || it.qty) }));
+  const invType = normalizeType(invoice.type);
+  if (invType !== 'SALES' && invType !== 'PURCHASE') {
+    throw new Error('Invoice type missing or invalid for stock update');
+  }
+
+  const ops = invoice.items.map((it: any) => normalizeLine(it));
 
   const applied: { id: string; qty: number }[] = [];
   try {
-    if (invoice.type === 'SALES') {
+    if (invType === 'SALES') {
       for (const it of ops) {
         await decreaseStock(it.id, it.qty, { type: 'SALE', refId: invoice.id || invoice._id });
         applied.push(it);
       }
-    } else if (invoice.type === 'PURCHASE') {
+    } else {
       for (const it of ops) {
         await increaseStock(it.id, it.qty, { type: 'PURCHASE', refId: invoice.id || invoice._id });
         applied.push(it);
@@ -46,10 +70,10 @@ export async function updateStockForInvoice(invoice: any) {
     // rollback applied ops
     for (const a of applied.reverse()) {
       try {
-        if (invoice.type === 'SALES') {
+        if (invType === 'SALES') {
           // revert previous decrease by increasing back
           await increaseStock(a.id, a.qty, { type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'rollback' });
-        } else if (invoice.type === 'PURCHASE') {
+        } else {
           // revert previous increase by decreasing
           await decreaseStock(a.id, a.qty, { type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'rollback' });
         }
@@ -67,10 +91,16 @@ export async function revertStockForInvoice(invoice: any) {
   // Return an array of warning/error messages instead of throwing, so callers can decide how to proceed.
   const warnings: string[] = [];
   if (!invoice || !Array.isArray(invoice.items)) return warnings;
-  const ops: {id:string, qty:number}[] = invoice.items.map((it:any) => ({ id: it.itemId || it.itemId, qty: Number(it.qty || it.qty) }));
+  const invType = normalizeType(invoice.type);
+  if (invType !== 'SALES' && invType !== 'PURCHASE') {
+    warnings.push('Invoice type missing or invalid; cannot revert stock');
+    return warnings;
+  }
+
+  const ops = invoice.items.map((it: any) => normalizeLine(it));
 
   // For SALES we need to increase stock back; for PURCHASE we need to decrease stock (remove purchased qty)
-  if (invoice.type === 'SALES') {
+  if (invType === 'SALES') {
     for (const it of ops) {
       try {
         await increaseStock(it.id, it.qty, { type: 'ADJUSTMENT', refId: invoice.id || invoice._id, note: 'revert invoice (sale)' });
@@ -94,7 +124,7 @@ export async function revertStockForInvoice(invoice: any) {
         }
       }
     }
-  } else if (invoice.type === 'PURCHASE') {
+  } else {
     for (const it of ops) {
       try {
         // this may throw if current stock is insufficient to remove the purchase quantity

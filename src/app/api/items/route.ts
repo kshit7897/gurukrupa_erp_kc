@@ -3,6 +3,9 @@ import dbConnect from '../../../lib/mongodb';
 import Item from '../../../lib/models/Item';
 import StockMovement from '../../../lib/models/StockMovement';
 
+// Always fetch live stock; avoid any caching
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   await dbConnect();
   const { searchParams } = new URL(request.url);
