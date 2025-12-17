@@ -107,14 +107,32 @@ export default function InvoiceView() {
     return () => window.removeEventListener('resize', handleResize);
   }, [loading]);
 
-  const handleDownload = () => {
-    const element = document.getElementById('invoice-content');
-    if (!element) return;
+  const handleDownload = async () => {
+    if (!id) return;
     setIsDownloading(true);
-    // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { setNotification({ type: 'error', message: 'PDF generator is initializing' }); setIsDownloading(false); return; }
-    // @ts-ignore
-    window.html2pdf().set({ margin: 0, filename: `Invoice_${invoice?.invoiceNo}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => setIsDownloading(false));
+    try {
+      const res = await fetch(`/api/invoices/pdf?id=${encodeURIComponent(id as string)}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('Invoice PDF failed', text);
+        setNotification({ type: 'error', message: 'Failed to generate PDF' });
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Invoice_${invoice?.invoiceNo || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      setNotification({ type: 'error', message: 'Failed to generate PDF' });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (loading) return <div className="flex h-full items-center justify-center text-slate-500 bg-slate-100"><div><SoftLoader size="lg" text="Loading invoice..." /></div></div>;

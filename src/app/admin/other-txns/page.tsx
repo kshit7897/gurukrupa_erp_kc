@@ -86,13 +86,32 @@ export default function OtherTxnsPage() {
     }
   };
 
-  const handleExportPDF = () => {
-    const el = document.getElementById('other-txns-content');
-    if (!el) return alert('Content not ready for export');
-    // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
-    // @ts-ignore
-    window.html2pdf().set({ margin: 0, filename: `Other_Income_Expense_${fromDate}_to_${toDate}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(el).save();
+  const handleExportPDF = async () => {
+    try {
+      const params = new URLSearchParams();
+      params.set('type', 'other-txns');
+      params.set('from', fromDate);
+      params.set('to', toDate);
+      const res = await fetch(`/api/reports/pdf?${params.toString()}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('Other Txns PDF export failed', text);
+        alert('Failed to generate PDF');
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Other_Income_Expense_${fromDate}_to_${toDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate PDF');
+    }
   };
 
   return (

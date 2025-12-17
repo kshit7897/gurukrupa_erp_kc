@@ -4,6 +4,16 @@ import Payment from '../../../lib/models/Payment';
 import Invoice from '../../../lib/models/Invoice';
 import mongoose from 'mongoose';
 
+async function findInvoiceFlexible(id: string, session?: mongoose.ClientSession | null) {
+  if (!id) return null;
+  const opts = session ? { session } : undefined;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    const inv = await Invoice.findById(id, null, opts);
+    if (inv) return inv;
+  }
+  return Invoice.findOne({ $or: [{ invoiceNo: id }, { invoice_no: id }] }, null, opts);
+}
+
 // GET: list payments, optional query param `party` to filter by partyId
 export async function GET(request: Request) {
   try {
@@ -44,7 +54,7 @@ export async function POST(request: Request) {
       // Allocate FIFO across provided invoiceIds
       for (const id of body.invoiceIds) {
         if (remaining <= 0) break;
-        const inv = await Invoice.findById(id);
+        const inv = await findInvoiceFlexible(id);
         if (!inv) continue;
         const due = Math.max(0, (inv.dueAmount || ((inv.grandTotal || 0) - (inv.paidAmount || 0))));
         if (due <= 0) continue;
@@ -62,7 +72,7 @@ export async function POST(request: Request) {
 
     // Validate per-invoice allocation does not exceed current due (best-effort). Transaction will enforce final consistency.
     for (const a of allocations) {
-      const inv = await Invoice.findById(a.invoiceId);
+    const inv = await findInvoiceFlexible(a.invoiceId);
       if (!inv) return NextResponse.json({ error: `Invoice not found: ${a.invoiceId}` }, { status: 400 });
       const due = Math.max(0, (inv.dueAmount || ((inv.grandTotal || 0) - (inv.paidAmount || 0))));
       if (a.amount > due) return NextResponse.json({ error: `Allocation ${a.amount} exceeds due ${due} for invoice ${inv._id}` }, { status: 400 });
@@ -101,7 +111,7 @@ export async function POST(request: Request) {
         // Apply allocations to invoices within the same session
         if (allocations.length > 0) {
           for (const a of allocations) {
-            const invoice = await Invoice.findById(a.invoiceId).session(session);
+            const invoice = await findInvoiceFlexible(a.invoiceId, session);
             if (!invoice) continue;
             invoice.paidAmount = (invoice.paidAmount || 0) + Number(a.amount || 0);
             invoice.dueAmount = Math.max(0, (invoice.grandTotal || 0) - invoice.paidAmount);
@@ -138,7 +148,7 @@ export async function DELETE(request: Request) {
         // revert allocations: for each allocation, reduce invoice.paidAmount and recompute dueAmount
         if (Array.isArray(payment.allocations) && payment.allocations.length > 0) {
           for (const a of payment.allocations) {
-            const inv = await Invoice.findById(a.invoiceId).session(session);
+            const inv = await findInvoiceFlexible(a.invoiceId, session);
             if (!inv) continue;
             inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - Number(a.amount || 0));
             inv.dueAmount = Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0));

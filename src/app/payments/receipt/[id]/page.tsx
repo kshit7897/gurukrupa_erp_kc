@@ -96,14 +96,32 @@ export default function PaymentReceipt() {
     load();
   }, [id]);
 
-  const handleDownload = () => {
-    const element = document.getElementById('receipt-content');
-    if (!element) return;
+  const handleDownload = async () => {
+    if (!id) return;
     setIsDownloading(true);
-    // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { setIsDownloading(false); alert('PDF generator initializing'); return; }
-    // @ts-ignore
-    window.html2pdf().set({ margin: 0, filename: `Payment_${payment?.id || payment?._id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save().then(() => setIsDownloading(false)).catch(() => setIsDownloading(false));
+    try {
+      const res = await fetch(`/api/payments/receipt/${id}/pdf`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('Receipt PDF failed', text);
+        alert('Failed to generate PDF');
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payment_${payment?.id || payment?._id || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate PDF');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (loading) return (

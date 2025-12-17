@@ -12,12 +12,20 @@ export async function GET(
   
   try {
     const params = await props.params;
-    // validate id to avoid CastError when non-objectId segments (like 'list') are requested
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
-      return NextResponse.json({ error: 'Invalid Invoice ID' }, { status: 404 });
+    const id = params.id;
+    let invoice: any = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      invoice = await Invoice.findById(id);
     }
-    const invoice = await Invoice.findById(params.id);
-    if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (!invoice) {
+      invoice = await Invoice.findOne({ $or: [{ invoiceNo: id }, { invoice_no: id }] });
+    }
+    if (!invoice) {
+      const sample = await Invoice.find({}, { _id: 1, invoiceNo: 1, invoice_no: 1 }).limit(3);
+      console.warn('[invoice-get] invoice not found for id', id, 'sample ids', sample);
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
     return NextResponse.json({ ...(invoice as any).toObject(), id: (invoice as any)._id.toString() });
   } catch (error) {
     console.error("Invoice API Error:", error);

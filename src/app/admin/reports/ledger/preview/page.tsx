@@ -59,13 +59,36 @@ export default function LedgerPreviewPage() {
 
   const handlePrint = () => window.print();
 
-  const handleDownload = () => {
-    const element = document.getElementById('ledger-content');
-    if (!element) return;
-    // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
-    // @ts-ignore
-    window.html2pdf().set({ margin: 0, filename: `Ledger_${party?.name || partyId}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(element).save();
+  const handleDownload = async () => {
+    if (!partyId) return;
+    try {
+      const params = new URLSearchParams();
+      params.set('type', 'ledger');
+      params.set('partyId', partyId);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
+
+      const res = await fetch(`/api/reports/ledger/pdf?${params.toString()}`);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('Ledger PDF download failed', text);
+        alert('Failed to generate PDF');
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Ledger_${party?.name || partyId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate PDF');
+    }
   };
 
   return (

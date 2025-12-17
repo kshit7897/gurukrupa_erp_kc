@@ -39,6 +39,13 @@ export default function Dashboard() {
   const [showPayableModal, setShowPayableModal] = useState(false);
   const router = useRouter();
 
+  // Render charts only after client mount so Recharts sees non-zero container size
+  const [canRenderCharts, setCanRenderCharts] = useState(false);
+
+  useEffect(() => {
+    setCanRenderCharts(true);
+  }, []);
+
   const computeWeekData = (txs: any[]) => {
     // build totals for last 7 days keyed by weekday name
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -301,16 +308,22 @@ export default function Dashboard() {
         <div className="hidden md:block lg:col-span-2">
           <Card title="Sales vs Purchase" className="lg:col-span-2">
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weekData.length ? weekData : emptyWeek} margin={{ top: 20, right: 20, left: 24, bottom: 12 }} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} width={60} />
-                  <Tooltip cursor={{fill: 'transparent'}} />
-                  <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="purchase" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {canRenderCharts && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={weekData.length ? weekData : emptyWeek}
+                    margin={{ top: 20, right: 20, left: 24, bottom: 12 }}
+                    barCategoryGap="20%"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} width={60} />
+                    <Tooltip cursor={{ fill: 'transparent' }} />
+                    <Bar dataKey="sales" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="purchase" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
         </div>

@@ -1,3 +1,4 @@
+"use client";
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,6 +19,7 @@ const Tabs = ({ active, setActive, tabs }: any) => (
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('Stock');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [parties, setParties] = useState<{ label: string; value: string }[]>([]);
   const [partiesLoading, setPartiesLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState('');
@@ -30,6 +32,7 @@ export default function Reports() {
   const [plLoading, setPlLoading] = useState(false);
   const [stockLoading, setStockLoading] = useState(false);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const formatCurrency = (v: any) => {
     const n = Number(v || 0);
@@ -74,13 +77,12 @@ export default function Reports() {
 
   // pick tab from query param for deep links
   useEffect(() => {
-    const searchParams = useSearchParams();
     const tabParam = (searchParams.get('tab') || '').toLowerCase();
     if (!tabParam) return;
     if (tabParam === 'pl') setActiveTab('P&L');
     else if (tabParam === 'stock') setActiveTab('Stock');
     else if (tabParam === 'outstanding') setActiveTab('Outstanding');
-  }, []);
+  }, [searchParams]);
 
   // fetch stock when Stock tab active
   useEffect(() => {
@@ -126,31 +128,74 @@ export default function Reports() {
 
   
 
-  const handleExport = () => {
-    // Export the active tab's report area as PDF using html2pdf
-    let elId: string | null = null;
-    if (activeTab === 'Stock') elId = 'report-stock-content';
-    else if (activeTab === 'Outstanding') elId = 'report-outstanding-content';
-    else if (activeTab === 'Ledger') {
-      alert('Open the Ledger Preview (Get Ledger) and use its PDF/Print buttons to export.');
-      return;
+  const handleExport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      let type: string | null = null;
+      if (activeTab === 'Stock') type = 'stock';
+      else if (activeTab === 'Outstanding') type = 'outstanding';
+      else if (activeTab === 'P&L') type = 'pl';
+      else if (activeTab === 'Ledger') {
+        alert('Open the Ledger Preview (Get Ledger) and use its PDF/Print buttons to export.');
+        setIsExporting(false);
+        return;
+      }
+      if (!type) {
+        alert('No report selected for export');
+        setIsExporting(false);
+        return;
+      }
+
+      let url = `/api/reports/pdf?type=${encodeURIComponent(type)}`;
+      if (type === 'pl') {
+        url += `&from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('PDF export failed', text);
+        alert('Failed to generate PDF');
+        setIsExporting(false);
+        return;
+      }
+
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      const filename =
+        type === 'stock'
+          ? 'Stock_Report.pdf'
+          : type === 'outstanding'
+          ? 'Outstanding_Report.pdf'
+          : `Profit_Loss_${fromDate}_to_${toDate}.pdf`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to generate PDF');
+    } finally {
+      setIsExporting(false);
     }
-    if (!elId) return alert('No report selected for export');
-    let el = document.getElementById(elId);
-    // try desktop alternative ids
-    if (!el) el = document.getElementById(`${elId}-desktop`) || document.getElementById(`${elId}-content-desktop`);
-    if (!el) return alert('Report content not ready for export');
-    // @ts-ignore
-    if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
-    // @ts-ignore
-    window.html2pdf().set({ margin: 0, filename: `${activeTab}_Report.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(el).save();
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
         <h1 className="text-2xl font-bold text-slate-800">Business Reports</h1>
-        <Button variant="outline" icon={Download} onClick={handleExport}>Export PDF</Button>
+        <Button
+          variant="outline"
+          icon={Download}
+          onClick={handleExport}
+          disabled={isExporting}
+        >
+          {isExporting ? 'Preparing PDF...' : 'Export PDF'}
+        </Button>
       </div>
 
       <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger', 'P&L' ]} />
@@ -291,19 +336,9 @@ export default function Reports() {
               <label className="text-xs text-slate-500 mb-1 block">To</label>
               <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </div>
-            <Button variant="outline" icon={Download} onClick={() => {
-              const el = document.getElementById('pl-content');
-              if (!el) return alert('Content not ready for export');
-              // @ts-ignore
-              if (typeof window.html2pdf === 'undefined') { alert('PDF helper not ready'); return; }
-              // Clone element to avoid CSS issues
-              const clone = el.cloneNode(true) as HTMLElement;
-              clone.style.background = 'white';
-              clone.style.padding = '20px';
-              clone.style.color = '#000';
-              // @ts-ignore
-              window.html2pdf().set({ margin: [10, 10, 10, 10], filename: `Profit_Loss_${fromDate}_to_${toDate}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(clone).save();
-            }}>Export PDF</Button>
+            <Button variant="outline" icon={Download} disabled={isExporting} onClick={handleExport}>
+              {isExporting ? 'Preparing PDF...' : 'Export PDF'}
+            </Button>
           </div>
           <div id="pl-content" className="bg-white p-6" style={{ color: '#000' }}>
             {plLoading ? (
