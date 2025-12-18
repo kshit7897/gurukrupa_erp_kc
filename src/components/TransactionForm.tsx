@@ -6,6 +6,8 @@ import { Button, Input, Card, Modal, Select, SoftLoader } from './ui/Common';
 import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, AlertCircle, X, CalendarClock } from 'lucide-react';
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
 import { api } from '../lib/api';
+import { formatDate } from '../lib/formatDate';
+import { numberToWords } from '../lib/numberToWords';
 import { useRouter } from 'next/navigation';
 
 interface TransactionFormProps {
@@ -28,6 +30,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [dueDate, setDueDate] = useState('');
   const [addedItems, setAddedItems] = useState<InvoiceItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [company, setCompany] = useState<any | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [existingInvoiceNo, setExistingInvoiceNo] = useState<string>('');
   const [partySearchQuery, setPartySearchQuery] = useState('');
@@ -175,6 +178,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       const i = await api.items.list();
       setParties(p);
       setItems(i);
+      try {
+        const res = await fetch('/api/company');
+        if (res.ok) {
+          const data = await res.json();
+          setCompany(data?.company || null);
+        }
+      } catch (e) { /* ignore */ }
     } catch (error) {
       console.error("Failed to load master data", error);
     }
@@ -647,6 +657,139 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           </div>
         </div>
       </Card>
+
+      {/* Print-only invoice preview: hidden on screen, visible only when printing */}
+      <div className="hidden print:block">
+        <style>{`@media print { #invoice-scaled { transform: none !important; width: 210mm !important; margin-bottom: 0 !important; } #invoice-content { box-shadow: none !important; min-height: auto !important; padding: 0 !important; } }`}</style>
+        <div id="invoice-scaled" className="relative print:w-full" style={{ width: '210mm' }}>
+          <div id="invoice-content" className="bg-white min-h-[297mm] text-slate-900 print:w-full print:m-0" style={{ padding: '10mm 12mm' }}>
+            <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
+              <div className="flex items-center gap-6 w-2/3">
+                <div className="w-28 h-28 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
+                  {company?.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
+                  )}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">{company?.name || 'Company Name'}</h1>
+                  <div className="text-sm text-slate-600 leading-tight mt-1">
+                    <div>{company?.address_line_1 || company?.address || ''}</div>
+                    {company?.address_line_2 && <div>{company.address_line_2}</div>}
+                    <div>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
+                    <div className="mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
+                    <div className="mt-1 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="w-1/3 text-right">
+                <div className="inline-block text-sm text-slate-700 font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200">{isSales ? (paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE') : 'PURCHASE VOUCHER'}</div>
+                <div className="mt-3 text-sm text-right">
+                  <div className="flex justify-end"><div className="w-40 text-slate-600">Invoice No.</div><div className="w-48 font-bold text-slate-900">{existingInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`}</div></div>
+                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Inv. Date</div><div className="w-48">{formatDate(invoiceDate)}</div></div>
+                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Payment Mode</div><div className="w-48">{paymentMode}</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 grid-rows-2 gap-4 mb-4">
+              <div className="col-span-3 row-span-2 flex flex-col gap-4">
+                <div className="bg-slate-50 border border-slate-100 rounded p-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase">Bill To</div>
+                  <div className="mt-2 text-sm font-semibold text-slate-800">{billingAddressState.name || selectedParty?.name || partySearchQuery}</div>
+                  <div className="mt-1 text-sm text-slate-600 leading-tight">
+                    {billingAddressState.line1 || ''}
+                    {billingAddressState.line2 && (<div>{billingAddressState.line2}</div>)}
+                    <div>{billingAddressState.city || ''}{billingAddressState.pincode ? ` - ${billingAddressState.pincode}` : ''}</div>
+                    <div className="mt-1">Phone: {billingAddressState.phone || selectedParty?.mobile || '-'}</div>
+                    <div className="mt-1">GSTIN: {billingAddressState.gstin || selectedParty?.gstNo || '-'}</div>
+                  </div>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 rounded p-3">
+                  <div className="text-xs font-semibold text-slate-500 uppercase">Ship To</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-800">{shippingAddress.name || billingAddressState.name || selectedParty?.name}</div>
+                    <div className="mt-1 text-sm text-slate-600 leading-tight">
+                      {shippingAddress.line1 || ''}
+                      {shippingAddress.line2 && (<div>{shippingAddress.line2}</div>)}
+                      <div>{shippingAddress.city || ''}{shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}</div>
+                      <div className="mt-1">GSTIN: {shippingAddress.gstin || billingAddressState.gstin || selectedParty?.gstNo || '-'}</div>
+                    </div>
+                </div>
+              </div>
+              <div className="col-span-2 row-span-2">
+                <div className="border border-slate-100 rounded p-3 text-sm h-full flex items-start bg-white">
+                  <div className="w-full space-y-2 text-slate-600">
+                    <div className="flex justify-between items-center">
+                      <div className="w-40 font-medium text-slate-700">Buyer&apos;s Order No</div>
+                      <div className="text-right text-slate-900 whitespace-nowrap ml-4">{existingInvoiceNo || '-'}</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="w-40 font-medium text-slate-700">Vehicle Number</div>
+                      <div className="text-right text-slate-900 whitespace-nowrap ml-4">{vehicleNo || '-'}</div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="w-40 font-medium text-slate-700">Delivery Date</div>
+                      <div className="text-right text-slate-900 whitespace-nowrap ml-4">{deliveryDateMeta || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Items table */}
+            <div className="mb-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 text-left text-xs">
+                    <th className="py-2 px-2 w-8">Sr</th>
+                    <th className="py-2 px-2">Goods & Service Description</th>
+                    <th className="py-2 px-2 w-16 text-right">HSN</th>
+                    <th className="py-2 px-2 w-20 text-right">Quantity</th>
+                    <th className="py-2 px-2 w-24 text-right">Rate</th>
+                    <th className="py-2 px-2 w-24 text-right">Taxable</th>
+                    <th className="py-2 px-2 w-16 text-right">%</th>
+                    <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
+                    <th className="py-2 px-2 w-28 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="text-slate-700">
+                  {addedItems.map((item, index) => {
+                    const taxable = (item.amount || (item.qty * item.rate)) || 0;
+                    const gstAmt = taxable * ((item.taxPercent || 0) / 100);
+                    const lineTotal = taxable + gstAmt;
+                    return (
+                      <tr key={index} className="border-b border-slate-100 last:border-0">
+                        <td className="py-3 px-2 text-slate-500">{index + 1}</td>
+                        <td className="py-3 px-2 font-semibold text-slate-800">{item.name}</td>
+                        <td className="py-3 px-2 text-right text-slate-500">{(item as any).hsn || '-'}</td>
+                        <td className="py-3 px-2 text-right">{item.qty}</td>
+                        <td className="py-3 px-2 text-right">{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</td>
+                        <td className="py-3 px-2 text-right">{taxable.toFixed(2)}</td>
+                        <td className="py-3 px-2 text-right">{item.taxPercent}%</td>
+                        <td className="py-3 px-2 text-right">{gstAmt.toFixed(2)}</td>
+                        <td className="py-3 px-2 text-right font-bold">{lineTotal.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex gap-4 mt-4 justify-end">
+              <div className="w-1/3 bg-white border border-slate-100 rounded p-3 text-sm">
+                <div className="flex justify-between"><div className="text-slate-600">Subtotal</div><div className="font-bold">₹ {subtotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">CGST</div><div className="font-bold">₹ {cgstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">SGST</div><div className="font-bold">₹ {sgstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">IGST</div><div className="font-bold">₹ {igstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-2 border-t pt-2"><div className="text-slate-700 font-semibold">Total</div><div className="text-xl font-extrabold">₹ {total.toFixed(2)}</div></div>
+                <div className="mt-2 text-xs text-slate-600">Amount in words: {numberToWords(Math.round(total))} only</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* SHIPPING / DELIVERY ADDRESS */}
       <Card className="bg-white p-5 space-y-4 shadow-sm border border-slate-200">

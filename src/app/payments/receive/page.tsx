@@ -362,8 +362,8 @@ export default function ReceivePaymentPage() {
             <div className="flex flex-col h-full">
               <div className="mb-3 flex gap-2">
                 <Button variant="outline" onClick={() => savedReceiptId && downloadFromIframe(savedReceiptId)}>Download PDF</Button>
-                <Button onClick={() => savedReceiptId && printIframe()}>Print</Button>
-                <Button variant="ghost" onClick={() => savedReceiptId && previewReceipt(savedReceiptId)}>Preview</Button>
+                {/* <Button onClick={() => savedReceiptId && printIframe()}>Print</Button> */}
+                {/* <Button variant="ghost" onClick={() => savedReceiptId && previewReceipt(savedReceiptId)}>Preview</Button> */}
               </div>
               <div className="mt-2">
                 <div className="text-sm text-slate-600">Use the buttons above to download or preview the receipt for printing.</div>

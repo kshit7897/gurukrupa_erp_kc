@@ -4,4 +4,63 @@
 
 @import "tailwindcss";
  
+/* Print rules: hide all UI except invoice/receipt/ledger content containers
+	 Targets: #invoice-scaled, #invoice-content, #receipt-scaled, #receipt-content,
+						#ledger-content and their descendants. Keeps preview layout and forces A4 width. */
+@page { size: A4; margin: 0mm; }
+
+@media print {
+	/* hide everything first */
+	html, body {
+		height: 100%;
+	}
+	body * {
+		visibility: hidden !important;
+		print-color-adjust: exact;
+		-webkit-print-color-adjust: exact;
+	}
+
+	/* ensure no-print utility is hidden */
+	.no-print {
+		display: none !important;
+	}
+
+	/* Show only these containers and their children */
+	#invoice-scaled, #invoice-content,
+	#receipt-scaled, #receipt-content,
+	#ledger-scaled, #ledger-content,
+	#receipt-preview, #invoice-preview {
+		visibility: visible !important;
+	}
+	#invoice-scaled *, #invoice-content *,
+	#receipt-scaled *, #receipt-content *,
+	#ledger-scaled *, #ledger-content *,
+	#receipt-preview *, #invoice-preview * {
+		visibility: visible !important;
+	}
+
+	/* Force the visible container to occupy the printed page and remove transforms */
+	#invoice-scaled, #invoice-content,
+	#receipt-scaled, #receipt-content,
+	#ledger-scaled, #ledger-content,
+	#receipt-preview, #invoice-preview {
+		position: fixed !important;
+		left: 0 !important;
+		top: 0 !important;
+		width: 210mm !important;
+		margin: 0 !important;
+		/* keep some printable padding so content doesn't get cut at page edges */
+		padding: 10mm 12mm !important;
+		box-sizing: border-box !important;
+		overflow: visible !important;
+		transform: none !important;
+		box-shadow: none !important;
+	}
+
+	/* Ensure page breaks behave inside the printed content */
+	#invoice-content, #receipt-content, #ledger-content {
+		page-break-inside: avoid;
+	}
+}
+
 

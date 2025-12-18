@@ -56,10 +56,13 @@ const styles = StyleSheet.create({
   companyBlock: { flex: 1, flexDirection: 'column', justifyContent: 'center' },
   companyName: { fontSize: 18, fontWeight: 'extrabold', color: '#0f172a' },
   companyDetails: { fontSize: 10, color: '#64748b', marginTop: 2, lineHeight: 1.3 },
-  metaBlock: { width: 180, alignItems: 'flex-end' },
-  metaRow: { marginBottom: 6 },
-  metaLabel: { fontSize: 10, color: '#64748b' },
-  metaValue: { fontSize: 11, color: '#0f172a', fontWeight: 'bold' },
+  // Use fixed widths and explicit rows so PDF layout matches preview exactly
+  metaBlock: { width: 200, flexDirection: 'column' },
+  metaContainer: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, paddingTop: 18, backgroundColor: '#fff', alignItems: 'stretch' },
+  // meta rows will be explicit two-column rows (label / value) with locked widths
+  metaRow: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 6, minHeight: 18 },
+  metaLabel: { fontSize: 10, color: '#64748b', width: 80, lineHeight: 1.4 },
+  metaValue: { fontSize: 11, color: '#0f172a', fontWeight: 'bold', width: 140, textAlign: 'right', lineHeight: 1.4 },
   metaTitle: {
     fontSize: 11,
     fontWeight: 'bold',
@@ -70,8 +73,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    textAlign: 'right',
+    textAlign: 'center',
     marginBottom: 8,
+    alignSelf: 'center',
+    marginTop: -12,
   },
   sectionTitle: { fontSize: 10, fontWeight: 'bold', color: '#334155', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
   partyBlock: {
@@ -141,15 +146,15 @@ export function ReceiptPdf({ payment, party, company }: any) {
                   <Text style={[styles.companyDetails, { fontWeight: 'bold' }]}>GSTIN: {company?.gstin || company?.gstNumber || '-'}</Text>
                 </View>
               </View>
-              <View style={styles.metaBlock}>
+              <View style={[styles.metaBlock, styles.metaContainer]}>
                 <Text style={styles.metaTitle}>{title}</Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Voucher No.</Text>
-                  <Text style={styles.metaValue}>{voucherDisplay}</Text>
+                  <Text style={styles.metaValue} wrap={false}>{voucherDisplay}</Text>
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Date</Text>
-                  <Text style={styles.metaValue}>{String(payment.date).slice(0, 10)}</Text>
+                  <Text style={styles.metaValue} wrap={false}>{String(payment.date).slice(0, 10)}</Text>
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Payment Mode</Text>

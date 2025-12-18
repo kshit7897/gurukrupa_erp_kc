@@ -16,6 +16,8 @@ export default function LedgerPreviewPage() {
   const [party, setParty] = useState<any | null>(null);
   const [company, setCompany] = useState<any | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const ledgerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number>(1);
 
   useEffect(() => {
     try {
@@ -57,6 +59,48 @@ export default function LedgerPreviewPage() {
     return () => { mounted = false; document.removeEventListener('gurukrupa:data:updated', onData); };
   }, [partyId, fromDate, toDate]);
 
+  // scale the preview to fit small screens without changing layout
+  useEffect(() => {
+    const computeScale = () => {
+      try {
+        const container = containerRef.current;
+        const ledger = ledgerRef.current;
+        if (!container || !ledger) return;
+        // ledger natural width (in px) measured from element when not scaled
+        // temporarily remove transform to measure accurately
+        const prevTransform = ledger.style.transform;
+        ledger.style.transform = 'none';
+        const ledgerWidth = ledger.getBoundingClientRect().width;
+        const containerWidth = container.getBoundingClientRect().width;
+        let newScale = 1;
+        if (ledgerWidth > 0 && containerWidth > 0) {
+          newScale = Math.min(1, containerWidth / ledgerWidth);
+        }
+        setScale(newScale);
+        // restore transform will be applied via state update
+        ledger.style.transform = prevTransform;
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    computeScale();
+    const onResize = () => computeScale();
+    window.addEventListener('resize', onResize);
+
+    // when printing, ensure scale is 1 (no zoom)
+    const onBeforePrint = () => { setScale(1); };
+    const onAfterPrint = () => { computeScale(); };
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('afterprint', onAfterPrint);
+
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('afterprint', onAfterPrint);
+    };
+  }, [transactions.length]);
+
   const handlePrint = () => window.print();
 
   const handleDownload = async () => {
@@ -94,8 +138,8 @@ export default function LedgerPreviewPage() {
   return (
     <div className="h-full bg-slate-100 flex flex-col">
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 no-print shadow-sm shrink-0">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3"><Button variant="ghost" onClick={() => router.back()} size="sm" className="text-slate-600"><ArrowLeft className="h-5 w-5" /> Back</Button><h2 className="font-bold text-slate-800">Ledger Preview</h2></div>
+          <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-3"><Button variant="ghost" onClick={() => router.back()} size="sm" className="text-slate-600"><ArrowLeft className="h-5 w-5" /> Back</Button><h2 className="font-bold text-slate-800 hidden sm:block">Ledger Preview</h2></div>
           <div className="flex space-x-3">
             <Button variant="outline" onClick={handleDownload}><Download className="h-4 w-4 mr-2" /> PDF</Button>
             <Button icon={Printer} onClick={handlePrint}>Print</Button>
@@ -104,8 +148,23 @@ export default function LedgerPreviewPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 print:p-0 print:overflow-visible bg-slate-100/50 flex flex-col items-center" ref={containerRef}>
-        <div className="relative transition-transform print:transform-none print:w-full" style={{ width: '210mm' }}>
-          <div id="ledger-content" className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0 p-6">
+        <style>{`
+          /* Force desktop layout inside the preview container. This locks layout and disables responsive breakpoints */
+          #ledger-content, #ledger-content * { box-sizing: border-box !important; }
+          /* Keep the physical desktop width regardless of viewport */
+          #ledger-content { width: 210mm !important; max-width: none !important; }
+          /* Prevent flex containers from wrapping or switching to column */
+          #ledger-content .flex { flex-wrap: nowrap !important; }
+          #ledger-content .flex-col, #ledger-content .md\\:flex-row { flex-direction: row !important; }
+          /* Force grid columns to desktop counts */
+          #ledger-content .grid, #ledger-content .md\\:grid-cols-2 { grid-auto-flow: column !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          /* Ensure no element will shrink/stack unexpectedly */
+          #ledger-content * { min-width: 0 !important; }
+          /* Make sure print uses same fixed desktop width */
+          @media print { #ledger-content{ transform:none !important; transform-origin: top left !important; margin:0 auto !important } }
+        `}</style>
+        <div className="relative transition-transform print:transform-none print:w-[210mm] min-w-0 w-full md:w-[210mm] max-w-full flex justify-center">
+          <div id="ledger-content" ref={ledgerRef} className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0 p-6 w-[210mm] mx-auto" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
             <div className="flex justify-between items-start border-b mb-4 pb-4 gap-4">
               <div className="flex items-start gap-4">
                 {company?.logo ? (
@@ -145,9 +204,17 @@ export default function LedgerPreviewPage() {
             {!loading && transactions.length === 0 && <div className="py-12 text-center text-slate-500">No transactions in selected range.</div>}
 
             {!loading && transactions.length > 0 && (
-              <table className="w-full text-sm border-collapse">
+              <table className="w-full text-sm border-collapse table-auto">
                 <thead>
-                  <tr className="bg-slate-800 text-white"><th className="text-left py-2 px-3">Date</th><th className="text-left py-2 px-3">Ref</th><th className="text-left py-2 px-3">Type</th><th className="text-left py-2 px-3">Cash</th><th className="text-right py-2 px-3">Debit</th><th className="text-right py-2 px-3">Credit</th><th className="text-right py-2 px-3">Balance</th></tr>
+                  <tr className="bg-slate-800 text-white">
+                    <th className="text-left py-2 px-3">Date</th>
+                    <th className="text-left py-2 px-3">Ref</th>
+                    <th className="text-left py-2 px-3">Type</th>
+                    <th className="text-left py-2 px-3">Cash</th>
+                    <th className="text-right py-2 px-3">Debit</th>
+                    <th className="text-right py-2 px-3">Credit</th>
+                    <th className="text-right py-2 px-3">Balance</th>
+                  </tr>
                 </thead>
                 <tbody className="text-slate-700">
                   {transactions.map((t, idx) => (
