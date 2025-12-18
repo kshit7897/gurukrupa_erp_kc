@@ -20,7 +20,6 @@ const Tabs = ({ active, setActive, tabs }: any) => (
 export default function Reports() {
   const [activeTab, setActiveTab] = useState('Stock');
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [parties, setParties] = useState<{ label: string; value: string }[]>([]);
   const [partiesLoading, setPartiesLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState('');
@@ -78,12 +77,15 @@ export default function Reports() {
 
   // pick tab from query param for deep links
   useEffect(() => {
-    const tabParam = (searchParams.get('tab') || '').toLowerCase();
-    if (!tabParam) return;
-    if (tabParam === 'pl') setActiveTab('P&L');
-    else if (tabParam === 'stock') setActiveTab('Stock');
-    else if (tabParam === 'outstanding') setActiveTab('Outstanding');
-  }, [searchParams]);
+    try {
+      const tabParam = (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : '') || '';
+      const t = tabParam.toLowerCase();
+      if (!t) return;
+      if (t === 'pl') setActiveTab('P&L');
+      else if (t === 'stock') setActiveTab('Stock');
+      else if (t === 'outstanding') setActiveTab('Outstanding');
+    } catch (e) {}
+  }, []);
 
   // fetch stock when Stock tab active
   useEffect(() => {

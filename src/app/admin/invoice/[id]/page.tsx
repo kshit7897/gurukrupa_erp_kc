@@ -9,7 +9,8 @@ import { formatDate } from '../../../../lib/formatDate';
 import { numberToWords } from '../../../../lib/numberToWords';
 
 export default function InvoiceView() {
-  const { id } = useParams();
+  const _params = useParams();
+  const id = _params?.id as string | undefined;
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [party, setParty] = useState<Party | null>(null);

@@ -10,7 +10,7 @@ import mongoose from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, context: { params: { id: string } }) {
+export async function GET(_req: Request, context: any) {
   try {
     const { id } = context.params;
     await dbConnect();
@@ -41,7 +41,7 @@ export async function GET(_req: Request, context: { params: { id: string } }) {
     // The server will render the receipt via react-pdf for consistent output.
 
     // Fallback: render via react-pdf (existing behavior)
-    const buffer = await renderToBuffer(React.createElement(ReceiptPdf as any, { payment, party, company }));
+    const buffer = await renderToBuffer((React.createElement(ReceiptPdf as any, { payment, party, company }) as any));
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
@@ -56,7 +56,7 @@ export async function GET(_req: Request, context: { params: { id: string } }) {
 }
 
 // Accept POST with JSON body { payment, party?, company? } to render PDF from client-provided data.
-export async function POST(req: Request, context: { params: { id: string } }) {
+export async function POST(req: Request, context: any) {
   try {
     const { id } = context.params;
     const body = await req.json().catch(() => ({}));
@@ -74,7 +74,7 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       try { company = await Company.findOne().lean(); } catch (e) { company = null; }
     }
 
-    const buffer = await renderToBuffer(React.createElement(ReceiptPdf as any, { payment, party, company }));
+    const buffer = await renderToBuffer((React.createElement(ReceiptPdf as any, { payment, party, company }) as any));
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {

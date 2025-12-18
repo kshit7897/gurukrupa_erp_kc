@@ -10,7 +10,7 @@ import mongoose from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, context: { params: { id: string } }) {
+export async function GET(_req: Request, context: any) {
   try {
     const { id } = context.params;
     console.log('[invoice-pdf] incoming id', id);
@@ -43,7 +43,7 @@ export async function GET(_req: Request, context: { params: { id: string } }) {
     const company = await Company.findOne().lean();
 
     const buffer = await renderToBuffer(
-      React.createElement(InvoicePdf as any, { invoice, party, company })
+      (React.createElement(InvoicePdf as any, { invoice, party, company }) as any)
     );
 
     return new NextResponse(new Uint8Array(buffer), {

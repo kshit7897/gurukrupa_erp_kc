@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     const company = await Company.findOne().lean();
 
     const buffer = await renderToBuffer(
-      React.createElement(InvoicePdf as any, { invoice, party, company })
+      (React.createElement(InvoicePdf as any, { invoice, party, company }) as any)
     );
 
     return new NextResponse(new Uint8Array(buffer), {

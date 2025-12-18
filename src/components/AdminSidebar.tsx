@@ -35,7 +35,7 @@ const MENU_ITEMS = [
 
 export const AdminSidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const router = useRouter();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);

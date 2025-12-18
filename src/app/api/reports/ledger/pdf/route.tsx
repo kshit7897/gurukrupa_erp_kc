@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
+import path from 'path';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
 // Register Noto Sans font for rupee symbol support, fallback to Helvetica if not found
 let ledgerFontFamily = 'NotoSans';
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fontPath = path.join(process.cwd(), 'src', 'lib', 'pdf', 'fonts', 'NotoSans-Regular.ttf');
   Font.register({
     family: 'NotoSans',
-    src: require('@/lib/pdf/fonts/NotoSans-Regular.ttf'),
+    src: fontPath,
   });
 } catch (e) {
   ledgerFontFamily = 'Helvetica';

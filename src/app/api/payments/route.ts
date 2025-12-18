@@ -29,7 +29,7 @@ export async function GET(request: Request) {
           payment = await Payment.findById(id).lean();
         }
         if (!payment) {
-          payment = await Payment.findOne({ $or: [{ id: id }, { voucherNo: id }, { _id: id }] }).lean();
+          payment = await Payment.findOne({ $or: [{ id: id }, { voucherNo: id }, { _id: id as any }] } as any).lean();
         }
         if (!payment) return NextResponse.json(null);
         return NextResponse.json({ ...(payment as any), id: (payment as any)._id?.toString() });
