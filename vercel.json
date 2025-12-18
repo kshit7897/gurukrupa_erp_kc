@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "src/app/api/**/*.{js,ts,tsx}": {
-      "runtime": "nodejs18.x",
-      "maxDuration": 10
-    }
-  }
-}
