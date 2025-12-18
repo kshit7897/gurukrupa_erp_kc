@@ -18,12 +18,27 @@ async function findInvoiceFlexible(id: string, session?: mongoose.ClientSession 
 export async function GET(request: Request) {
   try {
     await dbConnect();
-    const { searchParams } = new URL(request.url);
-    const partyId = searchParams.get('party');
-    const q: any = {};
-    if (partyId) q.partyId = partyId;
-    const payments = await Payment.find(q).sort({ createdAt: -1 }).lean();
-    return NextResponse.json(payments.map(p => ({ ...(p as any), id: (p as any)._id?.toString() })));
+      const { searchParams } = new URL(request.url);
+      const partyId = searchParams.get('party');
+      const id = searchParams.get('id');
+
+      // if `id` query param provided, return that single payment (by _id, id or voucherNo)
+      if (id) {
+        let payment: any = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          payment = await Payment.findById(id).lean();
+        }
+        if (!payment) {
+          payment = await Payment.findOne({ $or: [{ id: id }, { voucherNo: id }, { _id: id }] }).lean();
+        }
+        if (!payment) return NextResponse.json(null);
+        return NextResponse.json({ ...(payment as any), id: (payment as any)._id?.toString() });
+      }
+
+      const q: any = {};
+      if (partyId) q.partyId = partyId;
+      const payments = await Payment.find(q).sort({ createdAt: -1 }).lean();
+      return NextResponse.json(payments.map(p => ({ ...(p as any), id: (p as any)._id?.toString() })));
   } catch (err: any) {
     console.error('GET /api/payments error', err);
     return NextResponse.json({ error: err?.message || 'Failed to fetch payments' }, { status: 500 });

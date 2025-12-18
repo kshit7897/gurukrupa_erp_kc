@@ -26,11 +26,10 @@ export default function PaymentReceipt() {
       if (!id) return;
       setLoading(true);
       try {
-        // fetch payments list and find by id (route returns list)
-        const res = await fetch('/api/payments');
+        // fetch single payment by id to ensure we get the exact saved record
+        const res = await fetch(`/api/payments?id=${encodeURIComponent(id)}`);
         if (!res.ok) throw new Error('Failed to fetch payment');
-        const all = await res.json();
-        const pay = all.find((p: any) => (p._id?.toString?.() === id) || (p.id === id) || (p._id === id));
+        const pay = await res.json();
         if (!pay) {
           setPayment(null);
           setLoading(false);

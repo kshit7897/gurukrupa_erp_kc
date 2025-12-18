@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { Button, Table, Card, Select, Input } from '../../../components/ui/Common';
+// Stock PDF export intentionally removed for Stock tab
 import { Download } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -188,14 +189,17 @@ export default function Reports() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
         <h1 className="text-2xl font-bold text-slate-800">Business Reports</h1>
-        <Button
-          variant="outline"
-          icon={Download}
-          onClick={handleExport}
-          disabled={isExporting}
-        >
-          {isExporting ? 'Preparing PDF...' : 'Export PDF'}
-        </Button>
+        {/* Export button hidden when Stock tab is active */}
+        {activeTab === 'Stock' ? null : (
+          <Button
+            variant="outline"
+            icon={Download}
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            {isExporting ? 'Preparing PDF...' : 'Export PDF'}
+          </Button>
+        )}
       </div>
 
       <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger', 'P&L' ]} />

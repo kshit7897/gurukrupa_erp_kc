@@ -157,6 +157,8 @@ export default function MakePaymentPage() {
         outstandingAfter
       };
       const res = await api.payments.add(payload);
+      // store canonical saved payment object to ensure PDF uses exact preview data
+      setSavedPayment(res || null);
       const pid = res?._id || res?.id || res?.paymentId;
       if (pid) {
         setSavedReceiptId(pid);
@@ -173,12 +175,50 @@ export default function MakePaymentPage() {
   // modal state for receipt preview
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
+  const [savedPayment, setSavedPayment] = useState<any | null>(null);
   const openReceiptInNewTab = (path: string) => {
     try { window.open(path, '_blank'); } catch (e) { window.location.href = path; }
   };
-  const downloadFromIframe = (id: string) => {
-    const src = `/payments/receipt/${id}?download=1`;
-    openReceiptInNewTab(src);
+  const downloadFromIframe = async (id: string) => {
+    // Prefer the in-memory savedPayment to guarantee PDF uses preview data
+    try {
+      let payment: any = null;
+      if (savedPayment && (String(savedPayment._id) === String(id) || String(savedPayment.id) === String(id))) {
+        payment = savedPayment;
+      }
+
+      let party = null;
+      let company = null;
+
+      if (payment) {
+        try { if (payment?.partyId) party = await api.parties.get(payment.partyId); } catch (e) { party = null; }
+        try { const cr = await fetch('/api/company'); if (cr.ok) { const cd = await cr.json(); company = cd?.company || null; } } catch (e) { company = null; }
+      } else {
+        const pRes = await fetch(`/api/payments?id=${encodeURIComponent(id)}`);
+        if (!pRes.ok) return openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+        payment = await pRes.json();
+        try { if (payment?.partyId) party = await api.parties.get(payment.partyId); } catch (e) { party = null; }
+        try { const cr = await fetch('/api/company'); if (cr.ok) { const cd = await cr.json(); company = cd?.company || null; } } catch (e) { company = null; }
+      }
+
+      const res = await fetch(`/api/payments/receipt/${encodeURIComponent(id)}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment, party, company }),
+      });
+      if (!res.ok) return openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payment_${payment?.id || payment?._id || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+    }
   };
 
   const printIframe = () => {

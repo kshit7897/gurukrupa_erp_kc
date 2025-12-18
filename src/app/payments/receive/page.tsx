@@ -163,8 +163,25 @@ export default function ReceivePaymentPage() {
         outstandingAfter
       };
       const res = await api.payments.add(payload);
+      // keep canonical saved payment object to use for PDF generation (avoid stale fetch)
+      setSavedPayment(res || null);
       // open receipt modal for the created payment (mobile-friendly popup)
-      const pid = res?._id || res?.id || res?.paymentId;
+      let pid = res?._id || res?.id || res?.paymentId;
+      // Confirm by fetching the saved payment from server to avoid mismatches
+      try {
+        if (pid) {
+          const verify = await fetch(`/api/payments?id=${encodeURIComponent(pid)}`);
+          if (verify.ok) {
+            const pay = await verify.json();
+            if (pay && (pay._id || pay.id)) {
+              pid = pay._id?.toString?.() || pay.id || pid;
+            }
+          }
+        }
+      } catch (e) {
+        // ignore verification errors, fall back to original pid
+        console.warn('Payment verify failed', e);
+      }
       if (pid) {
         // show modal instead of navigating
         setSavedReceiptId(pid);
@@ -181,13 +198,55 @@ export default function ReceivePaymentPage() {
   // modal state for receipt preview
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
+  const [savedPayment, setSavedPayment] = useState<any | null>(null);
   const openReceiptInNewTab = (path: string) => {
     try { window.open(path, '_blank'); } catch (e) { window.location.href = path; }
   };
-  const downloadFromIframe = (id: string) => {
-    // simplified: open download URL in new tab to trigger download on mobile/desktop
-    const src = `/payments/receipt/${id}?download=1`;
-    openReceiptInNewTab(src);
+  const downloadFromIframe = async (id: string) => {
+    // Use savedPayment if available and matches the id so PDF uses exact preview object
+    try {
+      let payment: any = null;
+      if (savedPayment && (String(savedPayment._id) === String(id) || String(savedPayment.id) === String(id))) {
+        payment = savedPayment;
+      }
+
+      let party = null;
+      let company = null;
+
+      if (payment) {
+        // use local saved payment; try to reuse party/company if possible
+        try { if (payment?.partyId) party = await api.parties.get(payment.partyId); } catch (e) { party = null; }
+        try { const cr = await fetch('/api/company'); if (cr.ok) { const cd = await cr.json(); company = cd?.company || null; } } catch (e) { company = null; }
+      } else {
+        // no local copy - fetch canonical saved record
+        const pRes = await fetch(`/api/payments?id=${encodeURIComponent(id)}`);
+        if (!pRes.ok) return openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+        payment = await pRes.json();
+        try { if (payment?.partyId) party = await api.parties.get(payment.partyId); } catch (e) { party = null; }
+        try { const cr = await fetch('/api/company'); if (cr.ok) { const cd = await cr.json(); company = cd?.company || null; } } catch (e) { company = null; }
+      }
+
+      // POST exact payment data to server-side PDF renderer
+      const res = await fetch(`/api/payments/receipt/${encodeURIComponent(id)}/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payment, party, company }),
+      });
+      if (!res.ok) {
+        return openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payment_${payment?.id || payment?._id || id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      openReceiptInNewTab(`/payments/receipt/${id}?download=1`);
+    }
   };
 
   const printIframe = () => {

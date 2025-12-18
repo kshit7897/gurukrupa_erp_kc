@@ -77,35 +77,35 @@ export function buildProfitLossPdf(data: any): Promise<Buffer> {
     doc.moveDown();
 
     if (openingBalance) {
-      doc.fontSize(11).text(`Opening Balance: ₹ ${Number(openingBalance || 0).toFixed(2)}`);
+      doc.fontSize(11).text(`Opening Balance: ${Number(openingBalance || 0).toFixed(2)}`);
       doc.moveDown();
     }
 
     doc.fontSize(13).text('Revenue', { underline: true });
     doc.moveDown(0.3);
-    doc.fontSize(11).text(`Sales: ₹ ${Number(sales || 0).toFixed(2)}`);
-    doc.text(`Other Income: ₹ ${Number(otherIncome || 0).toFixed(2)}`);
+    doc.fontSize(11).text(`Sales: ${Number(sales || 0).toFixed(2)}`);
+    doc.text(`Other Income: ${Number(otherIncome || 0).toFixed(2)}`);
     const totalRevenue = Number(sales || 0) + Number(otherIncome || 0);
-    doc.text(`Total Revenue: ₹ ${totalRevenue.toFixed(2)}`);
+    doc.text(`Total Revenue: ${totalRevenue.toFixed(2)}`);
     doc.moveDown();
 
     doc.fontSize(13).text('Expenses', { underline: true });
     doc.moveDown(0.3);
-    doc.fontSize(11).text(`Purchase: ₹ ${Number(purchase || 0).toFixed(2)}`);
-    doc.text(`Other Expenses: ₹ ${Number(otherExpense || 0).toFixed(2)}`);
+    doc.fontSize(11).text(`Purchase: ${Number(purchase || 0).toFixed(2)}`);
+    doc.text(`Other Expenses: ${Number(otherExpense || 0).toFixed(2)}`);
     const totalExpenses = Number(purchase || 0) + Number(otherExpense || 0);
-    doc.text(`Total Expenses: ₹ ${totalExpenses.toFixed(2)}`);
+    doc.text(`Total Expenses: ${totalExpenses.toFixed(2)}`);
     doc.moveDown();
 
     doc.fontSize(13).text('Summary', { underline: true });
     doc.moveDown(0.3);
-    doc.fontSize(11).text(`Gross Profit: ₹ ${Number(grossProfit || 0).toFixed(2)}`);
-    doc.text(`Net Profit/Loss: ₹ ${Number(netProfit || 0).toFixed(2)}`);
+    doc.fontSize(11).text(`Gross Profit: ${Number(grossProfit || 0).toFixed(2)}`);
+    doc.text(`Net Profit/Loss: ${Number(netProfit || 0).toFixed(2)}`);
 
     if (openingBalance || netProfit) {
       const closing = Number(openingBalance || 0) + Number(netProfit || 0);
       doc.moveDown();
-      doc.fontSize(11).text(`Closing Balance: ₹ ${closing.toFixed(2)}`);
+      doc.fontSize(11).text(`Closing Balance: ${closing.toFixed(2)}`);
     }
   });
 }

@@ -41,7 +41,7 @@ export async function GET(req: Request) {
       React.createElement(InvoicePdf as any, { invoice, party, company })
     );
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
