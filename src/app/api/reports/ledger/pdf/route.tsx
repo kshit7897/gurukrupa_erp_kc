@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
 // Register Noto Sans font for rupee symbol support, fallback to Helvetica if not found
 let ledgerFontFamily = 'NotoSans';
 try {
@@ -22,99 +22,129 @@ import Company from '@/lib/models/Company';
 export const dynamic = 'force-dynamic';
 
 const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 10, fontFamily: ledgerFontFamily },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  page: { padding: 0, fontSize: 10, fontFamily: ledgerFontFamily, backgroundColor: '#f1f5f9' },
+  container: { width: '100%', alignItems: 'center', paddingTop: 12, paddingBottom: 12 },
+  content: {
+    width: 530,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 6,
+    boxShadow: '0 2px 6px #e5e7eb',
+    color: '#0f172a',
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'flex-start' },
+  logoBox: { width: 60, height: 60, backgroundColor: '#f1f5f9', borderRadius: 6, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginRight: 10 },
+  metaBlock: { width: 160, alignItems: 'flex-end' },
+  companyDetailsSmall: { fontSize: 9, color: '#64748b', lineHeight: 1.2 },
   sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 6 },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#e5e7eb', padding: 4, fontWeight: 'bold' },
-  tableRow: { flexDirection: 'row', padding: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
-  cell: { paddingRight: 4 },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#0f172a', paddingVertical: 6, paddingHorizontal: 4 },
+  tableRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#eef2f6', alignItems: 'center' },
+  cell: { paddingRight: 6 },
+  thinSeparator: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 8 },
+  totalsBox: { marginTop: 10, padding: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e6eef6', borderRadius: 6 },
+  smallMuted: { fontSize: 9, color: '#64748b' },
+  boldValue: { fontSize: 12, fontWeight: 'bold' },
 });
 
 function LedgerDoc({ company, party, rows, from, to }: any) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={{ fontSize: 14, fontWeight: 'bold' }}>{company?.name || 'Company Name'}</Text>
-            <Text>{company?.address_line_1 || company?.address || ''}</Text>
-            {company?.address_line_2 && <Text>{company.address_line_2}</Text>}
-            <Text>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</Text>
-            <Text>Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</Text>
-            <Text style={{ fontWeight: 'bold' }}>GSTIN: {company?.gstin || company?.gstNumber || '-'}</Text>
-          </View>
-          <View>
-            <Text style={{ fontSize: 12, fontWeight: 'bold' }}>Ledger Preview</Text>
-            {from && to ? <Text>{`Period: ${from} — ${to}`}</Text> : null}
-          </View>
-        </View>
-
-        {/* party under company header like preview */}
-        <View style={{ marginTop: 6, marginBottom: 8 }}>
-          <Text style={{ fontSize: 11, fontWeight: 'bold' }}>{party?.name || 'Party Ledger'}</Text>
-          {party?.address && <Text style={{ fontSize: 9 }}>{party.address}</Text>}
-          {party?.mobile && <Text style={{ fontSize: 9 }}>Phone: {party.mobile}</Text>}
-        </View>
-
-        <View style={[styles.tableHeader, { backgroundColor: '#0f172a' }]}>
-          <Text style={[styles.cell, { width: '15%', color: '#fff' }]}>Date</Text>
-          <Text style={[styles.cell, { width: '20%', color: '#fff' }]}>Ref</Text>
-          <Text style={[styles.cell, { width: '18%', color: '#fff' }]}>Type</Text>
-          <Text style={[styles.cell, { width: '12%', textAlign: 'center', color: '#fff' }]}>Cash</Text>
-          <Text style={[styles.cell, { width: '11%', textAlign: 'right', color: '#fff' }]}>Debit</Text>
-          <Text style={[styles.cell, { width: '11%', textAlign: 'right', color: '#fff' }]}>Credit</Text>
-          <Text style={[styles.cell, { width: '13%', textAlign: 'right', color: '#fff' }]}>Balance</Text>
-        </View>
-
-        {rows.map((r: any, idx: number) => (
-          <View key={idx} style={styles.tableRow}>
-            <Text style={[styles.cell, { width: '15%' }]}>{String(r.date || '').slice(0, 10)}</Text>
-            <Text style={[styles.cell, { width: '20%' }]}>{r.ref || ''}</Text>
-            <Text style={[styles.cell, { width: '18%' }]}>{r.type || ''}</Text>
-            <Text style={[styles.cell, { width: '12%', textAlign: 'center', color: r.cash ? ( /sale/i.test(String(r.type || '')) ? '#059669' : '#059669') : '#94a3b8' }]}>{r.cash ? (/sale/i.test(String(r.type || '')) ? 'Cash Sale' : 'Cash') : '-'}</Text>
-            <Text style={[styles.cell, { width: '11%', textAlign: 'right' }]}>{r.debit ? Number(r.debit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '-'}</Text>
-            <Text style={[styles.cell, { width: '11%', textAlign: 'right' }]}>{r.credit ? Number(r.credit).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : '-'}</Text>
-            <Text style={[styles.cell, { width: '13%', textAlign: 'right' }]}>{Number(r.balance || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
-          </View>
-        ))}
-
-        {/* Totals summary similar to preview */}
-        {rows && rows.length > 0 && (
-          (() => {
-            const cashSalesTx = (rows || []).filter((it: any) => it.cash && /sale/i.test(String(it.type || '')));
-            const cashSalesTotal = cashSalesTx.reduce((s: number, it: any) => s + (Number(it.credit || it.debit || 0) || 0), 0);
-            const totalDebit = (rows || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
-            const totalCredit = (rows || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
-            const endingBalance = rows[rows.length - 1]?.balance || 0;
-            return (
-              <View style={{ marginTop: 10 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View>
-                    <Text style={{ fontSize: 10, color: '#64748b' }}>Totals</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <View style={{ marginRight: 12 }}>
-                      <Text style={{ fontSize: 9, color: '#64748b' }}>Total Debit</Text>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', fontFamily: ledgerFontFamily }}>{totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
-                    </View>
-                    <View style={{ marginRight: 12 }}>
-                      <Text style={{ fontSize: 9, color: '#64748b' }}>Total Credit</Text>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', fontFamily: ledgerFontFamily }}>{totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 9, color: '#64748b' }}>Ending Balance</Text>
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', fontFamily: ledgerFontFamily }}>{Number(endingBalance || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
-                    </View>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 9, color: '#64748b' }}>Cash Sales Total</Text>
-                      <Text style={{ fontSize: 12, fontWeight: 'bold', fontFamily: ledgerFontFamily }}>{cashSalesTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
-                  </View>
+        <View style={styles.container}>
+          <View style={styles.content}>
+            <View style={styles.headerRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
+                <View style={styles.logoBox}>
+                  {company?.logo ? (
+                    <Image src={company.logo} style={{ width: 60, height: 60, objectFit: 'contain' }} />
+                  ) : (
+                    <Text style={{ fontSize: 10, color: '#94a3b8' }}>Logo</Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold' }}>{company?.name || 'Company Name'}</Text>
+                  <Text style={styles.companyDetailsSmall}>{company?.address_line_1 || company?.address || ''}</Text>
+                  {company?.address_line_2 && <Text style={styles.companyDetailsSmall}>{company.address_line_2}</Text>}
+                  <Text style={styles.companyDetailsSmall}>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''}{company?.state ? `, ${company.state}` : ''}</Text>
+                  <Text style={styles.companyDetailsSmall}>Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</Text>
+                  <Text style={[styles.companyDetailsSmall, { fontWeight: 'bold' }]}>GSTIN: {company?.gstin || company?.gstNumber || '-'}</Text>
                 </View>
               </View>
-            );
-          })()
-        )}
+              <View style={styles.metaBlock}>
+                <Text style={{ fontSize: 12, fontWeight: 'bold' }}>Ledger Preview</Text>
+                {from && to ? <Text style={styles.smallMuted}>{`Period: ${from} — ${to}`}</Text> : null}
+              </View>
+            </View>
+
+            <View style={styles.thinSeparator} />
+
+            <View style={{ marginTop: 6, marginBottom: 8 }}>
+              <Text style={{ fontSize: 11, fontWeight: 'bold' }}>{party?.name || 'Party Ledger'}</Text>
+              {party?.address && <Text style={styles.smallMuted}>{party.address}</Text>}
+              {party?.mobile && <Text style={styles.smallMuted}>Phone: {party.mobile}</Text>}
+            </View>
+
+            <View style={styles.tableHeader}>
+              <Text style={[styles.cell, { width: '12%', color: '#fff' }]}>Date</Text>
+              <Text style={[styles.cell, { width: '34%', color: '#fff' }]}>Ref</Text>
+              <Text style={[styles.cell, { width: '12%', color: '#fff' }]}>Type</Text>
+              <Text style={[styles.cell, { width: '10%', textAlign: 'center', color: '#fff' }]}>Cash</Text>
+              <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#fff' }]}>Debit</Text>
+              <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#fff' }]}>Credit</Text>
+              <Text style={[styles.cell, { width: '12%', textAlign: 'right', color: '#fff' }]}>Balance</Text>
+            </View>
+
+            {rows.map((r: any, idx: number) => (
+              <View key={idx} style={styles.tableRow} wrap={false}>
+                <Text style={[styles.cell, { width: '12%' }]}>{String(r.date || '').slice(0, 10)}</Text>
+                <Text style={[styles.cell, { width: '34%' }]}>{String(r.ref || '').slice(0, 120)}</Text>
+                <Text style={[styles.cell, { width: '12%' }]}>{r.type || ''}</Text>
+                <Text style={[styles.cell, { width: '10%', textAlign: 'center', color: r.cash ? (/sale/i.test(String(r.type || '')) ? '#059669' : '#059669') : '#94a3b8' }]}>{r.cash ? (/sale/i.test(String(r.type || '')) ? 'Cash Sale' : 'Cash') : '-'}</Text>
+                <Text style={[styles.cell, { width: '10%', textAlign: 'right' }]}>{r.debit ? Number(r.debit).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '-'}</Text>
+                <Text style={[styles.cell, { width: '10%', textAlign: 'right' }]}>{r.credit ? Number(r.credit).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '-'}</Text>
+                <Text style={[styles.cell, { width: '12%', textAlign: 'right', fontWeight: 'bold' }]}>{Number(r.balance || 0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
+              </View>
+            ))}
+
+            {/* Totals summary similar to preview */}
+            {rows && rows.length > 0 && (
+              (() => {
+                const cashSalesTx = (rows || []).filter((it: any) => it.cash && /sale/i.test(String(it.type || '')));
+                const cashSalesTotal = cashSalesTx.reduce((s: number, it: any) => s + (Number(it.credit || it.debit || 0) || 0), 0);
+                const totalDebit = (rows || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
+                const totalCredit = (rows || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
+                const endingBalance = rows[rows.length - 1]?.balance || 0;
+                return (
+                  <View style={styles.totalsBox}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={styles.smallMuted}>Totals</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                        <View style={{ marginRight: 8 }}>
+                          <Text style={styles.smallMuted}>Total Debit</Text>
+                          <Text style={styles.boldValue}>{totalDebit.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
+                        </View>
+                        <View style={{ marginRight: 8 }}>
+                          <Text style={styles.smallMuted}>Total Credit</Text>
+                          <Text style={styles.boldValue}>{totalCredit.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.smallMuted}>Ending Balance</Text>
+                          <Text style={styles.boldValue}>{Number(endingBalance || 0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
+                        </View>
+                      </View>
+                      <View>
+                        <Text style={styles.smallMuted}>Cash Sales Total</Text>
+                        <Text style={styles.boldValue}>{cashSalesTotal.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()
+            )}
+          </View>
+        </View>
       </Page>
     </Document>
   );
@@ -139,6 +169,15 @@ export async function GET(req: Request) {
     }
 
     const company: any = await Company.findOne().lean();
+    // Ensure logo URL is absolute so react-pdf in Node can fetch it
+    try {
+      const origin = new URL(req.url).origin;
+      if (company && company.logo && typeof company.logo === 'string' && company.logo.startsWith('/')) {
+        company.logo = origin + company.logo;
+      }
+    } catch (e) {
+      // ignore origin resolution errors
+    }
 
     const invMatch: any = { partyId };
     if (from && to) {

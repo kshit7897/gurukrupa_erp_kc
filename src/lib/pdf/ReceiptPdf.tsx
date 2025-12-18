@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     paddingBottom: 16,
@@ -57,6 +57,9 @@ const styles = StyleSheet.create({
   companyName: { fontSize: 18, fontWeight: 'extrabold', color: '#0f172a' },
   companyDetails: { fontSize: 10, color: '#64748b', marginTop: 2, lineHeight: 1.3 },
   metaBlock: { width: 180, alignItems: 'flex-end' },
+  metaRow: { marginBottom: 6 },
+  metaLabel: { fontSize: 10, color: '#64748b' },
+  metaValue: { fontSize: 11, color: '#0f172a', fontWeight: 'bold' },
   metaTitle: {
     fontSize: 11,
     fontWeight: 'bold',
@@ -84,7 +87,9 @@ const styles = StyleSheet.create({
   summaryBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 10 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   summaryLabel: { color: '#64748b', fontSize: 10 },
-  summaryValue: { fontWeight: 'bold', color: '#0f172a', fontSize: 10 },
+  summaryValue: { fontWeight: 'bold', color: '#0f172a', fontSize: 11 },
+  signBlock: { marginTop: 18, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  signText: { fontSize: 10, color: '#334155', textAlign: 'center', marginTop: 8 },
 });
 
 export function ReceiptPdf({ payment, party, company }: any) {
@@ -103,6 +108,13 @@ export function ReceiptPdf({ payment, party, company }: any) {
     payment.voucherNo && String(payment.voucherNo).trim().length > 0
       ? payment.voucherNo
       : `${String(payment?.type || '').toLowerCase() === 'receive' ? 'RCV' : 'PAY'}-${(payment?.date ? new Date(payment.date).getTime() : Date.now()).toString().slice(-8)}`;
+
+  const formatCurrency = (v: any) => {
+    try {
+      const n = Number(v || 0);
+      return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    } catch (e) { return Number(v || 0).toFixed(2); }
+  };
 
   return (
     <Document>
@@ -131,39 +143,46 @@ export function ReceiptPdf({ payment, party, company }: any) {
               </View>
               <View style={styles.metaBlock}>
                 <Text style={styles.metaTitle}>{title}</Text>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ fontSize: 10, color: '#64748b' }}>Voucher No.</Text>
-                  <Text style={{ fontWeight: 'bold', color: '#0f172a' }}>{voucherDisplay}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Voucher No.</Text>
+                  <Text style={styles.metaValue}>{voucherDisplay}</Text>
                 </View>
-                <View style={{ marginBottom: 6 }}>
-                  <Text style={{ fontSize: 10, color: '#64748b' }}>Date</Text>
-                  <Text style={{ color: '#0f172a' }}>{String(payment.date).slice(0, 10)}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Date</Text>
+                  <Text style={styles.metaValue}>{String(payment.date).slice(0, 10)}</Text>
                 </View>
-                <View>
-                  <Text style={{ fontSize: 10, color: '#64748b' }}>Payment Mode</Text>
-                  <Text style={{ color: '#0f172a' }}>{payment.mode || payment.paymentMode || 'cash'}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Payment Mode</Text>
+                  <Text style={styles.metaValue}>{payment.mode || payment.paymentMode || 'cash'}</Text>
                 </View>
+                {payment.reference && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Reference No.</Text>
+                    <Text style={styles.metaValue}>{payment.reference}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
-            <View style={{ marginBottom: 12 }}>
-              <Text style={styles.sectionTitle}>{String(payment.type || '').toLowerCase() === 'receive' ? 'Paid By' : 'Paid To'}</Text>
-              <View style={styles.partyBlock}>
-                <Text style={styles.partyName}>{party?.name || payment.partyName || '-'}</Text>
-                <Text style={styles.partyDetails}>{party?.billingAddress?.line1 || party?.address || ''}</Text>
-                {party?.billingAddress?.line2 && <Text style={styles.partyDetails}>{party.billingAddress.line2}</Text>}
-                <Text style={styles.partyDetails}>{party?.billingAddress?.city || ''}{party?.billingAddress?.pincode ? ` - ${party.billingAddress.pincode}` : ''}</Text>
-                <Text style={styles.partyDetails}>Contact: {party?.phone || party?.mobile || '-'}</Text>
-                <Text style={styles.partyDetails}>GSTIN: {party?.gstin || party?.gstNo || '-'}</Text>
+            <View style={{ marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ width: '65%' }}>
+                <Text style={styles.sectionTitle}>{String(payment.type || '').toLowerCase() === 'receive' ? 'Paid By' : 'Paid To'}</Text>
+                <View style={styles.partyBlock}>
+                  <Text style={styles.partyName}>{party?.name || payment.partyName || '-'}</Text>
+                  <Text style={styles.partyDetails}>{party?.billingAddress?.line1 || party?.address || ''}</Text>
+                  {party?.billingAddress?.line2 && <Text style={styles.partyDetails}>{party.billingAddress.line2}</Text>}
+                  <Text style={styles.partyDetails}>{party?.billingAddress?.city || ''}{party?.billingAddress?.pincode ? ` - ${party.billingAddress.pincode}` : ''}</Text>
+                  <Text style={styles.partyDetails}>Contact: {party?.phone || party?.mobile || '-'}</Text>
+                  <Text style={styles.partyDetails}>GSTIN: {party?.gstin || party?.gstNo || '-'}</Text>
+                </View>
               </View>
-            </View>
-
-            <View style={{ marginBottom: 12 }}>
-              <Text style={styles.sectionTitle}>Summary</Text>
-              <View style={[styles.summaryBox, { marginBottom: 8 }]}> 
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Outstanding</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingBefore === 'number' ? payment.outstandingBefore : 0).toFixed(2)}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>{String(payment?.type || '').toLowerCase() === 'receive' ? 'Received' : 'Paid'}</Text><Text style={styles.summaryValue}>{(payment.amount || 0).toFixed(2)}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Balance Due</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingAfter === 'number' ? payment.outstandingAfter : 0).toFixed(2)}</Text></View>
+              <View style={{ width: '32%' }}>
+                <Text style={styles.sectionTitle}>Summary</Text>
+                <View style={[styles.summaryBox, { marginBottom: 8 }]}> 
+                  <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Outstanding</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingBefore === 'number' ? formatCurrency(payment.outstandingBefore) : formatCurrency(0))}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>{String(payment?.type || '').toLowerCase() === 'receive' ? 'Received' : 'Paid'}</Text><Text style={styles.summaryValue}>{formatCurrency(payment.amount || 0)}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Balance Due</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingAfter === 'number' ? formatCurrency(payment.outstandingAfter) : formatCurrency(0))}</Text></View>
+                </View>
               </View>
             </View>
 

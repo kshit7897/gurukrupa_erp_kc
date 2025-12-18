@@ -118,15 +118,15 @@ export default function LedgerPreviewPage() {
                 <div>
                   <h1 className="text-lg font-bold text-slate-900">{company?.name || 'Company Name'}</h1>
                   <div className="text-sm text-slate-600">{company?.address_line_1 || company?.address || ''}</div>
+                  {company?.address_line_2 && <div className="text-sm text-slate-600">{company.address_line_2}</div>}
+                  <div className="text-sm text-slate-600">{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
+                  <div className="text-sm text-slate-600 mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
+                  <div className="text-sm text-slate-600 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
                   {/* Party details placed under company details as requested */}
                   <div className="mt-3 border-t pt-3">
                     <h2 className="text-base font-semibold text-slate-800">{party?.name || 'Party Ledger'}</h2>
                     {party && <div className="text-sm text-slate-600">{party.address || ''} • {party.mobile || ''}</div>}
                   </div>
-                  {company?.address_line_2 && <div className="text-sm text-slate-600">{company.address_line_2}</div>}
-                  <div className="text-sm text-slate-600">{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
-                  <div className="text-sm text-slate-600 mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
-                  <div className="text-sm text-slate-600 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
                 </div>
               </div>
               <div className="text-right">

@@ -8,6 +8,7 @@ import { formatDate } from '../../../lib/formatDate';
 import { SoftLoader, Skeleton } from '../../../components/ui/Common';
 import { Modal, Button, Table } from '../../../components/ui/Common';
 import { useRouter } from 'next/navigation';
+import { formatStockWithAlternate } from '../../../lib/units';
 
 // placeholder; we'll compute weekly data dynamically from recent transactions
 const emptyWeek = [{ name: 'Mon', sales: 0, purchase: 0 }, { name: 'Tue', sales: 0, purchase: 0 }, { name: 'Wed', sales: 0, purchase: 0 }, { name: 'Thu', sales: 0, purchase: 0 }, { name: 'Fri', sales: 0, purchase: 0 }, { name: 'Sat', sales: 0, purchase: 0 }, { name: 'Sun', sales: 0, purchase: 0 }];
@@ -193,7 +194,7 @@ export default function Dashboard() {
               <div key={it.id} className="bg-white border border-slate-100 rounded p-3">
                 <div className="text-sm text-slate-500">{it.sku || 'SKU'}</div>
                 <div className="mt-1 font-semibold text-slate-800 truncate">{it.name}</div>
-                <div className="mt-2 text-lg font-bold text-slate-900">{Number(it.stock || 0).toLocaleString()}</div>
+                <div className="mt-2 text-lg font-bold text-slate-900">{Number(it.stock || 0).toLocaleString()} {it.unit || ''}</div>
               </div>
             ))}
           </div>

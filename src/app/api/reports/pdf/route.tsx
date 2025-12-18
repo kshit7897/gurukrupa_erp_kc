@@ -85,25 +85,64 @@ function ProfitLossDoc({ data }: { data: any }) {
       <Page size="A4" style={styles.page}>
         <Text style={styles.sectionTitle}>Profit & Loss Statement</Text>
         <Text>{`Period: ${from} to ${to}`}</Text>
-          <View style={{ marginTop: 8, marginBottom: 6 }}>
-          <Text style={styles.sectionTitle}>Revenue</Text>
-          <View style={styles.row}><Text>Sales</Text><Text>{Number(sales || 0).toFixed(2)}</Text></View>
-          <View style={styles.row}><Text>Other Income</Text><Text>{Number(otherIncome || 0).toFixed(2)}</Text></View>
-          <View style={styles.row}><Text>Total Revenue</Text><Text>{totalRevenue.toFixed(2)}</Text></View>
+
+        {/* Opening balance bar */}
+        <View style={{ marginTop: 8, marginBottom: 8, padding: 8, borderLeftWidth: 4, borderLeftColor: '#2b6cb0', backgroundColor: '#ebf8ff' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontWeight: 'bold' }}>Opening Balance</Text>
+              <Text style={{ fontWeight: 'bold' }}>{Number(openingBalance || 0).toFixed(2)}</Text>
+          </View>
         </View>
-        <View style={{ marginBottom: 6 }}>
-          <Text style={styles.sectionTitle}>Expenses</Text>
-          <View style={styles.row}><Text>Purchase</Text><Text>{Number(purchase || 0).toFixed(2)}</Text></View>
-          <View style={styles.row}><Text>Other Expenses</Text><Text>{Number(otherExpense || 0).toFixed(2)}</Text></View>
-          <View style={styles.row}><Text>Total Expenses</Text><Text>{totalExpenses.toFixed(2)}</Text></View>
+
+        {/* Revenue box */}
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Revenue</Text>
+          <View style={{ backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', padding: 6 }}>
+            <View style={styles.row}><Text>Sales</Text><Text>{Number(sales || 0).toFixed(2)}</Text></View>
+              <View style={styles.row}><Text>Other Income</Text><Text style={{ color: '#166534' }}>{Number(otherIncome || 0).toFixed(2)}</Text></View>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6 }}>
+              <View style={styles.row}><Text style={{ fontWeight: 'bold' }}>Total Revenue</Text><Text style={{ fontWeight: 'bold', color: '#166534' }}>{totalRevenue.toFixed(2)}</Text></View>
+            </View>
+          </View>
         </View>
-        <View>
-          <Text style={styles.sectionTitle}>Summary</Text>
-          <View style={styles.row}><Text>Gross Profit</Text><Text>{Number(grossProfit || 0).toFixed(2)}</Text></View>
-          <View style={styles.row}><Text>Net Profit/Loss</Text><Text>{Number(netProfit || 0).toFixed(2)}</Text></View>
-          {(openingBalance || netProfit) && (
-            <View style={styles.row}><Text>Closing Balance</Text><Text>{closing.toFixed(2)}</Text></View>
-          )}
+
+        {/* Expenses box */}
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Expenses</Text>
+          <View style={{ backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', padding: 6 }}>
+              <View style={styles.row}><Text>Purchase</Text><Text>{Number(purchase || 0).toFixed(2)}</Text></View>
+            <View style={styles.row}><Text>Other Expenses</Text><Text style={{ color: '#9f1239' }}>{Number(otherExpense || 0).toFixed(2)}</Text></View>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6 }}>
+              <View style={styles.row}><Text style={{ fontWeight: 'bold' }}>Total Expenses</Text><Text style={{ fontWeight: 'bold', color: '#9f1239' }}>{totalExpenses.toFixed(2)}</Text></View>
+            </View>
+          </View>
+        </View>
+
+        {/* Summary box */}
+        <View style={{ marginBottom: 8 }}>
+          <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Summary</Text>
+          <View style={{ backgroundColor: '#ebf8ff', borderWidth: 1, borderColor: '#bfdbfe', padding: 8 }}>
+            <View style={{ borderBottomWidth: 1, borderBottomColor: '#dbeafe', paddingBottom: 6 }}>
+              <View style={styles.row}><Text>Total Revenue</Text><Text style={{ color: '#166534', fontWeight: 'bold' }}>{totalRevenue.toFixed(2)}</Text></View>
+            </View>
+            <View style={{ borderBottomWidth: 1, borderBottomColor: '#dbeafe', paddingVertical: 6 }}>
+              <View style={styles.row}><Text>Total Expenses</Text><Text style={{ color: '#9f1239', fontWeight: 'bold' }}>{totalExpenses.toFixed(2)}</Text></View>
+            </View>
+            <View style={{ borderBottomWidth: 1, borderBottomColor: '#dbeafe', paddingVertical: 6 }}>
+              <View style={styles.row}><Text>Gross Profit (Sales - Purchase)</Text><Text>{Number(grossProfit || 0).toFixed(2)}</Text></View>
+            </View>
+            <View style={{ paddingTop: 6 }}>
+              <View style={styles.row}><Text style={{ fontWeight: 'bold' }}>Net Profit/Loss</Text><Text style={{ fontWeight: 'bold', fontSize: 14, color: (netProfit || 0) >= 0 ? '#166534' : '#9f1239' }}>{Number(netProfit || 0).toFixed(2)}</Text></View>
+            </View>
+          </View>
+        </View>
+
+        {/* Closing balance bar */}
+        <View style={{ marginTop: 6, padding: 8, borderLeftWidth: 4, borderLeftColor: '#15803d', backgroundColor: '#ecfccb' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontWeight: 'bold' }}>Closing Balance</Text>
+              <Text style={{ fontWeight: 'bold' }}>{closing.toFixed(2)}</Text>
+          </View>
         </View>
       </Page>
     </Document>

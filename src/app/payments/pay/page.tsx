@@ -176,8 +176,42 @@ export default function MakePaymentPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [savedReceiptId, setSavedReceiptId] = useState<string | null>(null);
   const [savedPayment, setSavedPayment] = useState<any | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const openReceiptInNewTab = (path: string) => {
     try { window.open(path, '_blank'); } catch (e) { window.location.href = path; }
+  };
+  const handleCloseReceiptModal = () => {
+    if (pdfPreviewUrl) {
+      try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) {}
+    }
+    setPdfPreviewUrl(null);
+    setShowReceiptModal(false);
+  };
+  const previewReceipt = async (id: string) => {
+    try {
+      let payment: any = null;
+      if (savedPayment && (String(savedPayment._id) === String(id) || String(savedPayment.id) === String(id))) {
+        payment = savedPayment;
+      } else {
+        const pRes = await fetch(`/api/payments?id=${encodeURIComponent(id)}`);
+        if (!pRes.ok) return;
+        payment = await pRes.json();
+      }
+      let party = null; let company = null;
+      try { if (payment?.partyId) party = await api.parties.get(payment.partyId); } catch (e) { party = null; }
+      try { const cr = await fetch('/api/company'); if (cr.ok) { const cd = await cr.json(); company = cd?.company || null; } } catch (e) { company = null; }
+
+      const res = await fetch(`/api/payments/receipt/${encodeURIComponent(id)}/pdf`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment, party, company })
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      if (pdfPreviewUrl) { try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) {} }
+      setPdfPreviewUrl(url);
+    } catch (e) {
+      console.error('preview failed', e);
+    }
   };
   const downloadFromIframe = async (id: string) => {
     // Prefer the in-memory savedPayment to guarantee PDF uses preview data
@@ -291,16 +325,21 @@ export default function MakePaymentPage() {
         </div>
       </Card>
       {showReceiptModal && (
-        <Modal isOpen={showReceiptModal} onClose={() => setShowReceiptModal(false)} title="Payment Saved" full showBack>
+        <Modal isOpen={showReceiptModal} onClose={() => handleCloseReceiptModal()} title="Payment Saved" full showBack>
           <div className="flex flex-col h-full">
             <div className="mb-3 flex gap-2">
               <Button variant="outline" onClick={() => savedReceiptId && downloadFromIframe(savedReceiptId)}>Download PDF</Button>
               <Button onClick={() => savedReceiptId && printIframe()}>Print</Button>
-              <Button variant="ghost" onClick={() => savedReceiptId && openReceiptInNewTab(`/payments/receipt/${savedReceiptId}`)}>Open in new tab</Button>
+              <Button variant="ghost" onClick={() => savedReceiptId && previewReceipt(savedReceiptId)}>Preview</Button>
             </div>
             <div className="mt-2">
-              <div className="text-sm text-slate-600">Use the buttons above to download or open the receipt in a new tab for printing.</div>
+              <div className="text-sm text-slate-600">Use the buttons above to download or preview the receipt for printing.</div>
             </div>
+            {pdfPreviewUrl && (
+              <div className="mt-4 h-full flex-1 overflow-auto">
+                <object data={pdfPreviewUrl} type="application/pdf" width="100%" height="100%">Your browser does not support PDFs — <a href={pdfPreviewUrl}>Download PDF</a>.</object>
+              </div>
+            )}
           </div>
         </Modal>
       )}

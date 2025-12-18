@@ -355,31 +355,29 @@ export default function Reports() {
                   <p className="text-sm text-slate-700 mt-2">For the period {fromDate} to {toDate}</p>
                 </div>
 
-                {/* Opening Balance */}
-                {plData.openingBalance > 0 && (
-                  <div className="border-l-4 border-blue-600 bg-blue-50 p-4 rounded">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-900">Opening Balance</span>
-                      <span className="font-bold text-lg text-slate-900">₹ {Number(plData.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
+                {/* Opening Balance - always show (zero allowed) */}
+                <div className="border-l-4 border-blue-600 bg-blue-50 p-4 rounded">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900">Opening Balance</span>
+                    <span className="font-bold text-lg text-slate-900">{Number(plData.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                )}
+                </div>
 
                 {/* Revenue Section */}
                 <div className="space-y-3">
                   <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Revenue</h3>
-                  <div className="bg-slate-100 p-5 rounded space-y-3 border-2 border-slate-300">
-                    <div className="flex justify-between text-slate-800">
+                  <div className="bg-slate-100 p-4 rounded space-y-2 border border-slate-300">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200">
                       <span className="font-semibold">Sales</span>
-                      <span className="font-bold">₹ {Number(plData.sales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-semibold">{Number(plData.sales || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between text-slate-800">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200">
                       <span className="font-semibold">Other Income</span>
-                      <span className="font-bold text-green-900">₹ {Number(plData.otherIncome || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-green-900 font-semibold">{Number(plData.otherIncome || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="border-t-2 border-slate-400 pt-3 flex justify-between font-bold text-slate-900">
+                    <div className="pt-2 flex justify-between font-bold text-slate-900">
                       <span>Total Revenue</span>
-                      <span className="text-green-900">₹ {Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-green-900">{Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
@@ -387,18 +385,18 @@ export default function Reports() {
                 {/* Expenses Section */}
                 <div className="space-y-3">
                   <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Expenses</h3>
-                  <div className="bg-slate-100 p-5 rounded space-y-3 border-2 border-slate-300">
-                    <div className="flex justify-between text-slate-800">
+                  <div className="bg-slate-100 p-4 rounded space-y-2 border border-slate-300">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200">
                       <span className="font-semibold">Purchase</span>
-                      <span className="font-bold">₹ {Number(plData.purchase || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-semibold">{Number(plData.purchase || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between text-slate-800">
+                    <div className="flex justify-between items-center py-2 border-b border-slate-200">
                       <span className="font-semibold">Other Expenses</span>
-                      <span className="font-bold text-red-900">₹ {Number(plData.otherExpense || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-red-900 font-semibold">{Number(plData.otherExpense || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="border-t-2 border-slate-400 pt-3 flex justify-between font-bold text-slate-900">
+                    <div className="pt-2 flex justify-between font-bold text-slate-900">
                       <span>Total Expenses</span>
-                      <span className="text-red-900">₹ {Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-red-900">{Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
@@ -406,37 +404,35 @@ export default function Reports() {
                 {/* Profit/Loss Summary */}
                 <div className="space-y-3">
                   <h3 className="text-base font-bold text-slate-900 uppercase tracking-wide">Summary</h3>
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded border-2 border-blue-400 space-y-4">
-                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                  <div className="bg-blue-50 p-4 rounded border border-blue-300 space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-blue-200">
                       <span className="text-slate-900 font-semibold">Total Revenue</span>
-                      <span className="font-bold text-lg text-green-900">₹ {Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-lg text-green-900">{Number((plData.sales || 0) + (plData.otherIncome || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                    <div className="flex justify-between items-center py-2 border-b border-blue-200">
                       <span className="text-slate-900 font-semibold">Total Expenses</span>
-                      <span className="font-bold text-lg text-red-900">₹ {Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-lg text-red-900">{Number((plData.purchase || 0) + (plData.otherExpense || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
-                    <div className="flex justify-between items-center pb-4 border-b-2 border-blue-300">
+                    <div className="flex justify-between items-center py-2 border-b border-blue-200">
                       <span className="text-slate-900 font-semibold">Gross Profit (Sales - Purchase)</span>
-                      <span className="font-bold text-lg text-slate-900">₹ {Number(plData.grossProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="font-bold text-lg text-slate-900">{Number(plData.grossProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-extrabold text-slate-900">Net Profit/Loss</span>
                       <span className={`font-extrabold text-2xl ${(plData.netProfit || 0) >= 0 ? 'text-green-900' : 'text-red-900'}`}>
-                        ₹ {Number(plData.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {Number(plData.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Closing Balance */}
-                {(plData.openingBalance || plData.netProfit) !== 0 && (
-                  <div className="border-l-4 border-green-600 bg-green-100 p-5 rounded">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-900">Closing Balance</span>
-                      <span className="font-extrabold text-lg text-green-900">₹ {Number((plData.openingBalance || 0) + (plData.netProfit || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
+                <div className="border-l-4 border-green-600 bg-green-100 p-4 rounded">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-900">Closing Balance</span>
+                    <span className="font-extrabold text-lg text-green-900">{Number((plData.openingBalance || 0) + (plData.netProfit || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                )}
+                </div>
               </div>
             ) : (
               <div className="py-12 text-center text-slate-500">No data available for selected period</div>

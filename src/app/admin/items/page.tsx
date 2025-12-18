@@ -4,6 +4,7 @@ import { Button, Input, Table, Modal, Select, Skeleton, SoftLoader } from '../..
 import { Plus, Search, Edit2, Trash2, Package } from 'lucide-react';
 import { Item } from '../../../types';
 import { api } from '../../../lib/api';
+import { formatStockWithAlternate } from '../../../lib/units';
 
 export default function Items() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,7 +97,7 @@ export default function Items() {
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500">
                 <div className="bg-slate-50 p-2 rounded">Purchase<br/><span className="font-semibold text-slate-700">₹ {item.purchaseRate}</span></div>
-                <div className="bg-slate-50 p-2 rounded">Stock<br/><span className="font-semibold text-slate-700">{item.stock} {item.unit}</span></div>
+                <div className="bg-slate-50 p-2 rounded">Stock<br/><span className="font-semibold text-slate-700">{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</span></div>
                 <div className="bg-slate-50 p-2 rounded">Tax<br/><span className="font-semibold text-slate-700">{item.taxPercent}%</span></div>
               </div>
               <div className="mt-3 flex gap-2">
@@ -118,7 +119,7 @@ export default function Items() {
               <td className="px-4 py-3 text-sm">{item.unit}</td>
               <td className="px-4 py-3 text-right">₹ {item.purchaseRate}</td>
               <td className="px-4 py-3 text-right font-semibold">₹ {item.saleRate}</td>
-              <td className="px-4 py-3 text-right">{item.stock}</td>
+              <td className="px-4 py-3 text-right">{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</td>
                <td className="px-4 py-3 text-right space-x-2">
                 <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"><Edit2 className="h-4 w-4" /></button>
                 <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
@@ -133,7 +134,21 @@ export default function Items() {
           <Input label="Item Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
           <div className="grid grid-cols-2 gap-4">
             <Input label="HSN Code" value={formData.hsn} onChange={e => setFormData({...formData, hsn: e.target.value})} />
-            <Select label="Unit" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} options={[{label: 'PCS', value: 'PCS'}, {label: 'KG', value: 'KG'}, {label: 'BOX', value: 'BOX'}, {label: 'BAG', value: 'BAG'}]} />
+            <Select label="Unit" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} options={[
+              { label: 'PCS', value: 'PCS' },
+              { label: 'NOS', value: 'NOS' },
+              { label: 'KG', value: 'KG' },
+              { label: 'G', value: 'G' },
+              { label: 'LTR', value: 'LTR' },
+              { label: 'ML', value: 'ML' },
+              { label: 'MTR', value: 'MTR' },
+              { label: 'TON', value: 'TON' },
+              { label: 'BOX', value: 'BOX' },
+              { label: 'BAG', value: 'BAG' },
+              { label: 'PACK', value: 'PACK' },
+              { label: 'SET', value: 'SET' },
+              { label: 'DOZEN', value: 'DOZEN' },
+            ]} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Purchase Price" type="number" value={formData.purchaseRate} onChange={e => setFormData({...formData, purchaseRate: parseFloat(e.target.value)})} />
