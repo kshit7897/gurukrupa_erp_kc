@@ -55,6 +55,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [currentRate, setCurrentRate] = useState<number | ''>('');
   const [currentDiscount, setCurrentDiscount] = useState<number | ''>(0);
   const [currentTaxMode, setCurrentTaxMode] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST');
+  const [currentTaxPercent, setCurrentTaxPercent] = useState<number | ''>('');
+
+  // Manual GST override at invoice level
+  const [manualGstEnabled, setManualGstEnabled] = useState(false);
+  const [manualGstAmount, setManualGstAmount] = useState<number | ''>('');
+  const [manualGstMode, setManualGstMode] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST');
 
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -276,6 +282,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setItemSearchQuery(item.name);
     setSelectedItem(item);
     setCurrentRate(isSales ? item.saleRate : item.purchaseRate);
+    setCurrentTaxPercent(item.taxPercent || '');
     setShowItemDropdown(false);
     setFormError(null);
   };
@@ -335,7 +342,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const taxableValue = baseAmount - discountAmount;
 
     // calculate taxes
-    const gstAmt = taxableValue * ((selectedItem.taxPercent || 0) / 100);
+    const taxPct = Number(currentTaxPercent || selectedItem.taxPercent || 0);
+    const gstAmt = taxableValue * (taxPct / 100);
     let cgstAmt = 0, sgstAmt = 0, igstAmt = 0;
     if (currentTaxMode === 'CGST_SGST') { cgstAmt = gstAmt / 2; sgstAmt = gstAmt / 2; }
     else { igstAmt = gstAmt; }
@@ -346,7 +354,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       qty: qty,
       rate: rate,
       discountPercent: discount,
-      taxPercent: selectedItem.taxPercent,
+      taxPercent: taxPct,
       amount: taxableValue, // Store as Taxable Value
       cgstAmount: cgstAmt,
       sgstAmount: sgstAmt,
@@ -360,6 +368,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setCurrentQty(1);
     setCurrentRate('');
     setCurrentDiscount(0);
+    setCurrentTaxPercent('');
     setFormError(null); // Clear any previous errors
   };
 
@@ -374,7 +383,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const cgstTotal = addedItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
   const sgstTotal = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
   const igstTotal = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
-  const taxTotal = cgstTotal + sgstTotal + igstTotal;
+  const computedTaxTotal = cgstTotal + sgstTotal + igstTotal;
+
+  // If manual GST override is enabled, use manual values instead of computed ones
+  const manualTax = Number(manualGstAmount || 0);
+  const effectiveCgstTotal = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : cgstTotal;
+  const effectiveSgstTotal = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : sgstTotal;
+  const effectiveIgstTotal = manualGstEnabled ? (manualGstMode === 'IGST' ? manualTax : 0) : igstTotal;
+  const taxTotal = manualGstEnabled ? (effectiveCgstTotal + effectiveSgstTotal + effectiveIgstTotal) : computedTaxTotal;
   const total = subtotal + taxTotal;
 
   // Live calculation for the input line
@@ -391,27 +407,29 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       showError("Invoice is empty. Please add at least one item.");
       return;
     }
-    // Client-side stock validation to avoid server-side stock update failures
+    // --- NEGATIVE STOCK HANDLING ---
+    // Client-side: allow sale even if stock is insufficient or negative.
+    // Show a non-blocking warning if any item will result in negative stock, but do NOT block the sale.
     if (isSales) {
       const itemMap: Record<string, Item> = {};
       items.forEach(i => { if (i && (i as any).id) itemMap[(i as any).id] = i; });
-      const problems: string[] = [];
+      const warnings: string[] = [];
       for (const line of addedItems) {
         const iid = (line as any).itemId;
         const master = itemMap[iid];
         if (!master) {
-          problems.push(`Item not found: ${line.name || iid}`);
+          warnings.push(`Item not found: ${line.name || iid}`);
           continue;
         }
         const available = Number(master.stock || 0);
         const required = Number(line.qty || 0);
         if (required > available) {
-          problems.push(`${master.name}: available ${available}, required ${required}`);
+          warnings.push(`${master.name}: available ${available}, required ${required} (stock will go negative)`);
         }
       }
-      if (problems.length > 0) {
-        showError('Stock problems: ' + problems.join('; '));
-        return;
+      if (warnings.length > 0) {
+        // Show warning but do NOT block the sale
+        alert('Warning: Some items have insufficient stock. Sale will proceed and stock will go negative.\n' + warnings.join('; '));
       }
     }
     if (paymentMode !== 'cash' && paymentMode !== 'credit' && !paymentDetails) {
@@ -422,7 +440,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setFormError(null);
     try {
       const invoiceNo = editingId ? (existingInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`) : `INV-${Math.floor(Math.random() * 100000)}`;
-      const newInvoice: Omit<Invoice, 'id'> = {
+      const newInvoice: any = {
         invoiceNo,
         date: invoiceDate,
         partyId: selectedParty.id,
@@ -441,10 +459,16 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         buyer_order_no: invoiceNo,
         vehicle_no: vehicleNo,
         delivery_date: deliveryDateMeta,
-        // GST split totals
-        cgstAmount: cgstTotal,
-        sgstAmount: sgstTotal,
-        igstAmount: igstTotal,
+        // GST split totals (respect manual override when enabled)
+        cgstAmount: effectiveCgstTotal,
+        sgstAmount: effectiveSgstTotal,
+        igstAmount: effectiveIgstTotal,
+        // manual GST metadata
+        manualGst: {
+          enabled: manualGstEnabled,
+          amount: manualGstEnabled ? Number(manualGstAmount || 0) : 0,
+          mode: manualGstMode
+        },
         // billing/shipping saved elsewhere in the payload (handled earlier)
         // save billing and shipping addresses with invoice
         billingAddress: {
@@ -779,10 +803,28 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
             <div className="flex gap-4 mt-4 justify-end">
               <div className="w-1/3 bg-white border border-slate-100 rounded p-3 text-sm">
+                <div className="mb-3">
+                  <label className="inline-flex items-center gap-2">
+                    <input type="checkbox" checked={manualGstEnabled} onChange={(e) => setManualGstEnabled(e.target.checked)} className="form-checkbox" />
+                    <span className="text-sm text-slate-700">Enable manual GST override</span>
+                  </label>
+                </div>
+                {manualGstEnabled && (
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <input type="number" min="0" step="0.01" value={manualGstAmount as any} onChange={(e) => setManualGstAmount(e.target.value === '' ? '' : Number(e.target.value))} placeholder="GST Amount" className="w-32 h-8 px-2 border rounded" />
+                      <select value={manualGstMode} onChange={(e) => setManualGstMode(e.target.value as any)} className="h-8 px-2 border rounded">
+                        <option value="CGST_SGST">CGST + SGST</option>
+                        <option value="IGST">IGST</option>
+                      </select>
+                    </div>
+                    <div className="text-xs text-slate-500">Manual GST will replace computed GST totals when enabled.</div>
+                  </div>
+                )}
                 <div className="flex justify-between"><div className="text-slate-600">Subtotal</div><div className="font-bold">₹ {subtotal.toFixed(2)}</div></div>
-                <div className="flex justify-between mt-1"><div className="text-slate-600">CGST</div><div className="font-bold">₹ {cgstTotal.toFixed(2)}</div></div>
-                <div className="flex justify-between mt-1"><div className="text-slate-600">SGST</div><div className="font-bold">₹ {sgstTotal.toFixed(2)}</div></div>
-                <div className="flex justify-between mt-1"><div className="text-slate-600">IGST</div><div className="font-bold">₹ {igstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">CGST</div><div className="font-bold">₹ {effectiveCgstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">SGST</div><div className="font-bold">₹ {effectiveSgstTotal.toFixed(2)}</div></div>
+                <div className="flex justify-between mt-1"><div className="text-slate-600">IGST</div><div className="font-bold">₹ {effectiveIgstTotal.toFixed(2)}</div></div>
                 <div className="flex justify-between mt-2 border-t pt-2"><div className="text-slate-700 font-semibold">Total</div><div className="text-xl font-extrabold">₹ {total.toFixed(2)}</div></div>
                 <div className="mt-2 text-xs text-slate-600">Amount in words: {numberToWords(Math.round(total))} only</div>
               </div>
@@ -918,16 +960,30 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               />
            </div>
 
-           <div className="md:col-span-2">
+            <div className="md:col-span-2">
               <label className="text-xs text-slate-500 mb-1 block ml-1">Disc (%)</label>
               <input 
-                 type="number" 
-                 className="w-full h-11 bg-white border border-blue-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                 placeholder="0"
-                 value={currentDiscount}
-                 onChange={(e) => setCurrentDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                type="number" 
+                className="w-full h-11 bg-white border border-blue-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                placeholder="0"
+                value={currentDiscount}
+                onChange={(e) => setCurrentDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
               />
-           </div>
+              <div className="mt-2 flex items-center gap-2">
+               <input 
+                type="number" 
+                min="0" step="0.01"
+                className="w-20 h-8 px-2 border rounded text-right"
+                placeholder="GST %"
+                value={currentTaxPercent as any}
+                onChange={(e) => setCurrentTaxPercent(e.target.value === '' ? '' : Number(e.target.value))}
+               />
+               <select value={currentTaxMode} onChange={(e) => setCurrentTaxMode(e.target.value as any)} className="h-8 px-2 border rounded text-sm">
+                <option value="CGST_SGST">CGST+SGST</option>
+                <option value="IGST">IGST</option>
+               </select>
+              </div>
+            </div>
 
            <div className="md:col-span-2">
               <label className="text-xs text-slate-500 mb-1 block ml-1 opacity-0 select-none">Action</label>

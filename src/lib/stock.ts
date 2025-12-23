@@ -35,9 +35,12 @@ export async function decreaseStock(itemId: string, qty: number, opts: StockOpts
   if (!itemId) throw new Error('itemId required');
   if (!Number.isFinite(qty) || qty <= 0) throw new Error('qty must be > 0');
 
-  // Try conditional update to prevent negative stock
-  const updated = await Item.findOneAndUpdate({ _id: itemId, stock: { $gte: qty } }, { $inc: { stock: -qty } }, { new: true });
-  if (!updated) throw new Error('Insufficient stock or item not found');
+  // --- NEGATIVE STOCK HANDLING ---
+  // This logic allows stock to go negative for sales.
+  // No validation is performed to block sale if stock is insufficient or zero.
+  // Stock can become negative and is updated accordingly in the database.
+  const updated = await Item.findOneAndUpdate({ _id: itemId }, { $inc: { stock: -qty } }, { new: true });
+  if (!updated) throw new Error('Item not found');
   const prev = (updated.stock || 0) + qty;
   await StockMovement.create({ itemId, qty: -qty, type: (opts.type || 'SALE'), refId: opts.refId, note: opts.note, prevStock: prev, newStock: updated.stock });
   return updated;

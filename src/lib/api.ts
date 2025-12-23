@@ -2,6 +2,7 @@
 import { Party, Item, Invoice, PartyType, Payment } from '../types';
 import { loaderEvents, dataEvents } from './loaderEvents';
 import { notify } from './notify';
+import { hasPermission } from './permissions';
 
 // --- MOCK DATA STORE ---
 // In a real app, this would be a backend database.
@@ -52,12 +53,12 @@ export const api = {
         }
         const data = await res.json();
       // store minimal user info in localStorage for client-side guard
-      if (data?.user) {
+      if (data?.user && data?.token) {
         // store expiry (24 hours) so client-side checks can expire if cookie removed
         const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
-        localStorage.setItem('gurukrupa_user', JSON.stringify({ ...data.user, expiresAt }));
+        localStorage.setItem('gurukrupa_user', JSON.stringify({ ...data.user, token: data.token, expiresAt }));
       }
-        return true;
+      return { user: data.user, token: data.token };
       });
     }
   },
@@ -271,6 +272,10 @@ export const api = {
   },
   reports: {
     getOutstanding: async () => {
+      // If user lacks reports permission, return empty array instead of calling API
+      if (!hasPermission('reports')) {
+        return withLoader(async () => [] as any[]);
+      }
       return withLoader(async () => {
         const res = await fetch('/api/reports/outstanding');
         if (!res.ok) throw new Error('Failed to fetch outstanding report');
@@ -282,6 +287,9 @@ export const api = {
       if (partyId) qs.set('party', partyId);
       if (startDate) qs.set('from', startDate);
       if (endDate) qs.set('to', endDate);
+      if (!hasPermission('reports')) {
+        return withLoader(async () => null as any);
+      }
       return withLoader(async () => {
         const res = await fetch(`/api/reports/ledger?${qs.toString()}`);
         if (!res.ok) throw new Error('Failed to fetch ledger');
@@ -289,6 +297,9 @@ export const api = {
       });
     },
     getStock: async () => {
+      if (!hasPermission('reports')) {
+        return withLoader(async () => [] as any[]);
+      }
       return withLoader(async () => {
         const res = await fetch('/api/items');
         if (!res.ok) throw new Error('Failed to fetch items');
@@ -298,6 +309,9 @@ export const api = {
     }
     ,
     getCashbook: async (from?: string, to?: string) => {
+      if (!hasPermission('reports')) {
+        return withLoader(async () => [] as any[]);
+      }
       return withLoader(async () => {
         const qs = new URLSearchParams();
         if (from) qs.set('from', from);
@@ -308,6 +322,9 @@ export const api = {
       });
     },
     getBankbook: async (from?: string, to?: string) => {
+      if (!hasPermission('reports')) {
+        return withLoader(async () => [] as any[]);
+      }
       return withLoader(async () => {
         const qs = new URLSearchParams();
         if (from) qs.set('from', from);

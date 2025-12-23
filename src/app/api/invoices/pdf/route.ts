@@ -36,6 +36,18 @@ export async function GET(req: Request) {
 
     const party = invoice.partyId ? await Party.findById(invoice.partyId).lean() : null;
     const company = await Company.findOne().lean();
+    // Ensure logo/qrCode URLs are absolute so react-pdf in Node can fetch them
+    try {
+      const origin = new URL(req.url).origin;
+      if (company && company.logo && typeof company.logo === 'string' && company.logo.startsWith('/')) {
+        company.logo = origin + company.logo;
+      }
+      if (company && company.qrCode && typeof company.qrCode === 'string' && company.qrCode.startsWith('/')) {
+        company.qrCode = origin + company.qrCode;
+      }
+    } catch (e) {
+      // ignore origin resolution errors
+    }
 
     const buffer = await renderToBuffer(
       (React.createElement(InvoicePdf as any, { invoice, party, company }) as any)

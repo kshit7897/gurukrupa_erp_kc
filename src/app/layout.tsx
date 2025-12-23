@@ -1,6 +1,7 @@
 import './globals.css';
 import React from 'react';
 import Providers from '../components/Providers';
+import { AuthProvider } from '../components/AuthProvider';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -34,7 +35,10 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-slate-50 text-slate-900 font-sans">
-        <Providers>{children}</Providers>
+        {/* Wrap with AuthProvider for login persistence */}
+        <AuthProvider>
+          <Providers>{children}</Providers>
+        </AuthProvider>
       </body>
     </html>
   );

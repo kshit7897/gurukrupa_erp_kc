@@ -97,7 +97,10 @@ export default function Items() {
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3 text-xs text-slate-500">
                 <div className="bg-slate-50 p-2 rounded">Purchase<br/><span className="font-semibold text-slate-700">₹ {item.purchaseRate}</span></div>
-                <div className="bg-slate-50 p-2 rounded">Stock<br/><span className="font-semibold text-slate-700">{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</span></div>
+                <div className="bg-slate-50 p-2 rounded">Stock<br/>
+                  <span className={`font-semibold ${Number(item.stock) < 0 ? 'text-red-600' : 'text-slate-700'}`}>{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</span>
+                  {Number(item.stock) < 0 && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">NEGATIVE</span>}
+                </div>
                 <div className="bg-slate-50 p-2 rounded">Tax<br/><span className="font-semibold text-slate-700">{item.taxPercent}%</span></div>
               </div>
               <div className="mt-3 flex gap-2">
@@ -119,7 +122,10 @@ export default function Items() {
               <td className="px-4 py-3 text-sm">{item.unit}</td>
               <td className="px-4 py-3 text-right">₹ {item.purchaseRate}</td>
               <td className="px-4 py-3 text-right font-semibold">₹ {item.saleRate}</td>
-              <td className="px-4 py-3 text-right">{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</td>
+              <td className="px-4 py-3 text-right">
+                <span className={Number(item.stock) < 0 ? 'text-red-600 font-bold' : ''}>{Number(item.stock || 0).toLocaleString()} {item.unit || ''}</span>
+                {Number(item.stock) < 0 && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">NEGATIVE</span>}
+              </td>
                <td className="px-4 py-3 text-right space-x-2">
                 <button onClick={() => handleEdit(item)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"><Edit2 className="h-4 w-4" /></button>
                 <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>

@@ -3,6 +3,7 @@ import dbConnect from '../../../../lib/mongodb';
 import Invoice from '../../../../lib/models/Invoice';
 import mongoose from 'mongoose';
 import { updateStockForInvoice, revertStockForInvoice } from '../../../../lib/stock';
+import { generateInvoiceNumber } from '../../../../lib/invoiceNumber';
 
 export async function GET(
   request: Request,
@@ -51,18 +52,43 @@ export async function PATCH(
 
     const body = await request.json();
 
-    // Normalize payment amounts similar to POST
+    // Normalize payment amounts similar to POST, but handle conversion from cash->credit properly
     const payload: any = { ...body };
     const grand = Number(payload.grandTotal || existing.grandTotal || 0);
+    const origPaymentMode = existing.paymentMode || 'cash';
+
     if (payload.paymentMode === 'cash') {
       payload.paidAmount = grand;
       payload.dueAmount = 0;
     } else if (payload.paymentMode) {
-      payload.paidAmount = Number(payload.paidAmount || existing.paidAmount || 0);
+      // If converting from cash -> non-cash and client didn't provide paidAmount, assume unpaid (0)
+      if ((origPaymentMode === 'cash' || origPaymentMode === 'CASH') && (payload.paidAmount == null || payload.paidAmount === '')) {
+        payload.paidAmount = 0;
+      } else {
+        payload.paidAmount = Number(payload.paidAmount != null ? payload.paidAmount : (existing.paidAmount || 0));
+      }
       payload.dueAmount = Math.max(0, grand - (payload.paidAmount || 0));
     }
 
-    // Ensure invoice_no/serial are preserved unless explicitly changed
+    // If payment mode changed, regenerate invoice number/serial for the new bill type
+    try {
+      const newMode = payload.paymentMode || existing.paymentMode || 'cash';
+      if (newMode && newMode !== origPaymentMode) {
+        const gen = await generateInvoiceNumber({ paymentMode: newMode, date: payload.date || existing.date, bill_type: payload.bill_type });
+        if (gen && gen.invoice_no) {
+          payload.invoice_no = gen.invoice_no;
+          payload.serial = gen.serial;
+          payload.bill_type = gen.bill_type;
+          payload.financial_year = gen.financial_year;
+          payload.invoiceNo = gen.invoice_no;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to regenerate invoice number on paymentMode change', e);
+      // fallback: preserve existing number below
+    }
+
+    // Ensure invoice_no/serial are preserved unless explicitly changed or regenerated above
     if (!payload.invoice_no && !payload.invoiceNo) {
       payload.invoice_no = existing.invoice_no || existing.invoiceNo;
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../lib/mongodb';
 import RolePermission from '../../../lib/models/RolePermission';
+import User from '../../../lib/models/User';
 
 const DEFAULTS: Record<string, string[]> = {
   admin: ['*'],
@@ -34,6 +35,17 @@ export async function PUT(request: Request) {
       { permissions },
       { new: true, upsert: true }
     );
+    // Propagate role-level permissions to existing users of this role.
+    // Overwrite existing permissions for users of the role so admin changes apply immediately.
+    try {
+      await User.updateMany(
+        { role: role },
+        { $set: { permissions: permissions } }
+      );
+    } catch (e) {
+      console.error('Failed to propagate role permissions to users', e);
+      // Do not fail the request; propagation is best-effort
+    }
     return NextResponse.json({ role: doc.role, permissions: doc.permissions });
   } catch (err: any) {
     console.error('PUT /api/permissions error', err);

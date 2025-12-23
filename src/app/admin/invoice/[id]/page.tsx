@@ -434,7 +434,11 @@ export default function InvoiceView() {
                 </div>
                 <div className="mt-6 flex justify-end">
                   <div className="text-center">
-                    <div className="text-xs font-semibold text-slate-800 mb-4">GuruKrupa Multi Venture Pvt. Ltd</div>
+                    <div className="text-xs font-semibold text-slate-800 mb-2">GuruKrupa Multi Venture Pvt. Ltd</div>
+                    {/* Signature area: empty space where user can sign */}
+                    <div className="w-40 mx-auto mb-2">
+                      <div className="h-14 border-b border-dashed border-slate-300"></div>
+                    </div>
                     <div className="h-20 w-36 border-t border-slate-300 text-sm font-semibold text-slate-700">Authorized Signatory</div>
                   </div>
                 </div>

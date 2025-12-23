@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../components/AuthProvider';
+import { saveAuthToStorage } from '../../lib/auth/storage';
 import { Button } from '../../components/ui/Common';
 import { Lock, User, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../../lib/api';
 
 export default function Login() {
+  const { setAuth } = useAuth();
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +32,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await api.auth.login(username, password);
+      // Call existing login API
+      const { token, user } = await api.auth.login(username, password);
+      // Save to new auth storage for persistence
+      if (token && user) {
+        saveAuthToStorage(token, user); // ensure gurukrupa_auth is set
+        setAuth(token, user);
+      }
       router.push('/admin/dashboard');
     } catch (err) {
       const msg = (err as any)?.message || 'Invalid username or password.';
