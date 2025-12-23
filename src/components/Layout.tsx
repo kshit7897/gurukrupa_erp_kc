@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { hasPermission } from '../lib/permissions';
+import { notify } from '../lib/notify';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -104,23 +106,53 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
           <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
             {MENU_ITEMS.map((item) => {
               const isActive = pathname?.startsWith(item.path);
+              const permMap: Record<string, string> = {
+                '/admin/parties': 'parties',
+                '/admin/items': 'items',
+                '/admin/sales/create': 'sales',
+                '/admin/purchase/create': 'purchase',
+                '/admin/reports': 'reports',
+                '/admin/other-txns': 'other_txns',
+                '/invoices/all': 'invoices',
+                '/admin/payments': 'payments',
+                '/admin/settings': 'permissions',
+                '/admin/dashboard': 'dashboard'
+              };
+              const required = permMap[item.path];
+              const allowed = required ? hasPermission(required) : true;
+
+              if (allowed) {
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      isActive 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <item.icon className={`h-5 w-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
+                      {item.label}
+                    </div>
+                    {isActive && <ChevronRight className="h-4 w-4 opacity-50" />}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
+                <div
                   key={item.path}
-                  href={item.path}
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                  }`}
+                  onClick={() => notify('error', 'You do not have permission to access this')}
+                  className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-slate-600 opacity-50 cursor-not-allowed`}
                 >
                   <div className="flex items-center">
-                    <item.icon className={`h-5 w-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
+                    <item.icon className={`h-5 w-5 mr-3 text-slate-500`} />
                     {item.label}
                   </div>
-                  {isActive && <ChevronRight className="h-4 w-4 opacity-50" />}
-                </Link>
+                </div>
               );
             })}
           </nav>
