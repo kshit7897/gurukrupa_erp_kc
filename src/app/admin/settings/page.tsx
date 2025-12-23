@@ -116,6 +116,7 @@ export default function Settings() {
     { id: 'items', label: 'Items', desc: 'Manage products/items' },
     { id: 'payments', label: 'Payments', desc: 'Record and manage payments' },
     { id: 'reports', label: 'Reports', desc: 'Access reports' },
+    { id: 'other_txns', label: 'Other Income/Expense', desc: 'Manage other income and expense entries' },
     { id: 'settings', label: 'Settings', desc: 'Access settings' }
   ];
 

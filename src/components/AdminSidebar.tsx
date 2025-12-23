@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { hasPermission } from '../lib/permissions';
 import { notify } from '../lib/notify';
+import { getAuthFromStorage } from '../lib/auth/storage';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -41,6 +42,21 @@ export const AdminSidebar = () => {
   const router = useRouter();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const [displayName, setDisplayName] = useState<string>('');
+  const [displayRole, setDisplayRole] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const data = getAuthFromStorage();
+      const u = data?.user || null;
+      if (u) {
+        setDisplayName(u.name || u.username || 'User');
+        setDisplayRole(u.role || (u.isAdmin ? 'admin' : 'staff') || 'user');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   const handleLogout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -155,11 +171,11 @@ export const AdminSidebar = () => {
             </button>
             <div className="mt-2 flex items-center px-3 py-2 bg-slate-800/50 rounded-xl border border-slate-700/50">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-                SA
+                {displayName ? displayName.split(' ').map(s => s[0]).slice(0,2).join('').toUpperCase() : 'U'}
               </div>
               <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-medium text-white truncate">Super Admin</p>
-                <p className="text-xs text-slate-500 truncate">admin@gurukrupa.com</p>
+                <p className="text-sm font-medium text-white truncate">{displayName || 'User'}</p>
+                <p className="text-xs text-slate-500 truncate">{displayRole || 'role'}</p>
               </div>
             </div>
           </div>
