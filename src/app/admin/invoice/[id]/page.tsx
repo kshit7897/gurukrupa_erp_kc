@@ -191,7 +191,8 @@ export default function InvoiceView() {
             {/* Header */}
             <div className="flex justify-between items-center border-b border-slate-200 pb-4 mb-4">
               <div className="flex items-center gap-6 w-2/3">
-                <div className="w-28 h-28 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
+                {/* <div className="w-28 h-28 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden"> */}
+                <div className="w-60 h-60 bg-slate-100 rounded-md flex items-center justify-center border border-slate-200 overflow-hidden">
                   {company?.logo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={company.logo} alt="logo" className="w-full h-full object-contain" />

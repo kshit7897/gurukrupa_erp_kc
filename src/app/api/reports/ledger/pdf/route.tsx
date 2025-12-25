@@ -72,8 +72,9 @@ function LedgerDoc({ company, party, rows, from, to }: any) {
                 </View>
               </View>
               <View style={styles.metaBlock}>
-                <Text style={{ fontSize: 12, fontWeight: 'bold' }}>Ledger Preview</Text>
+                <Text style={{ fontSize: 12, fontWeight: 'bold' }}>Period</Text>
                 {from && to ? <Text style={styles.smallMuted}>{`Period: ${from} — ${to}`}</Text> : null}
+                <Text style={{ marginTop: 6, fontSize: 9, color: '#64748b' }}>(Cash sales are marked in the Cash column)</Text>
               </View>
             </View>
 

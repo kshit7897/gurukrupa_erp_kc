@@ -159,7 +159,7 @@ export default function LedgerPreviewPage() {
           /* Force grid columns to desktop counts */
           #ledger-content .grid, #ledger-content .md\\:grid-cols-2 { grid-auto-flow: column !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
           /* Ensure no element will shrink/stack unexpectedly */
-          #ledger-content * { min-width: 0 !important; }
+          // #ledger-content * { min-width: 0 !important; }
           /* Make sure print uses same fixed desktop width */
           @media print { #ledger-content{ transform:none !important; transform-origin: top left !important; margin:0 auto !important } }
         `}</style>
@@ -168,7 +168,7 @@ export default function LedgerPreviewPage() {
             <div className="flex justify-between items-start border-b mb-4 pb-4 gap-4">
               <div className="flex items-start gap-4">
                 {company?.logo ? (
-                  <div className="w-20 h-20 bg-white rounded overflow-hidden border border-slate-100 p-2">
+                  <div className="w-60 h-60 bg-white rounded overflow-hidden border border-slate-100 p-2">
                     <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
                   </div>
                 ) : (

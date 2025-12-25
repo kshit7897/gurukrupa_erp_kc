@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { registerAppFont } from '@/lib/pdf/registerFont';
 import { renderToBuffer } from '@react-pdf/renderer';
 import dbConnect from '@/lib/mongodb';
 import Item from '@/lib/models/Item';
@@ -12,8 +13,9 @@ import Company from '@/lib/models/Company';
 
 export const dynamic = 'force-dynamic';
 
+const appFontFamily = registerAppFont();
 const styles = StyleSheet.create({
-  page: { padding: 24, fontSize: 10, fontFamily: 'Helvetica' },
+  page: { padding: 24, fontSize: 10, fontFamily: appFontFamily },
   sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 6 },
   tableHeader: { flexDirection: 'row', backgroundColor: '#e5e7eb', padding: 4, fontWeight: 'bold' },
   tableRow: { flexDirection: 'row', padding: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
@@ -205,7 +207,7 @@ export async function GET(req: Request) {
       });
 
       const buffer = await renderToBuffer(<StockDoc rows={rows} />);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
@@ -268,7 +270,7 @@ export async function GET(req: Request) {
       });
 
       const buffer = await renderToBuffer(<OutstandingDoc rows={report} />);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
@@ -325,7 +327,7 @@ export async function GET(req: Request) {
       };
 
       const buffer = await renderToBuffer(<ProfitLossDoc data={plData} />);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
@@ -345,7 +347,7 @@ export async function GET(req: Request) {
       const rows = await OtherTxn.find({ date: range }).lean();
 
       const buffer = await renderToBuffer(<OtherTxnsDoc rows={rows || []} from={from} to={to} />);
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
