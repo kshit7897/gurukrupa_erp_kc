@@ -69,23 +69,6 @@ export const api = {
         if (!res.ok) throw new Error('Failed to fetch dashboard');
         return await res.json();
       });
-    },
-    getRecentTransactions: async () => {
-      return withLoader(async () => {
-        const res = await fetch('/api/dashboard');
-        if (!res.ok) throw new Error('Failed to fetch dashboard');
-        const data = await res.json();
-        const recent: any[] = [];
-        if (Array.isArray(data.recentInvoices)) {
-          data.recentInvoices.forEach((inv: any) => recent.push({ id: inv._id || inv.id, party: inv.partyName, amount: inv.grandTotal, type: inv.type === 'SALES' ? 'Sale' : 'Purchase', date: inv.date }));
-        }
-        if (Array.isArray(data.recentPayments)) {
-          data.recentPayments.forEach((p: any) => recent.push({ id: p._id || p.id, party: p.partyId, amount: p.amount, type: 'Payment', date: p.date }));
-        }
-        // sort by date desc and return only last 5 combined transactions
-        recent.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return recent.slice(0, 5);
-      });
     }
   },
   parties: {
