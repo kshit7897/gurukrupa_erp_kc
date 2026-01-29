@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
 import Item from '../../../../lib/models/Item';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await dbConnect();
-    const items = await Item.find({}).lean();
+
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
+    const items = await Item.find({ companyId }).lean();
 
     // compute unit label and total value
     const rows = items.map((it: any) => {

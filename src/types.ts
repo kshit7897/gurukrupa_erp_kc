@@ -4,6 +4,25 @@ export enum PartyType {
   SUPPLIER = 'Supplier'
 }
 
+// Extended party roles for unified Party Master concept
+export enum PartyRole {
+  CUSTOMER = 'Customer',
+  SUPPLIER = 'Supplier',
+  OWNER = 'Owner',
+  PARTNER = 'Partner',
+  EMPLOYEE = 'Employee',
+  CARTING = 'Carting',
+  CASH = 'Cash',       // System account
+  BANK = 'Bank',       // System account
+  UPI = 'UPI'          // System account
+}
+
+// Opening balance type (DR = Debit/Receivable, CR = Credit/Payable)
+export enum BalanceType {
+  DR = 'DR',
+  CR = 'CR'
+}
+
 export enum UserRole {
   SUPER_ADMIN = 'Super Admin',
   ADMIN = 'Admin',
@@ -18,7 +37,11 @@ export interface Party {
   address: string;
   gstNo: string;
   gstin?: string;
+  cin?: string;
   phone?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   billingAddress?: {
     line1?: string;
     line2?: string;
@@ -34,8 +57,10 @@ export interface Party {
     pincode?: string;
   };
   openingBalance: number;
-  type: PartyType;
-  cin?: string;
+  openingBalanceType?: BalanceType; // DR = Receivable, CR = Payable
+  type: PartyType; // Primary type for backward compatibility
+  roles?: PartyRole[]; // Multi-role support
+  isSystemAccount?: boolean; // True for Cash/Bank/UPI system accounts
 }
 
 export interface Item {

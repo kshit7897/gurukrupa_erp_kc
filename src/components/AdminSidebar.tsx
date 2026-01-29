@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { hasPermission } from '../lib/permissions';
 import { notify } from '../lib/notify';
-import { getAuthFromStorage } from '../lib/auth/storage';
+import { getAuthFromStorage, clearAuthStorage } from '../lib/auth/storage';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -21,6 +21,8 @@ import {
   ChevronRight,
   ShieldCheck,
   FileBarChart,
+  Building2,
+  RefreshCw,
 } from 'lucide-react';
 
 const MENU_ITEMS = [
@@ -36,6 +38,13 @@ const MENU_ITEMS = [
   { path: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
+// Helper to get cookie value
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
 export const AdminSidebar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname() || '';
@@ -44,6 +53,7 @@ export const AdminSidebar = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const [displayName, setDisplayName] = useState<string>('');
   const [displayRole, setDisplayRole] = useState<string>('');
+  const [activeCompanyName, setActiveCompanyName] = useState<string>('');
 
   useEffect(() => {
     try {
@@ -53,6 +63,12 @@ export const AdminSidebar = () => {
         setDisplayName(u.name || u.username || 'User');
         setDisplayRole(u.role || (u.isAdmin ? 'admin' : 'staff') || 'user');
       }
+      
+      // Get active company name from cookie
+      const companyName = getCookie('activeCompanyName');
+      if (companyName) {
+        setActiveCompanyName(companyName);
+      }
     } catch (e) {
       // ignore
     }
@@ -60,8 +76,19 @@ export const AdminSidebar = () => {
 
   const handleLogout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    clearAuthStorage();
     localStorage.removeItem('gurukrupa_user');
+    // Clear company cookies
+    document.cookie = 'activeCompanyId=; path=/; max-age=0';
+    document.cookie = 'activeCompanyName=; path=/; max-age=0';
     router.push('/login');
+  };
+  
+  const handleSwitchCompany = () => {
+    // Clear company cookies and redirect to selection page
+    document.cookie = 'activeCompanyId=; path=/; max-age=0';
+    document.cookie = 'activeCompanyName=; path=/; max-age=0';
+    router.push('/select-company');
   };
 
   return (
@@ -72,11 +99,20 @@ export const AdminSidebar = () => {
           <button onClick={toggleSidebar} className="p-2 -ml-2 rounded-lg text-slate-600 hover:bg-slate-100">
             <Menu className="h-6 w-6" />
           </button>
-          <span className="font-bold text-slate-800 text-lg">Gurukrupa ERP</span>
+          <div>
+            <span className="font-bold text-slate-800 text-lg block leading-tight">Gurukrupa ERP</span>
+            {activeCompanyName && (
+              <span className="text-xs text-blue-600 font-medium">{activeCompanyName}</span>
+            )}
+          </div>
         </div>
-        <div className="h-9 w-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xs ring-2 ring-white shadow-sm">
-          SA
-        </div>
+        <button 
+          onClick={handleSwitchCompany}
+          className="h-9 w-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xs ring-2 ring-white shadow-sm"
+          title="Switch Company"
+        >
+          <Building2 className="h-4 w-4" />
+        </button>
       </header>
 
       {/* SIDEBAR (Desktop + Mobile Drawer) */}
@@ -86,20 +122,38 @@ export const AdminSidebar = () => {
         }`}
       >
         {/* Sidebar Header */}
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/50 bg-[#0f172a]">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-1.5 rounded-lg">
-              <ShieldCheck className="h-5 w-5 text-white" />
+        <div className="border-b border-slate-800/50 bg-[#0f172a]">
+          <div className="h-16 flex items-center justify-between px-6">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 p-1.5 rounded-lg">
+                <ShieldCheck className="h-5 w-5 text-white" />
+              </div>
+              <span className="font-bold text-lg tracking-tight text-slate-100">Gurukrupa</span>
             </div>
-            <span className="font-bold text-lg tracking-tight text-slate-100">Gurukrupa</span>
+            <button onClick={toggleSidebar} className="md:hidden text-slate-400 hover:text-white transition-colors">
+              <X className="h-6 w-6" />
+            </button>
           </div>
-          <button onClick={toggleSidebar} className="md:hidden text-slate-400 hover:text-white transition-colors">
-            <X className="h-6 w-6" />
-          </button>
+          
+          {/* Active Company Indicator */}
+          {activeCompanyName && (
+            <div className="px-4 pb-3">
+              <button
+                onClick={handleSwitchCompany}
+                className="w-full flex items-center justify-between px-3 py-2 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700/50 transition-colors group"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Building2 className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                  <span className="text-sm text-slate-300 truncate">{activeCompanyName}</span>
+                </div>
+                <RefreshCw className="h-3.5 w-3.5 text-slate-500 group-hover:text-blue-400 flex-shrink-0" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Sidebar Content */}
-        <div className="flex flex-col h-[calc(100vh-5rem)] justify-between">
+        <div className="flex flex-col flex-1 min-h-0 justify-between">
           <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">
             {MENU_ITEMS.map((item) => {
               const isActive = pathname.startsWith(item.path);

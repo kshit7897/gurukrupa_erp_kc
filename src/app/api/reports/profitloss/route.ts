@@ -3,6 +3,7 @@ import dbConnect from '../../../../lib/mongodb';
 import Invoice from '../../../../lib/models/Invoice';
 import OtherTxn from '../../../../lib/models/OtherTxn';
 import Company from '../../../../lib/models/Company';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 export async function GET(request: Request) {
   try {
@@ -12,12 +13,17 @@ export async function GET(request: Request) {
     const to = url.searchParams.get('to');
     if (!from || !to) return NextResponse.json({ error: 'from and to required (YYYY-MM-DD)' }, { status: 400 });
 
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     // Get company opening balance
-    const company = await Company.findOne().lean();
+    const company = await Company.findById(companyId).lean();
     const openingBalance = company?.openingBalance || 0;
 
     const range = { $gte: from, $lte: to };
-    const invMatch = { date: range } as any;
+    const invMatch = { date: range, companyId } as any;
 
     const salesAgg = await Invoice.aggregate([
       { $match: { ...invMatch, type: 'SALES' } },
@@ -29,7 +35,7 @@ export async function GET(request: Request) {
     ]);
 
     const other = await OtherTxn.aggregate([
-      { $match: { date: range } },
+      { $match: { date: range, companyId } },
       { $group: { _id: '$kind', total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
 

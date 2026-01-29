@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
 import Invoice from '../../../../lib/models/Invoice';
+import LedgerEntry from '../../../../lib/models/LedgerEntry';
 import mongoose from 'mongoose';
 import { updateStockForInvoice, revertStockForInvoice } from '../../../../lib/stock';
 import { generateInvoiceNumber } from '../../../../lib/invoiceNumber';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 export async function GET(
   request: Request,
@@ -12,15 +14,23 @@ export async function GET(
   await dbConnect();
   
   try {
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const params = await props.params;
     const id = params.id;
     let invoice: any = null;
 
     if (mongoose.Types.ObjectId.isValid(id)) {
-      invoice = await Invoice.findById(id);
+      invoice = await Invoice.findOne({ _id: id, companyId });
     }
     if (!invoice) {
-      invoice = await Invoice.findOne({ $or: [{ invoiceNo: id }, { invoice_no: id }] });
+      invoice = await Invoice.findOne({ 
+        $or: [{ invoiceNo: id }, { invoice_no: id }],
+        companyId
+      });
     }
     if (!invoice) {
       const sample = await Invoice.find({}, { _id: 1, invoiceNo: 1, invoice_no: 1 }).limit(3);
@@ -40,12 +50,17 @@ export async function PATCH(
 ) {
   await dbConnect();
   try {
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const params = await props.params;
     if (!mongoose.Types.ObjectId.isValid(params.id)) {
       return NextResponse.json({ error: 'Invalid Invoice ID' }, { status: 404 });
     }
     const id = params.id;
-    const existing = await Invoice.findById(id);
+    const existing = await Invoice.findOne({ _id: id, companyId });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const oldObj = { ...(existing as any).toObject(), id: (existing as any)._id.toString() };
@@ -74,7 +89,7 @@ export async function PATCH(
     try {
       const newMode = payload.paymentMode || existing.paymentMode || 'cash';
       if (newMode && newMode !== origPaymentMode) {
-        const gen = await generateInvoiceNumber({ paymentMode: newMode, date: payload.date || existing.date, bill_type: payload.bill_type });
+        const gen = await generateInvoiceNumber({ paymentMode: newMode, date: payload.date || existing.date, bill_type: payload.bill_type, companyId });
         if (gen && gen.invoice_no) {
           payload.invoice_no = gen.invoice_no;
           payload.serial = gen.serial;
@@ -144,6 +159,55 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to apply stock for updated invoice: ' + (err?.message || err) }, { status: 500 });
     }
 
+    // Step 4: Create ledger reversal and new entry for the update
+    // This ensures the ledger trail is maintained
+    try {
+      const isSales = updatedObj.type === 'SALES';
+      const oldGrand = Number(oldObj.grandTotal || 0);
+      const newGrand = Number(updatedObj.grandTotal || 0);
+      
+      // Only create reversal/new entries if amounts changed
+      if (oldGrand !== newGrand || oldObj.partyId !== updatedObj.partyId) {
+        // Create reversal entry for the old invoice
+        await LedgerEntry.create({
+          companyId,
+          partyId: oldObj.partyId,
+          partyName: oldObj.partyName,
+          date: new Date().toISOString().split('T')[0],
+          entryType: 'REVERSAL',
+          refType: 'INVOICE',
+          refId: id,
+          refNo: `REV-${oldObj.invoice_no || oldObj.invoiceNo}`,
+          debit: isSales ? 0 : oldGrand,
+          credit: isSales ? oldGrand : 0,
+          narration: `Reversal for invoice update: ${oldObj.invoice_no || oldObj.invoiceNo}`,
+          paymentMode: oldObj.paymentMode,
+          isReversal: true,
+          metadata: { invoiceType: oldObj.type }
+        });
+        
+        // Create new entry for the updated invoice
+        await LedgerEntry.create({
+          companyId,
+          partyId: updatedObj.partyId,
+          partyName: updatedObj.partyName,
+          date: updatedObj.date,
+          entryType: 'INVOICE',
+          refType: 'INVOICE',
+          refId: id,
+          refNo: updatedObj.invoice_no || updatedObj.invoiceNo,
+          debit: isSales ? newGrand : 0,
+          credit: isSales ? 0 : newGrand,
+          narration: `${isSales ? 'Sales' : 'Purchase'} Invoice (Updated): ${updatedObj.invoice_no || updatedObj.invoiceNo}`,
+          paymentMode: updatedObj.paymentMode,
+          metadata: { invoiceType: updatedObj.type }
+        });
+      }
+    } catch (ledgerErr) {
+      console.error('Ledger entry update failed:', ledgerErr);
+      // Continue - don't fail the update for ledger entry failure
+    }
+
     return NextResponse.json({ ...(updated as any).toObject(), id: (updated as any)._id.toString() });
   } catch (error) {
     console.error('PATCH /api/invoices/[id] error:', error);
@@ -157,18 +221,52 @@ export async function DELETE(
 ) {
   await dbConnect();
   try {
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const params = await props.params;
     if (!mongoose.Types.ObjectId.isValid(params.id)) {
       return NextResponse.json({ error: 'Invalid Invoice ID' }, { status: 404 });
     }
     const id = params.id;
-    const existing = await Invoice.findById(id);
+    const existing = await Invoice.findOne({ _id: id, companyId });
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const existingObj = { ...(existing as any).toObject(), id: (existing as any)._id.toString() };
 
     // Revert stock for this invoice first. Collect warnings but allow delete to proceed so user can remove bad invoices.
     const warnings = await revertStockForInvoice(existingObj);
+    
+    // Create ledger reversal entry instead of deleting (per accounting rules: ledger entries must NEVER be deleted)
+    try {
+      const isSales = existingObj.type === 'SALES';
+      const grand = Number(existingObj.grandTotal || 0);
+      
+      await LedgerEntry.create({
+        companyId,
+        partyId: existingObj.partyId,
+        partyName: existingObj.partyName,
+        date: new Date().toISOString().split('T')[0],
+        entryType: 'REVERSAL',
+        refType: 'INVOICE',
+        refId: id,
+        refNo: `REV-${existingObj.invoice_no || existingObj.invoiceNo}`,
+        // Reverse the original entry direction
+        debit: isSales ? 0 : grand,
+        credit: isSales ? grand : 0,
+        narration: `Invoice Deleted/Reversed: ${existingObj.invoice_no || existingObj.invoiceNo}`,
+        paymentMode: existingObj.paymentMode,
+        reversedEntryId: id,
+        isReversal: true,
+        metadata: { invoiceType: existingObj.type }
+      });
+    } catch (ledgerErr) {
+      console.error('Ledger reversal entry creation failed:', ledgerErr);
+      // Continue with deletion even if ledger entry fails
+    }
+    
     await Invoice.findByIdAndDelete(id);
     if (Array.isArray(warnings) && warnings.length > 0) {
       return NextResponse.json({ deleted: true, warnings });

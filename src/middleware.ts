@@ -4,9 +4,12 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_PATHS = [
   '/login',
+  '/select-company',
+  '/forbidden',
   '/api/auth',
   '/api/auth/password',
   '/api/auth/logout',
+  '/api/companies', // Allow access for company selection/creation
   '/favicon.ico'
 ];
 
@@ -22,6 +25,7 @@ function pathToPermission(pathname: string): string | null {
     { match: /^\/?admin\/sales/i, perm: 'sales' },
     { match: /^\/?admin\/purchase/i, perm: 'purchase' },
     { match: /^\/?admin\/invoice/i, perm: 'invoices' },
+    { match: /^\/?invoices/i, perm: 'invoices' },
     { match: /^\/?admin\/items/i, perm: 'items' },
     { match: /^\/?admin\/parties/i, perm: 'parties' },
     { match: /^\/?admin\/payments/i, perm: 'payments' },
@@ -45,7 +49,10 @@ function decodeJwtPayload(token: string): any | null {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
-    const json = atob(parts[1]);
+    // JWT uses base64url (RFC 7515). Convert to base64 for atob.
+    const b64url = parts[1];
+    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
+    const json = atob(b64);
     return JSON.parse(json);
   } catch (e) {
     return null;
@@ -76,13 +83,31 @@ export async function middleware(req: NextRequest) {
   const tokenPerms: string[] = Array.isArray(payload?.permissions) ? payload.permissions : [];
   const perms: string[] = role === 'admin' ? ['*'] : (tokenPerms.length ? tokenPerms : (DEFAULT_PERMS[role] || []));
 
+  // Check if company is selected
+  const activeCompanyId = req.cookies.get('activeCompanyId')?.value || payload?.activeCompanyId;
+  
+  // If no company selected and trying to access protected routes, redirect to company selection
+  if (!activeCompanyId && !pathname.startsWith('/select-company') && !pathname.startsWith('/api/companies')) {
+    // For API routes, return error
+    if (pathname.startsWith('/api')) {
+      return NextResponse.json({ error: 'No company selected', code: 'NO_COMPANY' }, { status: 400 });
+    }
+    // For page routes, redirect to company selection
+    const url = req.nextUrl.clone();
+    url.pathname = '/select-company';
+    url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
+  }
+
   const needed = pathToPermission(pathname);
   const allowed = perms.includes('*') || (needed ? perms.includes(needed) : true);
   if (!allowed) {
     if (pathname.startsWith('/api')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const url = req.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
+    url.pathname = '/forbidden';
+    url.searchParams.set('from', pathname);
+    // IMPORTANT: permission failures should not redirect to /login (session is valid)
+    return NextResponse.rewrite(url);
   }
 
   return NextResponse.next();

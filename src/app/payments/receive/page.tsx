@@ -19,6 +19,7 @@ export default function ReceivePaymentPage() {
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [receivedById, setReceivedById] = useState<string>('');
 
   useEffect(() => { load(); }, []);
 
@@ -51,6 +52,19 @@ export default function ReceivePaymentPage() {
         return due > 0;
       });
       setInvoices(unpaid || []);
+
+      // Default "Received By" = first company account (Cash/Bank/UPI) if available
+      const systemRoles = ['Cash', 'Bank', 'UPI'];
+      const companyAccounts = (pts || []).filter((p:any) => {
+        const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+        return roles.some(r => systemRoles.includes(r));
+      });
+      if (companyAccounts.length > 0) {
+        const first = companyAccounts[0];
+        setReceivedById((first._id || first.id || '').toString());
+      } else {
+        setReceivedById('');
+      }
     } catch (e) {
       console.error(e);
     } finally { setLoading(false); }
@@ -137,6 +151,7 @@ export default function ReceivePaymentPage() {
 
   const handleSave = async () => {
     if (!selectedParty) return alert('Select party');
+    if (!receivedById) return alert('Select "Received By" account');
     const amt = Number(amount || 0);
     if (amt <= 0) return alert('Invalid amount');
     setSaving(true);
@@ -150,6 +165,12 @@ export default function ReceivePaymentPage() {
         }
       } catch (e) { /* ignore */ }
       const outstandingAfter = Math.max(0, outstandingBefore - amt);
+      const receiver = (parties || []).find((p:any) => (p._id || p.id || '').toString() === receivedById.toString()) || null;
+      const receiverName = receiver?.name || '';
+      const receiverRoles: string[] = (receiver?.roles || [receiver?.type]).map((r:any) => r && r.toString());
+      const systemRoles = ['Cash', 'Bank', 'UPI'];
+      const receivedByType = receiverRoles.some(r => systemRoles.includes(r)) ? 'COMPANY_ACCOUNT' : 'PARTNER';
+
       const payload: any = {
         partyId: selectedParty,
         type: 'receive',
@@ -160,7 +181,10 @@ export default function ReceivePaymentPage() {
         notes,
         allocations: [], // direct/advance payment — no invoice allocations
         outstandingBefore,
-        outstandingAfter
+        outstandingAfter,
+        receivedById,
+        receivedByName: receiverName,
+        receivedByType
       };
       const res = await api.payments.add(payload);
       // keep canonical saved payment object to use for PDF generation (avoid stale fetch)
@@ -334,6 +358,36 @@ export default function ReceivePaymentPage() {
           <div>
             <label className="text-sm block mb-1">Mode</label>
             <Select value={mode} onChange={(e:any)=> setMode(e.target.value)} options={[{label:'Cash',value:'cash'},{label:'Online',value:'online'},{label:'Cheque',value:'cheque'},{label:'UPI',value:'upi'},{label:'Bank Transfer',value:'bank'}]} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-sm block mb-1">Received By (Required)</label>
+            <Select
+              value={receivedById}
+              onChange={(e:any) => setReceivedById(e.target.value)}
+              options={[
+                { label: 'Select account', value: '' },
+                // Company accounts: Cash / Bank / UPI
+                ...(parties || [])
+                  .filter((p:any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+                    return roles.some(r => ['Cash','Bank','UPI'].includes(r));
+                  })
+                  .map((p:any) => ({
+                    label: `${p.name} (Company)`,
+                    value: (p._id || p.id) as string
+                  })),
+                // Partner accounts
+                ...(parties || [])
+                  .filter((p:any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+                    return roles.includes('Partner');
+                  })
+                  .map((p:any) => ({
+                    label: `${p.name} (Partner)`,
+                    value: (p._id || p.id) as string
+                  })),
+              ]}
+            />
           </div>
           <div>
             <label className="text-sm block mb-1">Reference</label>

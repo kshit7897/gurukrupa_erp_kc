@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
 import Payment from '../../../../lib/models/Payment';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 const BANK_MODES = ['online','cheque','upi','bank'];
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+
+    const { companyId } = getCompanyContextFromRequest(req);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const url = new URL(req.url);
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
 
-    const q: any = { mode: { $in: BANK_MODES } };
+    const q: any = { mode: { $in: BANK_MODES }, companyId };
     if (from && to) q.date = { $gte: from, $lte: to };
 
     const payments = await Payment.find(q).sort({ date: 1 }).lean();

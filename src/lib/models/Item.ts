@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 
 const ItemSchema = new mongoose.Schema({
+  // Company scoping for multi-company support
+  companyId: { type: String, index: true },
+  
   name: { type: String, required: true },
   hsn: String,
   unit: String,

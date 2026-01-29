@@ -3,20 +3,27 @@ import dbConnect from '../../../../lib/mongodb';
 import Invoice from '../../../../lib/models/Invoice';
 import Party from '../../../../lib/models/Party';
 import Payment from '../../../../lib/models/Payment';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+
+    const { companyId } = getCompanyContextFromRequest(req);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const url = new URL(req.url);
     const partyId = url.searchParams.get('party');
     const start = url.searchParams.get('from') || undefined;
     const end = url.searchParams.get('to') || undefined;
     if (!partyId) return NextResponse.json({ error: 'party is required' }, { status: 400 });
 
-    const partyDoc = await Party.findOne({ _id: partyId }).lean();
+    const partyDoc = await Party.findOne({ _id: partyId, companyId }).lean();
     if (!partyDoc) return NextResponse.json([], { status: 200 });
 
-    const q: any = { partyId };
+    const q: any = { partyId, companyId };
     if (start && end) q.date = { $gte: start, $lte: end };
 
     const invoices = await Invoice.find(q).sort({ date: 1 }).lean();
@@ -40,7 +47,7 @@ export async function GET(req: Request) {
     });
 
     // include payments for this party in the date range
-    const payQuery: any = { partyId };
+    const payQuery: any = { partyId, companyId };
     if (start && end) payQuery.date = { $gte: start, $lte: end };
     const payments = await Payment.find(payQuery).sort({ date: 1 }).lean();
 

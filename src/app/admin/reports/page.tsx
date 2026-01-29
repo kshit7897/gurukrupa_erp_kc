@@ -26,6 +26,7 @@ export default function Reports() {
   const today = new Date().toISOString().slice(0,10);
   const [fromDate, setFromDate] = useState(today);
   const [toDate, setToDate] = useState(today);
+  const [daybookDate, setDaybookDate] = useState(today);
   const [stockRows, setStockRows] = useState<any[] | null>(null);
   const [outstandingRows, setOutstandingRows] = useState<any[] | null>(null);
   const [plData, setPlData] = useState<any | null>(null);
@@ -33,6 +34,14 @@ export default function Reports() {
   const [stockLoading, setStockLoading] = useState(false);
   const [outstandingLoading, setOutstandingLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // New report states
+  const [daybookData, setDaybookData] = useState<any[] | null>(null);
+  const [daybookLoading, setDaybookLoading] = useState(false);
+  const [cashbookData, setCashbookData] = useState<any[] | null>(null);
+  const [cashbookLoading, setCashbookLoading] = useState(false);
+  const [bankbookData, setBankbookData] = useState<any[] | null>(null);
+  const [bankbookLoading, setBankbookLoading] = useState(false);
 
   const formatCurrency = (v: any) => {
     const n = Number(v || 0);
@@ -129,6 +138,63 @@ export default function Reports() {
     return () => { mounted = false; document.removeEventListener('gurukrupa:data:updated', onData); };
   }, [activeTab]);
 
+  // fetch daybook when Daybook tab active
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab !== 'Daybook') return;
+    const load = async () => {
+      try {
+        setDaybookLoading(true);
+        const res = await fetch(`/api/reports/daybook?date=${daybookDate}`);
+        if (!res.ok) { setDaybookData([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        setDaybookData(data || []);
+      } catch (e) { console.error(e); setDaybookData([]); }
+      finally { if (mounted) setDaybookLoading(false); }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [activeTab, daybookDate]);
+
+  // fetch cashbook when Cashbook tab active
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab !== 'Cashbook') return;
+    const load = async () => {
+      try {
+        setCashbookLoading(true);
+        const res = await fetch(`/api/reports/cashbook?from=${fromDate}&to=${toDate}`);
+        if (!res.ok) { setCashbookData([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        setCashbookData(data || []);
+      } catch (e) { console.error(e); setCashbookData([]); }
+      finally { if (mounted) setCashbookLoading(false); }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [activeTab, fromDate, toDate]);
+
+  // fetch bankbook when Bankbook tab active
+  useEffect(() => {
+    let mounted = true;
+    if (activeTab !== 'Bankbook') return;
+    const load = async () => {
+      try {
+        setBankbookLoading(true);
+        const res = await fetch(`/api/reports/bankbook?from=${fromDate}&to=${toDate}`);
+        if (!res.ok) { setBankbookData([]); return; }
+        const data = await res.json();
+        if (!mounted) return;
+        setBankbookData(data || []);
+      } catch (e) { console.error(e); setBankbookData([]); }
+      finally { if (mounted) setBankbookLoading(false); }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [activeTab, fromDate, toDate]);
+
   
 
   const handleExport = async () => {
@@ -204,7 +270,7 @@ export default function Reports() {
         )}
       </div>
 
-      <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger', 'P&L' ]} />
+      <Tabs active={activeTab} setActive={setActiveTab} tabs={[ 'Stock', 'Outstanding', 'Ledger', 'P&L', 'Daybook', 'Cashbook', 'Bankbook' ]} />
 
       {/* Stock Tab */}
       {activeTab === 'Stock' && (
@@ -328,6 +394,242 @@ export default function Reports() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Daybook Tab */}
+      {activeTab === 'Daybook' && (
+        <Card title="Day Book">
+          <div className="flex flex-col md:flex-row md:items-end md:gap-4 mb-6">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Select Date</label>
+              <Input type="date" value={daybookDate} onChange={(e) => setDaybookDate(e.target.value)} />
+            </div>
+          </div>
+          
+          {daybookLoading ? (
+            <div className="py-12 text-center text-slate-500">Loading...</div>
+          ) : (daybookData || []).length === 0 ? (
+            <div className="py-12 text-center text-slate-500">No transactions found for this date</div>
+          ) : (
+            <>
+              {/* Mobile view */}
+              <div className="md:hidden space-y-3">
+                {(daybookData || []).map((p: any, idx: number) => (
+                  <div key={p._id || idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{p.partyName || 'Unknown'}</h4>
+                        <p className="text-xs text-slate-500 mt-1">{p.voucherNo || p._id}</p>
+                        <p className="text-xs text-slate-400">{p.mode || 'cash'}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold ${p.type === 'receive' ? 'text-green-600' : 'text-red-600'}`}>
+                          {p.type === 'receive' ? '+' : '-'} {formatCurrency(p.amount)}
+                        </div>
+                        <div className="text-xs text-slate-400">{p.type === 'receive' ? 'Received' : 'Paid'}</div>
+                      </div>
+                    </div>
+                    {p.notes && <p className="text-xs text-slate-500 mt-2 border-t pt-2">{p.notes}</p>}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop view */}
+              <div className="hidden md:block">
+                <Table headers={['Voucher', 'Party', 'Mode', 'Credit', 'Debit', 'Notes']}>
+                  {(daybookData || []).map((p: any, idx: number) => (
+                    <tr key={p._id || idx}>
+                      <td className="px-4 py-3 text-sm">{p.voucherNo || p._id?.slice(-8)}</td>
+                      <td className="px-4 py-3 font-medium">{p.partyName || 'Unknown'}</td>
+                      <td className="px-4 py-3 text-sm uppercase">{p.mode || 'cash'}</td>
+                      <td className="px-4 py-3 text-green-600 font-semibold">{p.type === 'receive' ? formatCurrency(p.amount) : '-'}</td>
+                      <td className="px-4 py-3 text-red-600 font-semibold">{p.type === 'pay' ? formatCurrency(p.amount) : '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{p.notes || '-'}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              
+              {/* Summary */}
+              <div className="mt-4 p-4 bg-slate-50 rounded-lg grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-slate-500">Total Received</div>
+                  <div className="font-bold text-green-600">
+                    {formatCurrency((daybookData || []).filter((p: any) => p.type === 'receive').reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Total Paid</div>
+                  <div className="font-bold text-red-600">
+                    {formatCurrency((daybookData || []).filter((p: any) => p.type === 'pay').reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Cashbook Tab */}
+      {activeTab === 'Cashbook' && (
+        <Card title="Cash Book">
+          <div className="flex flex-col md:flex-row md:items-end md:gap-4 mb-6">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">From</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">To</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+          </div>
+          
+          {cashbookLoading ? (
+            <div className="py-12 text-center text-slate-500">Loading...</div>
+          ) : (cashbookData || []).length === 0 ? (
+            <div className="py-12 text-center text-slate-500">No cash transactions found for this period</div>
+          ) : (
+            <>
+              {/* Mobile view */}
+              <div className="md:hidden space-y-3">
+                {(cashbookData || []).map((p: any, idx: number) => (
+                  <div key={p._id || idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{p.partyName || 'Unknown'}</h4>
+                        <p className="text-xs text-slate-500 mt-1">{p.date}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold ${p.credit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {p.credit > 0 ? '+' : '-'} {formatCurrency(p.credit || p.debit)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop view */}
+              <div className="hidden md:block">
+                <Table headers={['Date', 'Party', 'Credit (In)', 'Debit (Out)', 'Reference']}>
+                  {(cashbookData || []).map((p: any, idx: number) => (
+                    <tr key={p._id || idx}>
+                      <td className="px-4 py-3 text-sm">{p.date}</td>
+                      <td className="px-4 py-3 font-medium">{p.partyName || 'Unknown'}</td>
+                      <td className="px-4 py-3 text-green-600 font-semibold">{p.credit > 0 ? formatCurrency(p.credit) : '-'}</td>
+                      <td className="px-4 py-3 text-red-600 font-semibold">{p.debit > 0 ? formatCurrency(p.debit) : '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{p.reference || '-'}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              
+              {/* Summary */}
+              <div className="mt-4 p-4 bg-slate-50 rounded-lg grid grid-cols-3 gap-4">
+                <div>
+                  <div className="text-xs text-slate-500">Total Cash In</div>
+                  <div className="font-bold text-green-600">
+                    {formatCurrency((cashbookData || []).reduce((sum: number, p: any) => sum + Number(p.credit || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Total Cash Out</div>
+                  <div className="font-bold text-red-600">
+                    {formatCurrency((cashbookData || []).reduce((sum: number, p: any) => sum + Number(p.debit || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Net Cash</div>
+                  <div className="font-bold text-blue-600">
+                    {formatCurrency((cashbookData || []).reduce((sum: number, p: any) => sum + Number(p.credit || 0) - Number(p.debit || 0), 0))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
+      {/* Bankbook Tab */}
+      {activeTab === 'Bankbook' && (
+        <Card title="Bank Book">
+          <div className="flex flex-col md:flex-row md:items-end md:gap-4 mb-6">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">From</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">To</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+          </div>
+          
+          {bankbookLoading ? (
+            <div className="py-12 text-center text-slate-500">Loading...</div>
+          ) : (bankbookData || []).length === 0 ? (
+            <div className="py-12 text-center text-slate-500">No bank transactions found for this period</div>
+          ) : (
+            <>
+              {/* Mobile view */}
+              <div className="md:hidden space-y-3">
+                {(bankbookData || []).map((p: any, idx: number) => (
+                  <div key={p._id || idx} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{p.partyName || 'Unknown'}</h4>
+                        <p className="text-xs text-slate-500 mt-1">{p.date}</p>
+                        <p className="text-xs text-slate-400 uppercase">{p.mode || 'bank'}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold ${p.credit > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {p.credit > 0 ? '+' : '-'} {formatCurrency(p.credit || p.debit)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Desktop view */}
+              <div className="hidden md:block">
+                <Table headers={['Date', 'Party', 'Mode', 'Credit (In)', 'Debit (Out)', 'Reference']}>
+                  {(bankbookData || []).map((p: any, idx: number) => (
+                    <tr key={p._id || idx}>
+                      <td className="px-4 py-3 text-sm">{p.date}</td>
+                      <td className="px-4 py-3 font-medium">{p.partyName || 'Unknown'}</td>
+                      <td className="px-4 py-3 text-sm uppercase">{p.mode || 'bank'}</td>
+                      <td className="px-4 py-3 text-green-600 font-semibold">{p.credit > 0 ? formatCurrency(p.credit) : '-'}</td>
+                      <td className="px-4 py-3 text-red-600 font-semibold">{p.debit > 0 ? formatCurrency(p.debit) : '-'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{p.reference || '-'}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              
+              {/* Summary */}
+              <div className="mt-4 p-4 bg-slate-50 rounded-lg grid grid-cols-3 gap-4">
+                <div>
+                  <div className="text-xs text-slate-500">Total Bank In</div>
+                  <div className="font-bold text-green-600">
+                    {formatCurrency((bankbookData || []).reduce((sum: number, p: any) => sum + Number(p.credit || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Total Bank Out</div>
+                  <div className="font-bold text-red-600">
+                    {formatCurrency((bankbookData || []).reduce((sum: number, p: any) => sum + Number(p.debit || 0), 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500">Net Balance</div>
+                  <div className="font-bold text-blue-600">
+                    {formatCurrency((bankbookData || []).reduce((sum: number, p: any) => sum + Number(p.credit || 0) - Number(p.debit || 0), 0))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
       )}
 
       {/* Profit & Loss Tab */}

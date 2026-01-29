@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
 import Payment from '../../../../lib/models/Payment';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
+
+    const { companyId } = getCompanyContextFromRequest(req);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
     const url = new URL(req.url);
     const date = url.searchParams.get('date');
     if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 });
 
-    const q: any = { date };
+    const q: any = { date, companyId };
     const payments = await Payment.find(q).sort({ mode: 1 }).lean();
 
     const tx = payments.map((p:any) => ({

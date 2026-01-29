@@ -51,18 +51,60 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // On mount, restore session if valid
   useEffect(() => {
-    const data = getAuthFromStorage();
-    if (data && data.token && data.user && !isAuthExpired(data.loginTime)) {
-      setToken(data.token);
-      setUser(data.user);
-      setIsLoading(false);
-    } else {
+    const run = async () => {
+      // Prefer cookie-backed session as source of truth (avoids stale localStorage perms/token).
+      try {
+        const res = await fetch('/api/auth/refresh', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.token && data?.user) {
+            setToken(data.token);
+            setUser(data.user);
+            saveAuthToStorage(data.token, data.user);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // If company isn't selected, route to selector (don’t treat as logout)
+          try {
+            const j = await res.json();
+            if (res.status === 400 && j?.code === 'NO_COMPANY') {
+              setIsLoading(false);
+              if (typeof window !== 'undefined' && window.location.pathname !== '/select-company') {
+                router.replace('/select-company');
+              }
+              return;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore and fallback to local storage
+      }
+
+      // Fallback: local storage (best-effort)
+      const data = getAuthFromStorage();
+      if (data && data.token && data.user && !isAuthExpired(data.loginTime)) {
+        setToken(data.token);
+        setUser(data.user);
+        setIsLoading(false);
+        return;
+      }
+
       if (data) clearAuthStorage();
       setIsLoading(false);
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         router.replace('/login');
       }
-    }
+    };
+
+    run().catch(() => {
+      setIsLoading(false);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        router.replace('/login');
+      }
+    });
   }, [router]);
 
   // Auto-logout after 24h

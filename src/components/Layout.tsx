@@ -6,6 +6,7 @@ import { hasPermission } from '../lib/permissions';
 import { notify } from '../lib/notify';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { clearAuthStorage, getAuthFromStorage, isAuthExpired } from '../lib/auth/storage';
 import {
   LayoutDashboard,
   Users,
@@ -43,21 +44,20 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
 
   // AUTH GUARD: Check if user is logged in
   useEffect(() => {
-    const raw = localStorage.getItem('gurukrupa_user');
-    if (!raw) {
+    const data = getAuthFromStorage();
+    if (!data || !data.token || !data.user) {
       router.replace('/login');
       return;
     }
     try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || (parsed.expiresAt && Date.now() > parsed.expiresAt)) {
-        // expired
-        localStorage.removeItem('gurukrupa_user');
+      if (isAuthExpired(data.loginTime)) {
+        clearAuthStorage();
         fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         router.replace('/login');
+        return;
       }
-    } catch (e) {
-      localStorage.removeItem('gurukrupa_user');
+    } catch {
+      clearAuthStorage();
       router.replace('/login');
     }
   }, [router]);
@@ -66,7 +66,7 @@ export const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({ children
 
   const handleLogout = () => {
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    localStorage.removeItem('gurukrupa_user');
+    clearAuthStorage();
     router.replace('/login');
   };
 
