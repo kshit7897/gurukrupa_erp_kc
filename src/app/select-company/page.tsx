@@ -16,7 +16,7 @@ interface Company {
 export default function SelectCompanyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/admin/dashboard';
+  const redirect = searchParams?.get('redirect') || '/admin/dashboard';
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);

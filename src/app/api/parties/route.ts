@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       body.openingBalanceType = payableTypes.includes(body.type) ? 'CR' : 'DR';
     }
     
-    const party = await Party.create(body);
+    const party = (await Party.create(body)) as any;
     
     // Create opening balance ledger entry if opening balance is non-zero
     if (body.openingBalance && Number(body.openingBalance) !== 0) {

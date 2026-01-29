@@ -108,7 +108,7 @@ export default function Parties() {
   const [formData, setFormData] = useState<Partial<Party>>({
     name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', address: '', openingBalance: 0,
     openingBalanceType: BalanceType.DR,
-    roles: ['Customer'],
+    roles: [PartyRole.CUSTOMER],
     city: '', state: '', pincode: '',
     billingAddress: { pincode: '' }
   });
@@ -139,7 +139,7 @@ export default function Parties() {
     setEditingId(party.id);
     setFormData({ 
       ...party,
-      roles: party.roles || [party.type],
+      roles: party.roles || [party.type as unknown as PartyRole],
       openingBalanceType: (party as any).openingBalanceType || BalanceType.DR,
     });
     setIsModalOpen(true);
@@ -151,7 +151,7 @@ export default function Parties() {
       name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', cin: '', address: '', 
       city: '', state: '', pincode: '',
       openingBalance: 0, openingBalanceType: BalanceType.DR,
-      roles: ['Customer'],
+      roles: [PartyRole.CUSTOMER],
       billingAddress: { pincode: '' }
     });
     setIsModalOpen(true);
@@ -239,8 +239,8 @@ export default function Parties() {
             .filter(p => {
               if (filterType === 'ALL') return true;
               // Check both type and roles array
-              const roles = p.roles || [p.type];
-              return roles.includes(filterType) || p.type === filterType;
+              const roles = (p.roles || [p.type]) as string[];
+              return roles.includes(filterType) || p.type === (filterType as string);
             })
             .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
             .map(party => {
@@ -294,8 +294,8 @@ export default function Parties() {
               parties
                 .filter(p => {
                   if (filterType === 'ALL') return true;
-                  const roles = p.roles || [p.type];
-                  return roles.includes(filterType) || p.type === filterType;
+                  const roles = (p.roles || [p.type]) as string[];
+                  return roles.includes(filterType) || p.type === (filterType as string);
                 })
                 .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map(party => {
@@ -347,7 +347,7 @@ export default function Parties() {
             selectedRoles={formData.roles || ['Customer']} 
             onChange={(roles) => setFormData({
               ...formData, 
-              roles, 
+              roles: roles as PartyRole[], 
               type: roles[0] as PartyType || PartyType.CUSTOMER
             })} 
           />
