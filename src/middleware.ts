@@ -4,9 +4,11 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_PATHS = [
   '/login',
+  '/select-company',
   '/api/auth',
   '/api/auth/password',
   '/api/auth/logout',
+  '/api/companies', // Allow access for company selection/creation
   '/favicon.ico'
 ];
 
@@ -75,6 +77,22 @@ export async function middleware(req: NextRequest) {
   const role = (payload?.role || 'staff').toLowerCase();
   const tokenPerms: string[] = Array.isArray(payload?.permissions) ? payload.permissions : [];
   const perms: string[] = role === 'admin' ? ['*'] : (tokenPerms.length ? tokenPerms : (DEFAULT_PERMS[role] || []));
+
+  // Check if company is selected
+  const activeCompanyId = req.cookies.get('activeCompanyId')?.value || payload?.activeCompanyId;
+  
+  // If no company selected and trying to access protected routes, redirect to company selection
+  if (!activeCompanyId && !pathname.startsWith('/select-company') && !pathname.startsWith('/api/companies')) {
+    // For API routes, return error
+    if (pathname.startsWith('/api')) {
+      return NextResponse.json({ error: 'No company selected', code: 'NO_COMPANY' }, { status: 400 });
+    }
+    // For page routes, redirect to company selection
+    const url = req.nextUrl.clone();
+    url.pathname = '/select-company';
+    url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
+  }
 
   const needed = pathToPermission(pathname);
   const allowed = perms.includes('*') || (needed ? perms.includes(needed) : true);

@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 
 const InvoiceSchema = new mongoose.Schema({
+  // Company scoping for multi-company support
+  companyId: { type: String, index: true },
+  
   // legacy camelCase invoiceNo kept for backward compatibility
   invoiceNo: { type: String, required: true },
   // new fields per requirements

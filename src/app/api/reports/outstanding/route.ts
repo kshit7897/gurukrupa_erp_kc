@@ -3,13 +3,20 @@ import dbConnect from '../../../../lib/mongodb';
 import Invoice from '../../../../lib/models/Invoice';
 import Party from '../../../../lib/models/Party';
 import Payment from '../../../../lib/models/Payment';
+import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
-    const parties = await Party.find({}).lean();
-    const invoices = await Invoice.find({}).lean();
-    const payments = await Payment.find({}).lean();
+
+    const { companyId } = getCompanyContextFromRequest(req);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
+    const parties = await Party.find({ companyId }).lean();
+    const invoices = await Invoice.find({ companyId }).lean();
+    const payments = await Payment.find({ companyId }).lean();
 
     const report = parties.map(p => {
       const partyId = (p._id || p.id).toString();

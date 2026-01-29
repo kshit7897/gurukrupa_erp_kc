@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../lib/mongodb';
 import Invoice from '../../../lib/models/Invoice';
+import LedgerEntry from '../../../lib/models/LedgerEntry';
 import { updateStockForInvoice } from '../../../lib/stock';
 import { generateInvoiceNumber } from '../../../lib/invoiceNumber';
+import { getCompanyContextFromRequest } from '../../../lib/companyContext';
 
 export async function GET(request: Request) {
   try {
     await dbConnect();
+    
+    // Get company context
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+    
     const url = new URL(request.url);
     const party = url.searchParams.get('party');
     const from = url.searchParams.get('from');
@@ -15,10 +24,15 @@ export async function GET(request: Request) {
     const year = url.searchParams.get('year');
     const bill_type = url.searchParams.get('bill_type');
     const pending = url.searchParams.get('pending'); // '1' or 'true'
+    const type = url.searchParams.get('type'); // 'SALES' or 'PURCHASE'
 
-    const q: any = {};
+    // Add company scope to query
+    const q: any = {
+      companyId
+    };
     if (party) q.partyId = party;
     if (bill_type) q.paymentMode = bill_type;
+    if (type) q.type = type;
     if (pending === '1' || pending === 'true') q.dueAmount = { $gt: 0 };
 
     if (from && to) {
@@ -42,24 +56,38 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await dbConnect();
+    
+    // Get company context
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+    
     const body = await request.json();
     console.log('POST /api/invoices body:', JSON.stringify(body).slice(0, 1000));
-    // Ensure payment fields are set correctly
-    const payload = { ...body } as any;
+    
+    const payload = { ...body, companyId } as any; // Add company scope
     const grand = Number(payload.grandTotal || 0);
-    if (payload.paymentMode === 'cash') {
-      payload.paidAmount = grand;
-      payload.dueAmount = 0;
-    } else {
-      payload.paidAmount = Number(payload.paidAmount || 0);
-      payload.dueAmount = Math.max(0, grand - (payload.paidAmount || 0));
-    }
+    
+    /**
+     * IMPORTANT: Cash Sale Rule
+     * Even cash sales must appear as PENDING initially.
+     * Amount reduces ONLY after explicit payment entry.
+     * No auto-settlement allowed.
+     */
+    payload.paidAmount = 0;
+    payload.dueAmount = grand;
 
     // Generate invoice numbering fields: invoice_no, serial, bill_type, financial_year
-    // We'll attempt to generate atomically; if generation fails, fall back to any client-provided number,
-    // and as a last resort create a safe timestamp-based invoice_no so Mongoose validation doesn't fail.
+    // Format: GK-CR-0001-24-25 (credit) or GK-C-0001-24-25 (cash)
     try {
-      const gen = await generateInvoiceNumber({ paymentMode: payload.paymentMode, date: payload.date, bill_type: payload.bill_type });
+      const gen = await generateInvoiceNumber({ 
+        paymentMode: payload.paymentMode, 
+        date: payload.date, 
+        bill_type: payload.bill_type,
+        invoiceType: payload.type,
+        companyId // Pass companyId for company-specific numbering
+      });
       if (gen && gen.invoice_no) {
         payload.invoice_no = gen.invoice_no;
         payload.serial = gen.serial;
@@ -83,16 +111,46 @@ export async function POST(request: Request) {
     }
 
     const invoice = await Invoice.create(payload);
-    // ensure stock updates; if this fails, delete the created invoice and return error
+    const invoiceId = (invoice as any)._id.toString();
+    
+    // Create ledger entry for the invoice
     try {
-      await updateStockForInvoice({ ...((invoice as any).toObject()), id: (invoice as any)._id.toString() });
+      const isSales = payload.type === 'SALES';
+      await LedgerEntry.create({
+        companyId, // Add company scope
+        partyId: payload.partyId,
+        partyName: payload.partyName,
+        date: payload.date,
+        entryType: 'INVOICE',
+        refType: 'INVOICE',
+        refId: invoiceId,
+        refNo: payload.invoice_no || payload.invoiceNo,
+        // Sales: Debit (receivable from customer)
+        // Purchase: Credit (payable to supplier)
+        debit: isSales ? grand : 0,
+        credit: isSales ? 0 : grand,
+        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${payload.invoice_no || payload.invoiceNo}`,
+        paymentMode: payload.paymentMode,
+        metadata: {
+          invoiceType: payload.type
+        }
+      });
+    } catch (ledgerErr) {
+      console.error('Ledger entry creation failed:', ledgerErr);
+      // Continue - don't fail invoice creation for ledger entry failure
+    }
+    
+    // Update stock; if this fails, delete the created invoice and ledger entry
+    try {
+      await updateStockForInvoice({ ...((invoice as any).toObject()), id: invoiceId, companyId });
     } catch (err) {
-      console.error('Stock update failed after invoice create, reverting invoice:', err);
-      await Invoice.findByIdAndDelete((invoice as any)._id);
+      console.error('Stock update failed after invoice create, reverting:', err);
+      await Invoice.findByIdAndDelete(invoiceId);
+      await LedgerEntry.deleteMany({ refId: invoiceId, refType: 'INVOICE' });
       return NextResponse.json({ error: 'Failed to update stock for invoice: ' + (err as any).message }, { status: 500 });
     }
 
-    const out = { ...(invoice as any).toObject(), id: (invoice as any)._id.toString() };
+    const out = { ...(invoice as any).toObject(), id: invoiceId };
     console.log('Invoice created, id=', out.id);
     return NextResponse.json(out);
   } catch (err: any) {

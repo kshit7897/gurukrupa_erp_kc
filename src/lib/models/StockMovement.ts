@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
 
 const StockMovementSchema = new mongoose.Schema({
+  // Company scoping for multi-company support
+  companyId: { type: String, index: true },
+  
   itemId: { type: String, required: true },
   qty: { type: Number, required: true }, // positive for IN, negative for OUT
   type: { type: String, enum: ['PURCHASE', 'SALE', 'ADJUSTMENT'], required: true },

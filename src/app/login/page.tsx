@@ -32,14 +32,42 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      // Call existing login API
-      const { token, user } = await api.auth.login(username, password);
-      // Save to new auth storage for persistence
+      // Call login API - returns companies user has access to
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+      
+      const { token, user, companies, requireCompanySelection, autoSelectedCompany } = data;
+      
+      // Save to auth storage
       if (token && user) {
-        saveAuthToStorage(token, user); // ensure gurukrupa_auth is set
+        saveAuthToStorage(token, user);
         setAuth(token, user);
       }
-      router.push('/admin/dashboard');
+      
+      // Handle company selection
+      if (requireCompanySelection && companies && companies.length > 1) {
+        // Multiple companies - redirect to company selection
+        router.push('/select-company');
+      } else if (companies && companies.length === 0) {
+        // No companies - admin can create, others need access
+        if (user?.role === 'admin') {
+          router.push('/select-company');
+        } else {
+          setError('No companies available. Please contact an administrator.');
+        }
+      } else {
+        // Single company auto-selected - proceed to dashboard
+        router.push('/admin/dashboard');
+      }
     } catch (err) {
       const msg = (err as any)?.message || 'Invalid username or password.';
       setError(msg.includes('Invalid') ? 'Invalid username or password.' : msg);
