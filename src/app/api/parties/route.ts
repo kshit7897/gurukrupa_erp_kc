@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       body.openingBalanceType = payableTypes.includes(body.type) ? 'CR' : 'DR';
     }
     
-    const party: any = await (Party as any).create(body);
+    const party = (await Party.create(body)) as any;
     
     // Create opening balance ledger entry if opening balance is non-zero
     if (body.openingBalance && Number(body.openingBalance) !== 0) {
@@ -104,13 +104,13 @@ export async function POST(request: Request) {
       
       await LedgerEntry.create({
         companyId, // Add company scope to ledger entry
-        partyId: (party as any)._id.toString(),
-        partyName: (party as any).name,
+        partyId: party._id.toString(),
+        partyName: party.name,
         date: today,
         entryType: 'OPENING_BALANCE',
         refType: 'PARTY',
-        refId: (party as any)._id.toString(),
-        refNo: `OB-${(party as any)._id.toString().slice(-6).toUpperCase()}`,
+        refId: party._id.toString(),
+        refNo: `OB-${party._id.toString().slice(-6).toUpperCase()}`,
         debit: balanceType === 'DR' ? Number(body.openingBalance) : 0,
         credit: balanceType === 'CR' ? Number(body.openingBalance) : 0,
         narration: `Opening balance for ${party.name}`,
