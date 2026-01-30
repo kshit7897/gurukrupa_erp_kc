@@ -7,6 +7,9 @@ import { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Gurukrupa ERP',
   description: 'ERP System for Gurukrupa Multi Ventures Pvt Ltd',
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({
