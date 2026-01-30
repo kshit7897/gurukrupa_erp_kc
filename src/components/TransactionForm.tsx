@@ -671,9 +671,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                   className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="cash">Cash</option>
-                  <option value="credit">Credit (15 Days)</option>
-                  <option value="online">Online / UPI</option>
-                  <option value="cheque">Cheque</option>
+                  <option value="credit">Credit</option>
                 </select>
              </div>
              
