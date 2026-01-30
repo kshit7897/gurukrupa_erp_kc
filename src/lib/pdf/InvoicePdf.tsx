@@ -278,6 +278,7 @@ export function InvoicePdf({ invoice, party, company }: any) {
     );
   }
 
+  const isSales = invoice.type !== 'PURCHASE';
   const freight = Number((invoice as any)?.freight || 0);
 
   const totals = (() => {
@@ -324,7 +325,7 @@ export function InvoicePdf({ invoice, party, company }: any) {
                     <Image src={company.logo} style={{ width: 60, height: 60, objectFit: 'contain' }} />
                   ) : (
                     <View style={{ width: 40, height: 40, backgroundColor: '#0EA5A4', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>LOGO</Text>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 9 }}>LOGO</Text>
                     </View>
                   )}
                 </View>
@@ -337,7 +338,7 @@ export function InvoicePdf({ invoice, party, company }: any) {
                   </Text>
                   <Text style={styles.companyDetails}>Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</Text>
                   <Text style={[styles.companyDetails, { fontWeight: 'bold' }]}>GSTIN: {company?.gstin || company?.gstNumber || '-'}</Text>
-                  <Text style={[styles.companyDetails, { fontWeight: 'bold' }]}>CIN: {company?.cin || '-'}</Text>
+                  {/* <Text style={[styles.companyDetails, { fontWeight: 'bold' }]}>CIN: {company?.cin || '-'}</Text> */}
                 </View>
               </View>
               <View style={styles.metaBlock}>
@@ -348,65 +349,153 @@ export function InvoicePdf({ invoice, party, company }: any) {
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Inv. Date</Text>
-                  <Text style={styles.metaValue}>{String(invoice.date).slice(0, 10)}</Text>
+                  <Text style={styles.metaValue}>{formatDate(invoice.date)}</Text>
                 </View>
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Payment Mode</Text>
                   <Text style={styles.metaValue}>{invoice.payment_mode || invoice.paymentMode || '-'}</Text>
                 </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Reverse Charge</Text>
-                  <Text style={styles.metaValue}>{invoice.reverse_charge ? 'YES' : 'NO'}</Text>
+              </View>
+            </View>
+
+            {/* Address Blocks & Metadata */}
+            {!isSales ? (
+              // PURCHASE LAYOUT
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Supplier</Text>
+                <View style={styles.partyBlock}>
+                  <Text style={styles.partyName}>{invoice.billingAddress?.name || party?.name || invoice.partyName}</Text>
+                  <Text style={styles.partyDetails}>{invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address || ''}</Text>
+                  {invoice.billingAddress?.line2 || party?.billingAddress?.line2 ? (
+                    <Text style={styles.partyDetails}>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</Text>
+                  ) : null}
+                  <Text style={styles.partyDetails}>
+                    {(invoice.billingAddress?.city || party?.billingAddress?.city || '') +
+                      ((invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : '')}
+                  </Text>
+                  <Text style={styles.partyDetails}>Contact: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</Text>
+                  <Text style={styles.partyDetails}>GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</Text>
+                  {/* <Text style={styles.partyDetails}>CIN: {party?.cin || '-'}</Text> */}
                 </View>
               </View>
-            </View>
+            ) : (
+              // SALES LAYOUT (Grid of Bill To | Ship To | Metadata)
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  {/* Left Column (Address) - 58% width */}
+                  <View style={{ width: '58%', flexDirection: 'column' }}>
+                    {/* Bill To */}
+                    <View style={styles.partyBlock}>
+                      <Text style={[styles.sectionTitle, { marginBottom: 2, fontSize: 8 }]}>Bill To</Text>
+                      <Text style={styles.partyName}>{invoice.billingAddress?.name || party?.name || invoice.partyName}</Text>
+                      <Text style={styles.partyDetails}>{invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address || ''}</Text>
+                      <Text style={styles.partyDetails}>
+                        {(invoice.billingAddress?.city || party?.billingAddress?.city || '') +
+                          ((invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : '')}
+                      </Text>
+                      <Text style={styles.partyDetails}>{invoice.billingAddress?.state || party?.billingAddress?.state || ''}</Text>
+                      <Text style={styles.partyDetails}>Phone: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</Text>
+                      <Text style={styles.partyDetails}>GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</Text>
+                    </View>
 
-            {/* Party blocks */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{invoice.type === 'PURCHASE' ? 'Supplier' : 'Bill To'}</Text>
-              <View style={styles.partyBlock}>
-                <Text style={styles.partyName}>{invoice.billingAddress?.name || party?.name || invoice.partyName}</Text>
-                <Text style={styles.partyDetails}>{invoice.billingAddress?.line1 || party?.billingAddress?.line1 || party?.address || ''}</Text>
-                {invoice.billingAddress?.line2 || party?.billingAddress?.line2 ? (
-                  <Text style={styles.partyDetails}>{invoice.billingAddress?.line2 || party?.billingAddress?.line2}</Text>
-                ) : null}
-                <Text style={styles.partyDetails}>
-                  {(invoice.billingAddress?.city || party?.billingAddress?.city || '') +
-                    ((invoice.billingAddress?.pincode || party?.billingAddress?.pincode) ? ` - ${invoice.billingAddress?.pincode || party?.billingAddress?.pincode}` : '')}
-                </Text>
-                <Text style={styles.partyDetails}>{invoice.billingAddress?.state || party?.billingAddress?.state || ''}</Text>
-                <Text style={styles.partyDetails}>Phone: {invoice.billingAddress?.phone || party?.phone || party?.mobile || '-'}</Text>
-                <Text style={styles.partyDetails}>GSTIN: {invoice.billingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</Text>
-                <Text style={styles.partyDetails}>CIN: {party?.cin || '-'}</Text>
+                    {/* Ship To - with margin top instead of parent gap */}
+                    <View style={[styles.partyBlock, { marginTop: 8 }]}>
+                      <Text style={[styles.sectionTitle, { marginBottom: 2, fontSize: 8 }]}>Ship To</Text>
+                      <Text style={styles.partyName}>{invoice.shippingAddress?.name || party?.name || invoice.partyName}</Text>
+                      <Text style={styles.partyDetails}>{invoice.shippingAddress?.line1 || party?.shippingAddress?.line1 || party?.address || ''}</Text>
+                      <Text style={styles.partyDetails}>
+                        {(invoice.shippingAddress?.city || party?.shippingAddress?.city || '') +
+                          ((invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode) ? ` - ${invoice.shippingAddress?.pincode || party?.shippingAddress?.pincode}` : '')}
+                      </Text>
+                      <Text style={styles.partyDetails}>{invoice.shippingAddress?.state || party?.shippingAddress?.state || ''}</Text>
+                      <Text style={styles.partyDetails}>GSTIN: {invoice.shippingAddress?.gstin || party?.gstin || party?.gstNo || '-'}</Text>
+                    </View>
+                  </View>
+
+                  {/* Right Column (Metadata) - 40% width */}
+                  <View style={{ width: '40%', flexDirection: 'column' }}>
+                    <View style={{ borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 8 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={[styles.summaryLabel, { fontSize: 9 }]}>Buyer's Order No</Text>
+                        <Text style={[styles.summaryValue, { fontSize: 9 }]}>{invoice.buyer_order_no || '-'}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={[styles.summaryLabel, { fontSize: 9 }]}>Vehicle Number</Text>
+                        <Text style={[styles.summaryValue, { fontSize: 9 }]}>{invoice.vehicle_no || '-'}</Text>
+                      </View>
+                      {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text style={[styles.summaryLabel, { fontSize: 9 }]}>Delivery Date</Text>
+                        <Text style={[styles.summaryValue, { fontSize: 9 }]}>{invoice.delivery_date ? formatDate(invoice.delivery_date) : '-'}</Text>
+                      </View> */}
+                    </View>
+                  </View>
+                </View>
               </View>
-            </View>
+            )}
 
-            {/* Items Table */}
+            {/* Items Table - Conditional Headers */}
             <View style={styles.table}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { width: '6%' }]}>#</Text>
-                <Text style={[styles.tableHeaderCell, { width: '28%' }]}>Item</Text>
-                <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>HSN</Text>
-                <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Qty</Text>
-                <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Rate</Text>
-                <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>%</Text>
-                <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt.</Text>
-                <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Total</Text>
+                {!isSales ? (
+                  // Purchase Header
+                  <>
+                    <Text style={[styles.tableHeaderCell, { width: '6%' }]}>Sr</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '28%' }]}>Item Name</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>HSN</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Quantity</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Rate</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST %</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Value</Text>
+                  </>
+                ) : (
+                  // Sales Header
+                  <>
+                    <Text style={[styles.tableHeaderCell, { width: '6%' }]}>Sr</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '28%' }]}>Description</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>HSN</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Quantity</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Rate</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Taxable</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '6%', textAlign: 'right' }]}>%</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Total</Text>
+                  </>
+                )}
               </View>
+
               {(invoice.items || []).map((item: any, index: number) => {
                 const taxable = (item.amount || (item.qty * item.rate)) || 0;
                 const gstAmt = taxable * ((item.taxPercent || 0) / 100);
                 const lineTotal = taxable + gstAmt;
                 return (
                   <View key={index} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, { width: '6%' }]}>{index + 1}</Text>
-                    <Text style={[styles.tableCell, { width: '28%' }]}>{item.name}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.hsn || '-'}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{item.qty}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.taxPercent}%</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{gstAmt.toFixed(2)}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{lineTotal.toFixed(2)}</Text>
+                    {!isSales ? (
+                      // Purchase Row
+                      <>
+                        <Text style={[styles.tableCell, { width: '6%' }]}>{index + 1}</Text>
+                        <Text style={[styles.tableCell, { width: '28%' }]}>{item.name}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.hsn || '-'}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{item.qty}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.taxPercent}%</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{gstAmt.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%', fontWeight: 'bold' }]}>{lineTotal.toFixed(2)}</Text>
+                      </>
+                    ) : (
+                      // Sales Row
+                      <>
+                        <Text style={[styles.tableCell, { width: '6%' }]}>{index + 1}</Text>
+                        <Text style={[styles.tableCell, { width: '28%' }]}>{item.name}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.hsn || '-'}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{item.qty}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{taxable.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '6%' }]}>{item.taxPercent}%</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{gstAmt.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%', fontWeight: 'bold' }]}>{lineTotal.toFixed(2)}</Text>
+                      </>
+                    )}
                   </View>
                 );
               })}
@@ -432,14 +521,30 @@ export function InvoicePdf({ invoice, party, company }: any) {
                 <Text style={styles.summaryLabel}>{invoice.total_amount_in_words || ''}</Text>
               </View>
               <View style={styles.summaryRight}>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Sub-Total:</Text><Text style={styles.summaryValue}>{(totals.subtotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>CGST:</Text><Text style={styles.summaryValue}>{(totals.cgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>SGST:</Text><Text style={styles.summaryValue}>{(totals.sgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>IGST:</Text><Text style={styles.summaryValue}>{(totals.igst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total GST:</Text><Text style={styles.summaryValue}>{(totals.taxTotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Freight/Packing:</Text><Text style={styles.summaryValue}>{(freight.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Round off:</Text><Text style={styles.summaryValue}>{((invoice.roundOff || 0).toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
-                <View style={styles.grandTotal}><Text>Grand Total:</Text><Text>{(totals.grand.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                {!isSales ? (
+                  // Purchase Summary
+                  <>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>{(totals.subtotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>CGST</Text><Text style={styles.summaryValue}>{(totals.cgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>SGST</Text><Text style={styles.summaryValue}>{(totals.sgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total GST</Text><Text style={styles.summaryValue}>{(totals.taxTotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                  </>
+                ) : (
+                  // Sales Summary
+                  <>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Sub-Total:</Text><Text style={styles.summaryValue}>{(totals.subtotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>CGST Amt :</Text><Text style={styles.summaryValue}>{(totals.cgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>SGST Amt :</Text><Text style={styles.summaryValue}>{(totals.sgst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>IGST Amt :</Text><Text style={styles.summaryValue}>{(totals.igst.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Total GST :</Text><Text style={styles.summaryValue}>{(totals.taxTotal.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                    {/* <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Freight/Packing:</Text><Text style={styles.summaryValue}>{(freight.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View> */}
+                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Round off :</Text><Text style={styles.summaryValue}>{((invoice.roundOff || 0).toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text></View>
+                  </>
+                )}
+                <View style={styles.grandTotal}>
+                  <Text>{!isSales ? 'Grand Total' : 'Total Amount :'}</Text>
+                  <Text>Rs. {(totals.grand.toFixed(2) + '').replace(/[^0-9.]/g, '')}</Text>
+                </View>
               </View>
             </View>
 
@@ -453,7 +558,7 @@ export function InvoicePdf({ invoice, party, company }: any) {
                       <Text key={i} style={styles.summaryLabel}>{d}</Text>
                     ))
                   ) : (
-                    <>
+                     <>
                       <Text style={styles.summaryLabel}>1. Subject to jurisdiction</Text>
                       <Text style={styles.summaryLabel}>2. Terms & conditions are subject to our trade policy</Text>
                       <Text style={styles.summaryLabel}>3. Our risk & responsibility ceases after the delivery of goods.</Text>
@@ -462,12 +567,11 @@ export function InvoicePdf({ invoice, party, company }: any) {
                 </View>
               </View>
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
-                <View style={styles.qrBox}><Text>QR</Text></View>
-                <Text style={styles.signText}>Thank You For Business With Us!</Text>
+                <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#334155', marginBottom: 4 }}>For {company?.name || 'Company Name'}</Text>
+                <View style={{ height: 5 }}></View> {/* Spacer for sign */}
                 <View style={styles.signBlock}>
-                  <View style={{ width: 100, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 18 }} />
+                  <Text style={styles.signText}>Authorized Signatory</Text>
                 </View>
-                <Text style={styles.signText}>Authorized Signatory</Text>
               </View>
             </View>
           </View>
@@ -475,6 +579,14 @@ export function InvoicePdf({ invoice, party, company }: any) {
       </Page>
     </Document>
   );
+}
+
+// Helper to format date consistent with UI
+function formatDate(d: any) {
+  if (!d) return '-';
+  try {
+    return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return String(d).slice(0,10); }
 }
 
 
