@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   companyName: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: 'extrabold',
     color: '#0f172a',
   },
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   tableHeaderCell: {
     fontWeight: 'bold',
-    fontSize: 9,
+    fontSize: 8,
     color: '#334155',
     textAlign: 'left',
     paddingRight: 2,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tableCell: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#1e293b',
     textAlign: 'left',
     paddingRight: 2,
@@ -445,21 +445,21 @@ export function InvoicePdf({ invoice, party, company }: any) {
                     <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Quantity</Text>
                     <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Rate</Text>
                     <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST %</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt.</Text>
                     <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Value</Text>
                   </>
                 ) : (
                   // Sales Header
                   <>
-                    <Text style={[styles.tableHeaderCell, { width: '6%' }]}>Sr</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '28%' }]}>Description</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>HSN</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Quantity</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Rate</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Taxable</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '6%', textAlign: 'right' }]}>%</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>GST Amt</Text>
-                    <Text style={[styles.tableHeaderCell, { width: '14%', textAlign: 'right' }]}>Total</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '4%' }]}>Sr</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '26%' }]}>Goods & Service Description</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '8%', textAlign: 'right' }]}>HSN</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '8%', textAlign: 'right' }]}>Quantity</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '10%', textAlign: 'right' }]}>Rate</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Taxable</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '8%', textAlign: 'right' }]}>GST %</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>GST Amt.</Text>
+                    <Text style={[styles.tableHeaderCell, { width: '12%', textAlign: 'right' }]}>Total</Text>
                   </>
                 )}
               </View>
@@ -483,17 +483,17 @@ export function InvoicePdf({ invoice, party, company }: any) {
                         <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%', fontWeight: 'bold' }]}>{lineTotal.toFixed(2)}</Text>
                       </>
                     ) : (
-                      // Sales Row
+                      // Sales Row (Resized for fit: 4, 26, 8, 8, 10, 12, 8, 12, 12)
                       <>
-                        <Text style={[styles.tableCell, { width: '6%' }]}>{index + 1}</Text>
-                        <Text style={[styles.tableCell, { width: '28%' }]}>{item.name}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.hsn || '-'}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{item.qty}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%' }]}>{taxable.toFixed(2)}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '6%' }]}>{item.taxPercent}%</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{gstAmt.toFixed(2)}</Text>
-                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '14%', fontWeight: 'bold' }]}>{lineTotal.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, { width: '4%' }]}>{index + 1}</Text>
+                        <Text style={[styles.tableCell, { width: '26%' }]}>{item.name}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '8%' }]}>{item.hsn || '-'}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '8%' }]}>{item.qty}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '10%' }]}>{item.rate?.toFixed ? item.rate.toFixed(2) : item.rate}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{taxable.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '8%' }]}>{item.taxPercent}%</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%' }]}>{gstAmt.toFixed(2)}</Text>
+                        <Text style={[styles.tableCell, styles.tableCellRight, { width: '12%', fontWeight: 'bold' }]}>{lineTotal.toFixed(2)}</Text>
                       </>
                     )}
                   </View>

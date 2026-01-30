@@ -348,7 +348,7 @@ export default function InvoiceView() {
                       <th className="py-2 px-2 w-20 text-right">Quantity</th>
                       <th className="py-2 px-2 w-24 text-right">Rate</th>
                       <th className="py-2 px-2 w-24 text-right">Taxable</th>
-                      <th className="py-2 px-2 w-16 text-right">%</th>
+                      <th className="py-2 px-2 w-16 text-right">GST %</th>
                       <th className="py-2 px-2 w-24 text-right">GST Amt.</th>
                       <th className="py-2 px-2 w-28 text-right">Total</th>
                     </tr>
