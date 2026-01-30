@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button, Input, Card, Modal, Select, SoftLoader } from './ui/Common';
 import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, AlertCircle, X, CalendarClock } from 'lucide-react';
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
@@ -402,26 +402,38 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setAddedItems(newItems);
   };
 
-  // Calculations
-  const subtotal = addedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const cgstTotal = addedItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
-  const sgstTotal = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
-  const igstTotal = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
-  const computedTaxTotal = cgstTotal + sgstTotal + igstTotal;
+  // Calculations - Memoized to prevent re-calc on every render
+  const { subtotal, cgstTotal, sgstTotal, igstTotal, computedTaxTotal } = useMemo(() => {
+    const s = addedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const c = addedItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
+    const sg = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
+    const i = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
+    return { subtotal: s, cgstTotal: c, sgstTotal: sg, igstTotal: i, computedTaxTotal: c + sg + i };
+  }, [addedItems]);
 
   // If manual GST override is enabled, use manual values instead of computed ones
-  const manualTax = Number(manualGstAmount || 0);
-  const effectiveCgstTotal = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : cgstTotal;
-  const effectiveSgstTotal = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : sgstTotal;
-  const effectiveIgstTotal = manualGstEnabled ? (manualGstMode === 'IGST' ? manualTax : 0) : igstTotal;
-  const taxTotal = manualGstEnabled ? (effectiveCgstTotal + effectiveSgstTotal + effectiveIgstTotal) : computedTaxTotal;
-  const total = subtotal + taxTotal;
+  const { effectiveCgstTotal, effectiveSgstTotal, effectiveIgstTotal, taxTotal, total } = useMemo(() => {
+    const manualTax = Number(manualGstAmount || 0);
+    const effCgst = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : cgstTotal;
+    const effSgst = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : sgstTotal;
+    const effIgst = manualGstEnabled ? (manualGstMode === 'IGST' ? manualTax : 0) : igstTotal;
+    const tTotal = manualGstEnabled ? (effCgst + effSgst + effIgst) : computedTaxTotal;
+    return { 
+      effectiveCgstTotal: effCgst, 
+      effectiveSgstTotal: effSgst, 
+      effectiveIgstTotal: effIgst, 
+      taxTotal: tTotal, 
+      total: subtotal + tTotal 
+    };
+  }, [manualGstAmount, manualGstEnabled, manualGstMode, cgstTotal, sgstTotal, igstTotal, computedTaxTotal, subtotal]);
 
-  // Live calculation for the input line
-  const liveBase = (Number(currentQty) || 0) * (Number(currentRate) || 0);
-  const liveDisc = liveBase * ((Number(currentDiscount) || 0) / 100);
-  const liveCarting = cartingEnabled ? (Number(currentCartingAmount) || 0) : 0;
-  const liveTaxable = liveBase - liveDisc + liveCarting;
+  // Live calculation for the input line - Memoized
+  const { liveBase, liveDisc, liveCarting, liveTaxable } = useMemo(() => {
+    const base = (Number(currentQty) || 0) * (Number(currentRate) || 0);
+    const disc = base * ((Number(currentDiscount) || 0) / 100);
+    const cart = cartingEnabled ? (Number(currentCartingAmount) || 0) : 0;
+    return { liveBase: base, liveDisc: disc, liveCarting: cart, liveTaxable: base - disc + cart };
+  }, [currentQty, currentRate, currentDiscount, cartingEnabled, currentCartingAmount]);
 
   const handleSaveInvoice = async () => {
     if (!selectedParty) {

@@ -72,6 +72,10 @@ const InvoiceSchema = new mongoose.Schema({
 
 // index to help lookup last serial; not strictly unique because we pair with serial
 InvoiceSchema.index({ bill_type: 1, financial_year: 1, serial: -1 });
+// Performance Indexes for Dashboard & Reporting
+InvoiceSchema.index({ companyId: 1, type: 1, date: -1 }); // For sales/purchase totals & lists
+InvoiceSchema.index({ companyId: 1, dueAmount: 1 }); // For outstanding/receivable/payable filtering
+InvoiceSchema.index({ companyId: 1, date: -1 }); // For general list sorting
 // invoice_no index declared on field to avoid duplicate index warnings
 
 export default mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
