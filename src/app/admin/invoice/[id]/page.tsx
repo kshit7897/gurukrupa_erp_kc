@@ -218,7 +218,7 @@ export default function InvoiceView() {
                   <div className="flex justify-end"><div className="w-40 text-slate-600">Invoice No.</div><div className="w-48 font-bold text-slate-900">{invoice.invoiceNo}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Inv. Date</div><div className="w-48">{formatDate(invoice.date)}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Payment Mode</div><div className="w-48">{invoice.payment_mode || invoice.paymentMode || '-'}</div></div>
-                  <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Reverse Charge</div><div className="w-48">{invoice.reverse_charge ? 'YES' : 'NO'}</div></div>
+                  {/* <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Reverse Charge</div><div className="w-48">{invoice.reverse_charge ? 'YES' : 'NO'}</div></div> */}
                 </div>
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function InvoiceView() {
                     </div>
                   </div>
                 </div>
-                <div className="col-span-2">
+                {/* <div className="col-span-2">
                   <div className="border border-slate-100 rounded p-3 text-sm bg-white">
                     <div className="space-y-2 text-slate-600">
                       <div className="flex justify-between items-center">
@@ -261,7 +261,7 @@ export default function InvoiceView() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             ) : (
               <div className="grid grid-cols-5 grid-rows-2 gap-4 mb-4">
@@ -299,26 +299,26 @@ export default function InvoiceView() {
                         <div className="w-40 font-medium text-slate-700">Buyer&apos;s Order No</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.buyer_order_no || '-'}</div>
                       </div>
-                      <div className="flex justify-between items-center">
+                      {/* <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Supplier&apos;s Ref.</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.supplier_ref || '-'}</div>
-                      </div>
+                      </div> */}
                       <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Vehicle Number</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.vehicle_no || '-'}</div>
                       </div>
-                      <div className="flex justify-between items-center">
+                      {/* <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Delivery Date</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.delivery_date || '-'}</div>
-                      </div>
-                      <div className="flex justify-between items-center">
+                      </div> */}
+                      {/* <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Transport Details</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.transport_details || '-'}</div>
-                      </div>
-                      <div className="flex justify-between items-center">
+                      </div> */}
+                      {/* <div className="flex justify-between items-center">
                         <div className="w-40 font-medium text-slate-700">Terms Of Delivery</div>
                         <div className="text-right text-slate-900 whitespace-nowrap ml-4">{invoice.terms_of_delivery || '-'}</div>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
@@ -433,16 +433,16 @@ export default function InvoiceView() {
                     </div>
                   )}
                 </div>
-                <div className="mt-6 flex justify-end">
+                {/* <div className="mt-6 flex justify-end">
                   <div className="text-center">
-                    <div className="text-xs font-semibold text-slate-800 mb-2">GuruKrupa Multi Venture Pvt. Ltd</div>
-                    {/* Signature area: empty space where user can sign */}
+                    <div className="text-xs font-semibold text-slate-800 mb-2">{company?.name || 'Company Name'}</div>
+                    
                     <div className="w-40 mx-auto mb-2">
                       <div className="h-14 border-b border-dashed border-slate-300"></div>
                     </div>
                     <div className="h-20 w-36 border-t border-slate-300 text-sm font-semibold text-slate-700">Authorized Signatory</div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -457,10 +457,20 @@ export default function InvoiceView() {
                   </>)}
                 </div>
               </div>
-              <div className="col-span-1 flex flex-col items-center justify-between">
+              <div className="mt-6 flex justify-end">
+                  <div className="text-center">
+                    <div className="text-xs font-semibold text-slate-800 mb-2">{company?.name || 'Company Name'}</div>
+                    {/* Signature area: empty space where user can sign */}
+                    <div className="w-40 mx-auto mb-2">
+                      <div className="h-10 "></div>
+                    </div>
+                    <div className="h-20 w-36 border-t border-slate-300 text-sm font-semibold text-slate-700">Authorized Signatory</div>
+                  </div>
+                </div>
+              {/* <div className="col-span-1 flex flex-col items-center justify-between">
                 <div className="w-36 h-36 border border-slate-200 rounded flex items-center justify-center">QR</div>
                 <div className="text-xs text-slate-500 mt-2">Thank You For Business With US!</div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
