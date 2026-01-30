@@ -427,7 +427,7 @@ export default function InvoiceView() {
                       <div className="text-sm text-slate-600 flex justify-between mt-1"><div>SGST Amt :</div><div className="font-bold">{totals.sgst.toFixed(2)}</div></div>
                       <div className="text-sm text-slate-600 flex justify-between mt-1"><div>IGST Amt :</div><div className="font-bold">{totals.igst.toFixed(2)}</div></div>
                       <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Total GST :</div><div className="font-bold">{totals.taxTotal.toFixed(2)}</div></div>
-                      <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Freight/Packing:</div><div className="font-bold">{freight.toFixed(2)}</div></div>
+                      {/* <div className="text-sm text-slate-600 flex justify-between mt-1"><div>Freight/Packing:</div><div className="font-bold">{freight.toFixed(2)}</div></div> */}
                       <div className="text-sm text-slate-600 flex justify-between mt-2 border-t border-slate-100 pt-2"><div>Round off :</div><div className="font-bold">{(invoice.roundOff || 0).toFixed(2)}</div></div>
                       <div className="text-lg font-extrabold text-slate-900 flex justify-between mt-2 border-t border-slate-200 pt-2"><div>Total Amount :</div><div>₹ {totals.grand.toFixed(2)}</div></div>
                     </div>
