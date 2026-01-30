@@ -9,7 +9,9 @@ export const metadata: Metadata = {
   description: 'ERP System for Gurukrupa Multi Ventures Pvt Ltd',
   icons: {
     icon: '/logo.png',
+    apple: '/logo.png',
   },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

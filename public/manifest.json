@@ -1,0 +1,16 @@
+{
+    "name": "Gurukrupa ERP",
+    "short_name": "GK ERP",
+    "description": "Enterprise Resource Planning System",
+    "start_url": "/login",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4338ca",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
