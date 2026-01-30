@@ -123,4 +123,44 @@ function getFinancialYearShort(date: Date): string {
   return `${startYY}/${endYY}`;
 }
 
+export async function generateVoucherNumber(type: string, date: string | Date | undefined, companyId: string) {
+  if (!companyId) throw new Error('companyId is required for voucher numbering');
+
+  await dbConnect();
+
+  // 1. Get Company Prefix
+  const company = await Company.findById(companyId).select('invoicePrefix name').lean();
+  let prefix = 'GK';
+  if (company) {
+    if (company.invoicePrefix) {
+      prefix = company.invoicePrefix;
+    } else if (company.name) {
+      prefix = company.name.substring(0, 2).toUpperCase();
+    }
+  }
+
+  // 2. Determine Series (RCV vs PAY)
+  const seriesCode = type === 'receive' ? 'RCV' : 'PAY';
+  
+  // 3. Determine FY
+  const dateObj = date ? new Date(date) : new Date();
+  const fy = getFinancialYearShort(dateObj);
+
+  // 4. Atomic Increment
+  // Key: voucher:{companyId}:{series}:{fy}
+  const counterKey = `voucher:${companyId}:${seriesCode}:${fy}`;
+  
+  const counter = await Counter.findOneAndUpdate(
+    { companyId: companyId, key: counterKey },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true }
+  ).lean();
+  
+  const nextSeq = (counter?.seq || 1);
+  const seqPadded = String(nextSeq).padStart(4, '0');
+
+  // Format: PREFIX-RCV-0001-25/26
+  return `${prefix}-${seriesCode}-${seqPadded}-${fy}`;
+}
+
 export default generateInvoiceNumber;
