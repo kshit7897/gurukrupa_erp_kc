@@ -207,7 +207,7 @@ export async function GET(request: Request) {
 // Helper function to get yearly breakdown
 async function getYearlyBreakdown(metric: string, companyId: string) {
   const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
-  const companyFilter = { $or: [{ companyId }, { companyId: { $exists: false } }] };
+  const companyFilter = { companyId };
   
   // Get all years with data
   const yearlyData = await Invoice.aggregate([
@@ -253,7 +253,7 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
 // Helper function to get monthly breakdown for a year
 async function getMonthlyBreakdown(metric: string, year: number, companyId: string) {
   const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
-  const companyFilter = { $or: [{ companyId }, { companyId: { $exists: false } }] };
+  const companyFilter = { companyId };
   
   const startDate = new Date(year, 0, 1);
   const endDate = new Date(year + 1, 0, 1);
@@ -319,7 +319,7 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
 // Helper function to get transaction breakdown for a specific month
 async function getTransactionBreakdown(metric: string, year: number, month: number, companyId: string) {
   const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
-  const companyFilter = { $or: [{ companyId }, { companyId: { $exists: false } }] };
+  const companyFilter = { companyId };
   
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 1);

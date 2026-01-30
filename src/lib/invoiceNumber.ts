@@ -1,116 +1,126 @@
 import dbConnect from './mongodb';
 import Counter from './models/Counter';
+import Company from './models/Company';
 
 /**
- * Invoice Number Format:
- * - Tax Invoice (Credit): GK-CR-<SEQ>-<FINYEAR> (e.g., GK-CR-0001-24-25)
- * - Cash Invoice: GK-C-<SEQ>-<FINYEAR> (e.g., GK-C-0001-24-25)
- * - Online/UPI: GK-ON-<SEQ>-<FINYEAR>
- * - Cheque: GK-CH-<SEQ>-<FINYEAR>
- */
-
-const PREFIX_MAP: Record<string, string> = {
-  cash: 'C',
-  credit: 'CR',
-  online: 'ON',
-  cheque: 'CH',
-  upi: 'ON' // UPI treated same as online
-};
-
-// Company prefix - can be configured via environment or settings
-const COMPANY_PREFIX = 'GK';
-
-function getFinancialYearFromDate(date?: string | Date) {
-  const d = date ? new Date(date) : new Date();
-  if (isNaN(d.getTime())) {
-    const now = new Date();
-    return formatFY(now.getFullYear(), now.getMonth());
-  }
-  return formatFY(d.getFullYear(), d.getMonth());
-}
-
-function formatFY(year: number, monthZeroBased: number) {
-  // financial year starts Apr (month 3) and ends Mar (month 2)
-  const start = monthZeroBased >= 3 ? year : year - 1;
-  const end = start + 1;
-  const a = String(start % 100).padStart(2, '0');
-  const b = String(end % 100).padStart(2, '0');
-  return `${a}-${b}`;
-}
-
-/**
- * Generate invoice number with atomic serial allocation using counters collection.
- * Uses a counter key composed from companyId, bill_type and financial_year to ensure separate sequences per company.
+ * Invoice Numbering System (Revised)
  * 
- * Format: GK-<TYPE>-<SEQ>-<FINYEAR>
- * Examples:
- * - GK-CR-0001-24-25 (Credit/Tax Invoice)
- * - GK-C-0001-24-25 (Cash Invoice)
+ * Rules:
+ * 1. Prefix: Dynamic from Company.invoicePrefix (First 2 chars of name if not set)
+ * 2. Series Type: 
+ *    - C:  Cash Invoice
+ *    - CR: Credit Invoice (Tax Invoice) / Online
+ *    - PUR: Purchase
+ * 3. Financial Year: YY/YY (e.g., 25/26)
+ * 4. Sequence: 4-digit padded, atomic per Company+Series+FY
+ * 5. Separator: Hyphen "-"
+ * 6. Counter Key: inv:{companyId}:{series}:{financialYear}
+ * 
+ * Format: {PREFIX}-{SERIES}-{SEQ}-{FY}
+ * Example: DE-C-0001-25/26
  */
-export async function generateInvoiceNumber(payload: { 
-  paymentMode?: string; 
-  date?: string | Date; 
-  bill_type?: string;
-  invoiceType?: 'SALES' | 'PURCHASE';
-  companyId?: string; // For multi-company support
-}) {
-  await dbConnect();
 
-  // Determine bill type key (normalized)
-  const pm = (payload.bill_type || payload.paymentMode || '').toString().toLowerCase();
-  const billKey = pm || 'cash';
-  const prefix = PREFIX_MAP[billKey] || (pm === 'credit' ? 'CR' : (pm === 'cash' ? 'C' : 'OT'));
+interface GenerateOptions {
+  companyId: string;
+  date?: string | Date;
+  paymentMode?: string;      // 'cash', 'credit', 'online', etc.
+  bill_type?: string;        // override for paymentMode
+  invoiceType?: 'SALES' | 'PURCHASE'; 
+  type?: 'SALES' | 'PURCHASE'; // alias for invoiceType
+}
 
-  const fy = getFinancialYearFromDate(payload.date);
-
-  // counter key scoped to company + bill type + financial year
+export async function generateInvoiceNumber(payload: GenerateOptions) {
   if (!payload.companyId) {
     throw new Error('companyId is required for invoice numbering');
   }
-  const companyKey = payload.companyId;
-  const counterKey = `inv:${companyKey}:${billKey}:${fy}`;
 
-  // Atomically increment and retrieve next serial
-  const updated = await Counter.findOneAndUpdate(
+  await dbConnect();
+
+  // 1. Get Company Prefix
+  const company = await Company.findById(payload.companyId).select('invoicePrefix name').lean();
+  let prefix = 'GK'; // Default fallback
+  
+  if (company) {
+    if (company.invoicePrefix) {
+      prefix = company.invoicePrefix;
+    } else if (company.name) {
+      // Logic: First 2 chars of name, uppercase.
+      // Example: "DevHub" -> "DE", "Gurukrupa" -> "GU"
+      prefix = company.name.substring(0, 2).toUpperCase();
+    }
+  }
+
+  // 2. Determine Series (C vs CR)
+  const actualType = payload.invoiceType || payload.type || 'SALES';
+  const mode = (payload.bill_type || payload.paymentMode || '').toLowerCase();
+  
+  let seriesCode = 'CR'; // Default to Credit
+  
+  if (actualType === 'PURCHASE') {
+    seriesCode = 'PUR';
+  } else {
+    // SALES Logic
+    if (mode === 'cash' || mode === 'c') {
+      seriesCode = 'C';
+    } else {
+      // credit, online, cheque, or mixed -> defaults to CR
+      seriesCode = 'CR';
+    }
+  }
+
+  // 3. Determine Financial Year (Short Format: 25/26)
+  const dateObj = payload.date ? new Date(payload.date) : new Date();
+  if (isNaN(dateObj.getTime())) {
+    throw new Error('Invalid date provided for invoice generation');
+  }
+  
+  const fy = getFinancialYearShort(dateObj); // "25/26"
+
+  // 4. Atomic Increment
+  // Key format: inv:{companyId}:{series}:{financialYear}
+  // Example: inv:123:C:25/26
+  const counterKey = `inv:${payload.companyId}:${seriesCode}:${fy}`;
+  
+  const counter = await Counter.findOneAndUpdate(
     { companyId: payload.companyId, key: counterKey },
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   ).lean();
-
-  const nextSerial = (updated && typeof (updated as any).seq === 'number') ? (updated as any).seq : 1;
-  const serialPadded = String(nextSerial).padStart(4, '0');
   
-  // New format: GK-CR-0001-24-25 or GK-C-0001-24-25
-  const invoice_no = `${COMPANY_PREFIX}-${prefix}-${serialPadded}-${fy}`;
+  const nextSeq = (counter?.seq || 1);
+  const seqPadded = String(nextSeq).padStart(4, '0');
 
-  return { invoice_no, serial: nextSerial, bill_type: billKey, financial_year: fy };
+  // 5. Construct Final Number
+  // Format: {PREFIX}-{SERIES}-{SEQ}-{FY}
+  // Example: DE-C-0001-25/26
+  const invoice_no = `${prefix}-${seriesCode}-${seqPadded}-${fy}`;
+
+  return {
+    invoice_no,
+    serial: nextSeq,
+    bill_type: seriesCode,
+    financial_year: fy,
+    prefix
+  };
 }
 
 /**
- * Generate voucher number for payments
- * Format: GK-RCV-<SEQ>-<FINYEAR> or GK-PAY-<SEQ>-<FINYEAR>
+ * Returns FY in format "YY/YY" (e.g. "25/26")
  */
-export async function generateVoucherNumber(type: 'receive' | 'pay', date?: string | Date, companyId?: string) {
-  await dbConnect();
+function getFinancialYearShort(date: Date): string {
+  const month = date.getMonth(); // 0-11
+  const year = date.getFullYear();
   
-  const prefix = type === 'receive' ? 'RCV' : 'PAY';
-  const fy = getFinancialYearFromDate(date);
-  if (!companyId) {
-    throw new Error('companyId is required for voucher numbering');
+  // April (3) starts new FY
+  let startYear = year;
+  if (month < 3) { // Jan, Feb, Mar belong to previous FY start
+    startYear = year - 1;
   }
-  const companyKey = companyId;
-  const counterKey = `voucher:${companyKey}:${type}:${fy}`;
   
-  const updated = await Counter.findOneAndUpdate(
-    { companyId, key: counterKey },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  ).lean();
-
-  const nextSerial = (updated && typeof (updated as any).seq === 'number') ? (updated as any).seq : 1;
-  const serialPadded = String(nextSerial).padStart(4, '0');
+  const startYY = String(startYear).slice(-2);
+  const endYY = String(startYear + 1).slice(-2);
   
-  return `${COMPANY_PREFIX}-${prefix}-${serialPadded}-${fy}`;
+  return `${startYY}/${endYY}`;
 }
 
 export default generateInvoiceNumber;

@@ -11,6 +11,8 @@ const CompanySchema = new mongoose.Schema({
   city: String,
   state: String,
   pincode: String,
+  // Invoice numbering prefix (e.g., "GK", "DH")
+  invoicePrefix: { type: String, uppercase: true, trim: true },
   // additional fields required by invoice template
   gstin: String,
   cin: String,

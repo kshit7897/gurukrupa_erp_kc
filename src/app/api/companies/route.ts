@@ -146,9 +146,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
     }
     
+    
+    // Auto-generate invoice prefix if not provided
+    let invoicePrefix = body.invoicePrefix;
+    if (!invoicePrefix && body.name) {
+      // Take first 2 letters of each word, or just first 2 letters if single word
+      const parts = body.name.split(' ').filter((p: string) => p.length > 0);
+      if (parts.length >= 2) {
+        invoicePrefix = (parts[0][0] + parts[1][0]).toUpperCase();
+      } else {
+        invoicePrefix = body.name.substring(0, 2).toUpperCase();
+      }
+    }
+    
     // Create company
     const company = await Company.create({
       ...body,
+      invoicePrefix,
       createdBy: userId,
       isActive: true
     });
