@@ -14,7 +14,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
 
-    const parties = await Party.find({ companyId }).lean();
+    const allParties = await Party.find({ companyId }).lean();
+    const parties = allParties.filter((p: any) => 
+      !p.isSystemAccount && 
+      !['Cash', 'Bank', 'UPI'].some(role => (p.roles || []).includes(role))
+    );
     const invoices = await Invoice.find({ companyId }).lean();
     const payments = await Payment.find({ companyId }).lean();
 

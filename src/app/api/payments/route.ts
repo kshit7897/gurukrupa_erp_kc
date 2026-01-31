@@ -78,6 +78,9 @@ export async function POST(request: Request) {
     if (body.type === 'receive' && !body.receivedById) {
       return NextResponse.json({ error: 'receivedById required for receive payments' }, { status: 400 });
     }
+    if (body.type === 'pay' && !body.paidFromId) {
+      return NextResponse.json({ error: 'paidFromId required for payments' }, { status: 400 });
+    }
 
     const allocations: Array<{ invoiceId: string; amount: number }> = [];
     let remaining = Number(body.amount || 0);
@@ -194,21 +197,25 @@ export async function POST(request: Request) {
           paymentMode: body.mode || 'cash'
         });
 
-        // 2) Receiving account ledger (cash/bank/UPI or partner) for receipts
-        if (isReceive && body.receivedById) {
+        // 2) Source/Target account ledger (cash/bank/UPI or partner)
+        const accountId = isReceive ? body.receivedById : body.paidFromId;
+        const accountName = isReceive ? body.receivedByName : body.paidFromName;
+        
+        if (accountId) {
           ledgerEntries.push({
             companyId,
-            partyId: body.receivedById,
-            partyName: body.receivedByName || '',
+            partyId: accountId,
+            partyName: accountName || '',
             date: ledgerDate,
-            entryType: 'RECEIPT',
+            entryType: isReceive ? 'RECEIPT' : 'PAYMENT',
             refType: 'PAYMENT',
             refId: paymentId,
             refNo: voucherNo,
-            // Debit receiving account (asset up)
-            debit: Number(body.amount || 0),
-            credit: 0,
-            narration: `Amount received by ${body.receivedByName || body.receivedById}: ${voucherNo}`,
+            // Receive: Debit receiving account (asset increase)
+            // Pay: Credit source account (asset decrease)
+            debit: isReceive ? Number(body.amount || 0) : 0,
+            credit: isReceive ? 0 : Number(body.amount || 0),
+            narration: `${isReceive ? 'Amount received by' : 'Amount paid from'} ${accountName || accountId}: ${voucherNo}`,
             paymentMode: body.mode || 'cash'
           });
         }

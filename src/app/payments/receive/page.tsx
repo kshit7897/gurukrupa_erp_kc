@@ -43,7 +43,7 @@ export default function ReceivePaymentPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const pts = await api.parties.list();
+      const pts = await api.parties.list(true);
       setParties(pts || []);
       const inv = await api.invoices.list();
       // only keep invoices with outstanding due > 0
@@ -370,7 +370,7 @@ export default function ReceivePaymentPage() {
                 ...(parties || [])
                   .filter((p:any) => {
                     const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
-                    return roles.some(r => ['Cash','Bank','UPI'].includes(r));
+                    return p.isSystemAccount || roles.some(r => ['Cash','Bank','UPI'].includes(r));
                   })
                   .map((p:any) => ({
                     label: `${p.name} (Company)`,

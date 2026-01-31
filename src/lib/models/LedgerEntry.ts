@@ -27,8 +27,7 @@ const LedgerEntrySchema = new mongoose.Schema({
   // Entry type for categorization
   entryType: { 
     type: String, 
-    required: true,
-    enum: ['OPENING_BALANCE', 'INVOICE', 'PAYMENT', 'RECEIPT', 'ADJUSTMENT', 'REVERSAL', 'CAPITAL', 'EXPENSE', 'INCOME']
+    required: true
   },
   
   // Reference to the source document
@@ -69,4 +68,9 @@ LedgerEntrySchema.index({ entryType: 1, date: 1 });
 LedgerEntrySchema.index({ refType: 1, refId: 1 });
 LedgerEntrySchema.index({ paymentMode: 1, date: 1 });
 
-export default mongoose.models.LedgerEntry || mongoose.model('LedgerEntry', LedgerEntrySchema);
+// Force model re-registration to pick up schema updates in Next.js development
+if (mongoose.models.LedgerEntry) {
+  delete (mongoose.models as any).LedgerEntry;
+}
+
+export default mongoose.model('LedgerEntry', LedgerEntrySchema);

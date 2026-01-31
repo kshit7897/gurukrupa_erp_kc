@@ -1,0 +1,14 @@
+{
+  "txnType": {
+    "value": "TRANSFER",
+    "ok": true
+  },
+  "fromId": {
+    "value": "PID_FROM",
+    "ok": true
+  },
+  "toId": {
+    "value": "PID_TO",
+    "ok": true
+  }
+}

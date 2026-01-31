@@ -1,0 +1,36 @@
+[
+  {
+    "_id": "69462b13ba319dd9104156a1",
+    "kind": "expense",
+    "date": "2025-11-20",
+    "amount": 500,
+    "note": "Bord bener",
+    "category": "",
+    "createdAt": "2025-12-20T04:50:27.601Z",
+    "updatedAt": "2025-12-20T04:50:27.601Z",
+    "__v": 0
+  },
+  {
+    "_id": "69462b56ba319dd9104156fa",
+    "kind": "expense",
+    "date": "2025-11-15",
+    "amount": 400,
+    "note": "Rubber stamp",
+    "category": "Mayur",
+    "createdAt": "2025-12-20T04:51:34.373Z",
+    "updatedAt": "2025-12-20T04:51:34.373Z",
+    "__v": 0
+  },
+  {
+    "_id": "697db584187f79c6d9089aa7",
+    "companyId": "692aa81de5a2d4e38bc00ba8",
+    "kind": "expense",
+    "date": "2026-01-31",
+    "amount": 1000,
+    "note": "",
+    "category": "",
+    "createdAt": "2026-01-31T07:55:48.147Z",
+    "updatedAt": "2026-01-31T08:30:48.813Z",
+    "__v": 0
+  }
+]

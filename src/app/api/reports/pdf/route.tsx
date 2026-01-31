@@ -10,24 +10,29 @@ import Party from '@/lib/models/Party';
 import Payment from '@/lib/models/Payment';
 import OtherTxn from '@/lib/models/OtherTxn';
 import Company from '@/lib/models/Company';
+import { getCompanyContextFromRequest } from '@/lib/companyContext';
 
 export const dynamic = 'force-dynamic';
 
 const appFontFamily = registerAppFont();
 const styles = StyleSheet.create({
   page: { padding: 24, fontSize: 10, fontFamily: appFontFamily },
-  sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 6 },
-  tableHeader: { flexDirection: 'row', backgroundColor: '#e5e7eb', padding: 4, fontWeight: 'bold' },
-  tableRow: { flexDirection: 'row', padding: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e7eb' },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 8, color: '#1e293b' },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 6, fontWeight: 'bold', borderBottomWidth: 1, borderBottomColor: '#cbd5e1' },
+  tableRow: { flexDirection: 'row', padding: 6, borderBottomWidth: 0.5, borderBottomColor: '#e2e8f0' },
   cell: { paddingRight: 4 },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+  headerInfo: { marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', pb: 10 }
 });
 
-function StockDoc({ rows }: { rows: any[] }) {
+function StockDoc({ rows, companyName }: { rows: any[]; companyName: string }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>Stock Summary Report</Text>
+        <View style={styles.headerInfo}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</Text>
+          <Text style={styles.sectionTitle}>Stock Summary Report</Text>
+        </View>
         <View style={styles.tableHeader}>
           <Text style={[styles.cell, { width: '40%' }]}>Item Name</Text>
           <Text style={[styles.cell, { width: '20%', textAlign: 'right' }]}>Purchase Rate</Text>
@@ -47,11 +52,14 @@ function StockDoc({ rows }: { rows: any[] }) {
   );
 }
 
-function OutstandingDoc({ rows }: { rows: any[] }) {
+function OutstandingDoc({ rows, companyName }: { rows: any[]; companyName: string }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>Outstanding Report</Text>
+        <View style={styles.headerInfo}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</Text>
+          <Text style={styles.sectionTitle}>Outstanding Report</Text>
+        </View>
         <View style={styles.tableHeader}>
           <Text style={[styles.cell, { width: '35%' }]}>Party</Text>
           <Text style={[styles.cell, { width: '25%' }]}>Mobile</Text>
@@ -76,7 +84,7 @@ function OutstandingDoc({ rows }: { rows: any[] }) {
   );
 }
 
-function ProfitLossDoc({ data }: { data: any }) {
+function ProfitLossDoc({ data, companyName }: { data: any; companyName: string }) {
   const { from, to, openingBalance, sales, purchase, otherIncome, otherExpense, grossProfit, netProfit } = data || {};
   const totalRevenue = Number(sales || 0) + Number(otherIncome || 0);
   const totalExpenses = Number(purchase || 0) + Number(otherExpense || 0);
@@ -85,10 +93,12 @@ function ProfitLossDoc({ data }: { data: any }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>Profit & Loss Statement</Text>
-        <Text>{`Period: ${from} to ${to}`}</Text>
+        <View style={styles.headerInfo}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</Text>
+          <Text style={styles.sectionTitle}>Profit & Loss Statement</Text>
+          <Text>{`For the period: ${from} to ${to}`}</Text>
+        </View>
 
-        {/* Opening balance bar */}
         <View style={{ marginTop: 8, marginBottom: 8, padding: 8, borderLeftWidth: 4, borderLeftColor: '#2b6cb0', backgroundColor: '#ebf8ff' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontWeight: 'bold' }}>Opening Balance</Text>
@@ -96,7 +106,6 @@ function ProfitLossDoc({ data }: { data: any }) {
           </View>
         </View>
 
-        {/* Revenue box */}
         <View style={{ marginBottom: 8 }}>
           <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Revenue</Text>
           <View style={{ backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', padding: 6 }}>
@@ -108,7 +117,6 @@ function ProfitLossDoc({ data }: { data: any }) {
           </View>
         </View>
 
-        {/* Expenses box */}
         <View style={{ marginBottom: 8 }}>
           <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Expenses</Text>
           <View style={{ backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', padding: 6 }}>
@@ -120,7 +128,6 @@ function ProfitLossDoc({ data }: { data: any }) {
           </View>
         </View>
 
-        {/* Summary box */}
         <View style={{ marginBottom: 8 }}>
           <Text style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>Summary</Text>
           <View style={{ backgroundColor: '#ebf8ff', borderWidth: 1, borderColor: '#bfdbfe', padding: 8 }}>
@@ -139,7 +146,6 @@ function ProfitLossDoc({ data }: { data: any }) {
           </View>
         </View>
 
-        {/* Closing balance bar */}
         <View style={{ marginTop: 6, padding: 8, borderLeftWidth: 4, borderLeftColor: '#15803d', backgroundColor: '#ecfccb' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text style={{ fontWeight: 'bold' }}>Closing Balance</Text>
@@ -151,26 +157,68 @@ function ProfitLossDoc({ data }: { data: any }) {
   );
 }
 
-function OtherTxnsDoc({ rows, from, to }: { rows: any[]; from: string; to: string }) {
+function CartingDoc({ rows, from, to, companyName }: { rows: any[]; from: string; to: string; companyName: string }) {
+  const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>Other Income / Expense</Text>
-        <Text>{`Period: ${from} to ${to}`}</Text>
+        <View style={styles.headerInfo}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</Text>
+          <Text style={styles.sectionTitle}>Carting Detail Report</Text>
+          <Text>{`Period: ${from} to ${to}`}</Text>
+        </View>
         <View style={styles.tableHeader}>
-          <Text style={[styles.cell, { width: '20%' }]}>Date</Text>
-          <Text style={[styles.cell, { width: '15%' }]}>Type</Text>
-          <Text style={[styles.cell, { width: '20%', textAlign: 'right' }]}>Amount</Text>
-          <Text style={[styles.cell, { width: '20%' }]}>Category</Text>
-          <Text style={[styles.cell, { width: '25%' }]}>Note</Text>
+          <Text style={[styles.cell, { width: '12%' }]}>Date</Text>
+          <Text style={[styles.cell, { width: '15%' }]}>Vehicle No</Text>
+          <Text style={[styles.cell, { width: '15%' }]}>Invoice</Text>
+          <Text style={[styles.cell, { width: '23%' }]}>Customer</Text>
+          <Text style={[styles.cell, { width: '23%' }]}>Carting Party</Text>
+          <Text style={[styles.cell, { width: '12%', textAlign: 'right' }]}>Amount</Text>
+        </View>
+        {rows.map((r, idx) => (
+          <View key={idx} style={styles.tableRow}>
+            <Text style={[styles.cell, { width: '12%', fontSize: 8 }]}>{r.date || ''}</Text>
+            <Text style={[styles.cell, { width: '15%', fontSize: 8, fontWeight: 'bold' }]}>{r.vehicleNo || ''}</Text>
+            <Text style={[styles.cell, { width: '15%', fontSize: 8 }]}>{r.invoiceNo || ''}</Text>
+            <Text style={[styles.cell, { width: '23%', fontSize: 8 }]}>{r.customerName || ''}</Text>
+            <Text style={[styles.cell, { width: '23%', fontSize: 8 }]}>{r.cartingPartyName || ''}</Text>
+            <Text style={[styles.cell, { width: '12%', textAlign: 'right', fontWeight: 'bold' }]}>{Number(r.amount || 0).toFixed(2)}</Text>
+          </View>
+        ))}
+        <View style={{ flexDirection: 'row', paddingTop: 10, borderTopWidth: 1, borderTopColor: '#cbd5e1' }}>
+          <Text style={{ width: '88%', textAlign: 'right', fontWeight: 'bold', fontSize: 10 }}>Total Amount: </Text>
+          <Text style={{ width: '12%', textAlign: 'right', fontWeight: 'bold', fontSize: 10, color: '#2563eb' }}>{total.toFixed(2)}</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+function OtherTxnsDoc({ rows, from, to, companyName }: { rows: any[]; from: string; to: string; companyName: string }) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        <View style={styles.headerInfo}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold' }}>{companyName}</Text>
+          <Text style={styles.sectionTitle}>Transaction Report</Text>
+          <Text>{`Period: ${from} to ${to}`}</Text>
+        </View>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.cell, { width: '12%' }]}>Date</Text>
+          <Text style={[styles.cell, { width: '12%' }]}>Type</Text>
+          <Text style={[styles.cell, { width: '20%' }]}>From / Source</Text>
+          <Text style={[styles.cell, { width: '20%' }]}>To / Target</Text>
+          <Text style={[styles.cell, { width: '12%', textAlign: 'right' }]}>Amount</Text>
+          <Text style={[styles.cell, { width: '24%' }]}>Notes</Text>
         </View>
         {rows.map((t, idx) => (
           <View key={idx} style={styles.tableRow}>
-            <Text style={[styles.cell, { width: '20%' }]}>{t.date || ''}</Text>
-            <Text style={[styles.cell, { width: '15%' }]}>{t.kind || ''}</Text>
-            <Text style={[styles.cell, { width: '20%', textAlign: 'right' }]}>{Number(t.amount || 0).toFixed(2)}</Text>
-            <Text style={[styles.cell, { width: '20%' }]}>{t.category || ''}</Text>
-            <Text style={[styles.cell, { width: '25%' }]}>{t.note || ''}</Text>
+            <Text style={[styles.cell, { width: '12%', fontSize: 8 }]}>{t.date || ''}</Text>
+            <Text style={[styles.cell, { width: '12%', fontSize: 8 }]}>{t.txnType || t.kind || ''}</Text>
+            <Text style={[styles.cell, { width: '20%', fontSize: 8 }]}>{t.fromName || 'N/A'}</Text>
+            <Text style={[styles.cell, { width: '20%', fontSize: 8 }]}>{t.toName || 'N/A'}</Text>
+            <Text style={[styles.cell, { width: '12%', textAlign: 'right', fontWeight: 'bold' }]}>{Number(t.amount || 0).toFixed(2)}</Text>
+            <Text style={[styles.cell, { width: '24%', fontSize: 8 }]}>{t.note || ''}</Text>
           </View>
         ))}
       </Page>
@@ -180,6 +228,9 @@ function OtherTxnsDoc({ rows, from, to }: { rows: any[]; from: string; to: strin
 
 export async function GET(req: Request) {
   try {
+    const { companyId } = getCompanyContextFromRequest(req);
+    if (!companyId) return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+
     const url = new URL(req.url);
     const type = (url.searchParams.get('type') || '').toLowerCase();
 
@@ -188,9 +239,11 @@ export async function GET(req: Request) {
     }
 
     await dbConnect();
+    const company = await Company.findById(companyId).lean();
+    const companyName = company?.name || 'Company Report';
 
     if (type === 'stock') {
-      const items = await Item.find({}).lean();
+      const items = await Item.find({ companyId }).lean();
       const rows = items.map((it: any) => {
         const stock = Number(it.stock || 0);
         const purchaseRate = Number(it.purchaseRate || 0);
@@ -206,7 +259,7 @@ export async function GET(req: Request) {
         };
       });
 
-      const buffer = await renderToBuffer(<StockDoc rows={rows} />);
+      const buffer = await renderToBuffer(<StockDoc rows={rows} companyName={companyName} />);
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
@@ -217,9 +270,9 @@ export async function GET(req: Request) {
     }
 
     if (type === 'outstanding') {
-      const parties = await Party.find({}).lean();
-      const invoices = await Invoice.find({}).lean();
-      const payments = await Payment.find({}).lean();
+      const parties = await Party.find({ companyId }).lean();
+      const invoices = await Invoice.find({ companyId }).lean();
+      const payments = await Payment.find({ companyId }).lean();
 
       const report = parties.map((p: any) => {
         const partyId = (p._id || p.id).toString();
@@ -249,6 +302,7 @@ export async function GET(req: Request) {
               (!pay.allocations || (Array.isArray(pay.allocations) && pay.allocations.length === 0))
           )
           .reduce((s: number, pay: any) => s + (pay.amount || 0), 0);
+        
         const partyUnallocatedPayments = payments
           .filter(
             (pay: any) =>
@@ -262,14 +316,14 @@ export async function GET(req: Request) {
         const pType = (p.type || '').toString().toLowerCase();
         if (pType === 'customer') {
           currentBalance = currentBalance - (partyUnallocatedReceipts || 0);
-        } else if (pType === 'supplier') {
+        } else if (pType === 'supplier' || pType === 'partner') {
           currentBalance = currentBalance - (partyUnallocatedPayments || 0);
         }
 
         return { ...p, billed, totalReceived, currentBalance };
       });
 
-      const buffer = await renderToBuffer(<OutstandingDoc rows={report} />);
+      const buffer = await renderToBuffer(<OutstandingDoc rows={report} companyName={companyName} />);
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
@@ -286,11 +340,8 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'from and to required (YYYY-MM-DD)' }, { status: 400 });
       }
 
-      const company = await Company.findOne().lean();
-      const openingBalance = company?.openingBalance || 0;
-
       const range = { $gte: from, $lte: to };
-      const invMatch: any = { date: range };
+      const invMatch: any = { date: range, companyId };
 
       const salesAgg = await Invoice.aggregate([
         { $match: { ...invMatch, type: 'SALES' } },
@@ -302,7 +353,7 @@ export async function GET(req: Request) {
       ]);
 
       const other = await OtherTxn.aggregate([
-        { $match: { date: range } },
+        { $match: { date: range, companyId } },
         { $group: { _id: '$kind', total: { $sum: { $ifNull: ['$amount', 0] } } } },
       ]);
 
@@ -317,7 +368,7 @@ export async function GET(req: Request) {
       const plData = {
         from,
         to,
-        openingBalance,
+        openingBalance: company?.openingBalance || 0,
         sales,
         purchase,
         grossProfit: gross,
@@ -326,7 +377,7 @@ export async function GET(req: Request) {
         netProfit: net,
       };
 
-      const buffer = await renderToBuffer(<ProfitLossDoc data={plData} />);
+      const buffer = await renderToBuffer(<ProfitLossDoc data={plData} companyName={companyName} />);
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
@@ -344,14 +395,57 @@ export async function GET(req: Request) {
       }
 
       const range = { $gte: from, $lte: to };
-      const rows = await OtherTxn.find({ date: range }).lean();
+      const rows = await OtherTxn.find({ date: range, companyId }).sort({ date: 1, createdAt: 1 }).lean();
 
-      const buffer = await renderToBuffer(<OtherTxnsDoc rows={rows || []} from={from} to={to} />);
+      const buffer = await renderToBuffer(<OtherTxnsDoc rows={rows || []} from={from} to={to} companyName={companyName} />);
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="Other_Income_Expense_${from}_to_${to}.pdf"`,
+          'Content-Disposition': `attachment; filename="Transactions_${from}_to_${to}.pdf"`,
+        },
+      });
+    }
+
+    if (type === 'carting') {
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+      const partyId = url.searchParams.get('partyId');
+      const vehicleNo = url.searchParams.get('vehicleNo');
+      
+      if (!from || !to) {
+        return NextResponse.json({ error: 'from and to required' }, { status: 400 });
+      }
+
+      const query: any = { companyId, date: { $gte: from, $lte: to } };
+      query['items.cartingPartyId'] = { $exists: true, $ne: null };
+      if (partyId) query['items.cartingPartyId'] = partyId;
+      if (vehicleNo) query.vehicle_no = { $regex: vehicleNo, $options: 'i' };
+
+      const invoices = await Invoice.find(query).sort({ date: 1 }).lean();
+      const reportData: any[] = [];
+
+      invoices.forEach((inv: any) => {
+        inv.items.forEach((item: any) => {
+          if (partyId && item.cartingPartyId !== partyId) return;
+          if (!item.cartingAmount || item.cartingAmount <= 0) return;
+          reportData.push({
+            date: inv.date,
+            invoiceNo: inv.invoice_no || inv.invoiceNo,
+            customerName: inv.partyName,
+            vehicleNo: inv.vehicle_no || '-',
+            cartingPartyName: item.cartingPartyName,
+            amount: item.cartingAmount
+          });
+        });
+      });
+
+      const buffer = await renderToBuffer(<CartingDoc rows={reportData} from={from} to={to} companyName={companyName} />);
+      return new NextResponse(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="Carting_Report_${from}_to_${to}.pdf"`,
         },
       });
     }

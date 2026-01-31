@@ -72,9 +72,10 @@ export const api = {
     }
   },
   parties: {
-    list: async () => {
+    list: async (systemAccounts: boolean = false) => {
       return withLoader(async () => {
-        const res = await fetch('/api/parties');
+        const url = `/api/parties${systemAccounts ? '?systemAccounts=true' : ''}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to fetch parties');
         const data = await res.json();
         return data;

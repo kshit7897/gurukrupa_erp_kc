@@ -165,34 +165,50 @@ export default function LedgerPreviewPage() {
         `}</style>
         <div className="relative transition-transform print:transform-none print:w-[210mm] min-w-0 w-full md:w-[210mm] max-w-full flex justify-center">
           <div id="ledger-content" ref={ledgerRef} className="bg-white shadow-xl print:shadow-none min-h-[297mm] text-slate-900 print:w-full print:m-0 p-6 w-[210mm] mx-auto" style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}>
-            <div className="flex justify-between items-start border-b mb-4 pb-4 gap-4">
-              <div className="flex items-start gap-4">
-                {company?.logo ? (
-                  <div className="w-60 h-60 bg-white rounded overflow-hidden border border-slate-100 p-2">
-                    <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
+            <div className="border-b-2 border-slate-900 mb-6 pb-6">
+              <div className="flex justify-between items-start gap-8">
+                <div className="flex-1">
+                  {company?.logo ? (
+                    <img src={company.logo} alt="logo" className="h-16 w-auto mb-4 object-contain" />
+                  ) : (
+                    <div className="h-12 w-32 bg-slate-100 rounded flex items-center justify-center text-xs text-slate-400 mb-4 font-bold uppercase tracking-widest">Logo</div>
+                  )}
+                  <h1 className="text-xl font-black text-slate-900 uppercase tracking-tight">{company?.name || 'Company Name'}</h1>
+                  <div className="text-[11px] text-slate-600 leading-relaxed uppercase font-semibold">
+                    {company?.address_line_1 || company?.address || ''}<br/>
+                    {company?.address_line_2 && <>{company.address_line_2}<br/></>}
+                    {company?.city ? `${company.city} - ${company?.pincode || ''}` : ''}{company?.state ? `, ${company.state}` : ''}
                   </div>
-                ) : (
-                  <div className="w-20 h-20 bg-slate-50 rounded border border-slate-100 flex items-center justify-center text-sm text-slate-400">Logo</div>
-                )}
-                <div>
-                  <h1 className="text-lg font-bold text-slate-900">{company?.name || 'Company Name'}</h1>
-                  <div className="text-sm text-slate-600">{company?.address_line_1 || company?.address || ''}</div>
-                  {company?.address_line_2 && <div className="text-sm text-slate-600">{company.address_line_2}</div>}
-                  <div className="text-sm text-slate-600">{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''} {company?.state ? `, ${company.state}` : ''}</div>
-                  <div className="text-sm text-slate-600 mt-1">Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
-                  <div className="text-sm text-slate-600 font-semibold">GSTIN: {company?.gstin || company?.gstNumber || '-'}</div>
-                  {/* Party details placed under company details as requested */}
-                  <div className="mt-3 border-t pt-3">
-                    <h2 className="text-base font-semibold text-slate-800">{party?.name || 'Party Ledger'}</h2>
-                    {party && <div className="text-sm text-slate-600">{party.address || ''} • {party.mobile || ''}</div>}
+                  <div className="mt-2 flex gap-4 text-[11px] text-slate-700">
+                    <div><span className="text-slate-400 font-bold">GSTIN:</span> {company?.gstin || company?.gstNumber || '-'}</div>
+                    <div><span className="text-slate-400 font-bold">PH:</span> {company?.contactNumbers?.join(', ') || company?.phone || '-'}</div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-1">Statement</h2>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Of Account</p>
+                  <div className="mt-6 border border-slate-200 rounded-lg p-3 bg-slate-50">
+                    <div className="text-[10px] text-slate-400 uppercase font-black mb-1">Statement Period</div>
+                    <div className="text-sm font-bold text-slate-800">{fromDate ? formatDate(fromDate) : 'Start'} — {toDate ? formatDate(toDate) : 'End'}</div>
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="w-56 text-right flex-shrink-0">
-                  <div className="text-sm text-slate-600">Period</div>
-                  <div className="text-base font-semibold">{fromDate ? formatDate(fromDate) : 'Start'} — {toDate ? formatDate(toDate) : 'End'}</div>
-                  <div className="mt-3 text-sm text-slate-600">(Cash sales are marked in the Cash column)</div>
+
+              <div className="mt-8 grid grid-cols-2 gap-12">
+                <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                  <div className="text-[10px] text-slate-400 uppercase font-black mb-2 tracking-widest">Bill To:</div>
+                  <h2 className="text-lg font-black text-slate-900 leading-tight">{party?.name || 'Party Ledger'}</h2>
+                  {party && (
+                    <div className="mt-1 text-sm text-slate-600 leading-relaxed">
+                      {party.address || 'Address not available'}<br/>
+                      <span className="text-slate-400 font-bold uppercase text-[10px]">Mobile:</span> {party.mobile || '-'}
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col justify-end items-end pb-2">
+                  <div className="text-[10px] text-slate-400 uppercase font-black mb-1">Report Generated</div>
+                  <div className="text-xs font-bold text-slate-600 uppercase">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                 </div>
               </div>
             </div>
@@ -204,76 +220,76 @@ export default function LedgerPreviewPage() {
             {!loading && transactions.length === 0 && <div className="py-12 text-center text-slate-500">No transactions in selected range.</div>}
 
             {!loading && transactions.length > 0 && (
-              <table className="w-full text-sm border-collapse table-auto">
+              <table className="w-full text-[11px] border-collapse table-auto mt-4">
                 <thead>
-                  <tr className="bg-slate-800 text-white">
-                    <th className="text-left py-2 px-3">Date</th>
-                    <th className="text-left py-2 px-3">Ref</th>
-                    <th className="text-left py-2 px-3">Type</th>
-                    <th className="text-left py-2 px-3">Cash</th>
-                    <th className="text-right py-2 px-3">Debit</th>
-                    <th className="text-right py-2 px-3">Credit</th>
-                    <th className="text-right py-2 px-3">Balance</th>
+                  <tr className="bg-slate-900 text-white uppercase tracking-wider font-bold">
+                    <th className="text-left py-3 px-3 w-[12%]">Date</th>
+                    <th className="text-left py-3 px-3 w-[45%]">Particulars / Description</th>
+                    <th className="text-left py-3 px-3 w-[15%]">Ref No</th>
+                    <th className="text-right py-3 px-3 w-[10%]">Debit (+)</th>
+                    <th className="text-right py-3 px-3 w-[10%]">Credit (-)</th>
+                    <th className="text-right py-3 px-3 w-[13%]">Balance</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-700">
+                <tbody className="text-slate-800">
                   {transactions.map((t, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-3">{(() => {
+                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="py-3 px-3 align-top">{(() => {
                         try {
                           const isSaleOrPurchase = /sale|purchase/i.test(String(t.type || ''));
-                          if (isSaleOrPurchase) {
-                            const d = t.deliveryDate || t.date || new Date().toISOString();
-                            return formatDate(d);
-                          }
-                          return formatDate(t.date || new Date().toISOString());
+                          const d = isSaleOrPurchase ? (t.deliveryDate || t.date) : (t.date);
+                          return formatDate(d || new Date().toISOString());
                         } catch (e) {
                           return formatDate(t.date || new Date().toISOString());
                         }
                       })()}</td>
-                      <td className="py-3 px-3">{t.ref}</td>
-                      <td className="py-3 px-3">{t.type}</td>
-                      <td className="py-3 px-3">{
-                        t.cash ? (
-                          /sale/i.test(String(t.type || '')) ? (
-                            <span className="text-emerald-600 font-medium">Cash Sale</span>
-                          ) : (
-                            <span className="text-green-600 font-medium">Cash</span>
-                          )
-                        ) : <span className="text-slate-400">-</span>
-                      }</td>
-                      <td className="py-3 px-3 text-right">{t.debit ? `₹ ${t.debit}` : '-'}</td>
-                      <td className="py-3 px-3 text-right">{t.credit ? `₹ ${t.credit}` : '-'}</td>
-                      <td className="py-3 px-3 text-right font-bold">₹ {t.balance}</td>
+                      <td className="py-3 px-3 align-top">
+                        <div className="font-bold text-slate-900">{t.type}</div>
+                        {t.desc && <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{t.desc}</div>}
+                      </td>
+                      <td className="py-3 px-3 align-top font-mono text-slate-500">{t.ref}</td>
+                      <td className="py-3 px-3 text-right align-top font-semibold text-rose-600">{t.debit ? `₹ ${Number(t.debit).toFixed(2)}` : '-'}</td>
+                      <td className="py-3 px-3 text-right align-top font-semibold text-emerald-600">{t.credit ? `₹ ${Number(t.credit).toFixed(2)}` : '-'}</td>
+                      <td className="py-3 px-3 text-right align-top font-black text-slate-900 bg-slate-50/30">₹ {Number(t.balance || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-            {/* Totals summary */}
+
+            {/* Statement Summary */}
             {!loading && transactions.length > 0 && (
               (() => {
-                // compute cash sales total (sales marked with cash=true and type ~ sale)
-                const cashSalesTx = (transactions || []).filter((it: any) => it.cash && /sale/i.test(String(it.type || '')));
-                const cashSalesTotal = cashSalesTx.reduce((s: number, it: any) => s + (Number(it.credit || it.debit || 0) || 0), 0);
-                const visible = transactions || [];
-                const totalDebit = (visible || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
-                const totalCredit = (visible || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
-                const endingBalance = visible[visible.length - 1]?.balance || transactions[transactions.length - 1]?.balance || 0;
+                const totalDebit = (transactions || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
+                const totalCredit = (transactions || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
+                const openingBalance = Number(party?.openingBalance || 0);
+                const closingBalance = transactions[transactions.length - 1]?.balance || 0;
+                
                 return (
-                  <div className="mt-4 p-4 bg-slate-50 border border-slate-100 rounded flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="text-sm text-slate-600">Totals</div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-sm text-slate-500">Total Debit</div>
-                      <div className="text-lg font-semibold">₹ {totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                      <div className="text-sm text-slate-500">Total Credit</div>
-                      <div className="text-lg font-semibold">₹ {totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                      <div className="text-sm text-slate-500">Ending Balance</div>
-                      <div className="text-lg font-semibold">₹ {Number(endingBalance || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  <div className="mt-8 border-t-2 border-slate-900 pt-6">
+                    <div className="flex justify-end">
+                      <div className="w-80 space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 uppercase font-black tracking-widest">Opening Balance</span>
+                          <span className="font-bold text-slate-700">₹ {openingBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 uppercase font-black tracking-widest">Total Charges (+)</span>
+                          <span className="font-bold text-rose-600">₹ {totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 uppercase font-black tracking-widest">Total Received (-)</span>
+                          <span className="font-bold text-emerald-600">₹ {totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        </div>
+                        <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                          <span className="text-sm font-black text-slate-900 uppercase tracking-tighter">Net Amount Due</span>
+                          <span className="text-2xl font-black text-slate-900">₹ {Number(closingBalance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-600 md:text-right">
-                      <div>Cash Sales Total</div>
-                      <div className="text-lg font-semibold">₹ {cashSalesTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    
+                    <div className="mt-12 text-center text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t border-slate-100 pt-4">
+                      Thank you for your business with {company?.name || 'us'}
                     </div>
                   </div>
                 );

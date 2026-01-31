@@ -19,6 +19,7 @@ export default function MakePaymentPage() {
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [paidFromId, setPaidFromId] = useState<string>('');
 
   useEffect(() => { load(); }, []);
 
@@ -40,10 +41,21 @@ export default function MakePaymentPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const pts = await api.parties.list();
+      const pts = await api.parties.list(true);
       setParties(pts || []);
       const inv = await api.invoices.list();
       setInvoices(inv || []);
+
+      // Default "Paid From" = first company account (Cash/Bank/UPI) if available
+      const systemRoles = ['Cash', 'Bank', 'UPI'];
+      const companyAccounts = (pts || []).filter((p:any) => {
+        const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+        return roles.some(r => systemRoles.includes(r));
+      });
+      if (companyAccounts.length > 0) {
+        const first = companyAccounts[0];
+        setPaidFromId((first._id || first.id || '').toString());
+      }
     } catch (e) {
       console.error(e);
     } finally { setLoading(false); }
@@ -144,8 +156,16 @@ export default function MakePaymentPage() {
         }
       } catch (e) { /* ignore */ }
       const outstandingAfter = Math.max(0, outstandingBefore - amt);
+      
+      const payer = (parties || []).find((p:any) => (p._id || p.id || '').toString() === paidFromId.toString()) || null;
+      const payerName = payer?.name || '';
+      const payerRoles: string[] = (payer?.roles || [payer?.type]).map((r:any) => r && r.toString());
+      const systemRoles = ['Cash', 'Bank', 'UPI'];
+      const paidByType = payerRoles.some(r => systemRoles.includes(r)) ? 'COMPANY_ACCOUNT' : 'PARTNER';
+
       const payload: any = {
         partyId: selectedParty,
+        partyName: (parties || []).find(p => (p._id || p.id) === selectedParty)?.name || '',
         type: 'pay',
         amount: amt,
         date,
@@ -154,7 +174,10 @@ export default function MakePaymentPage() {
         notes,
         allocations: [], // no allocations — direct/advance payment
         outstandingBefore,
-        outstandingAfter
+        outstandingAfter,
+        paidFromId,
+        paidFromName: payerName,
+        paidByType
       };
       const res = await api.payments.add(payload);
       // store canonical saved payment object to ensure PDF uses exact preview data
@@ -308,6 +331,36 @@ export default function MakePaymentPage() {
           <div>
             <label className="text-sm block mb-1">Notes</label>
             <Input value={notes} onChange={(e:any)=> setNotes(e.target.value)} />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-sm block mb-1">Paid From (Required)</label>
+            <Select
+              value={paidFromId}
+              onChange={(e:any) => setPaidFromId(e.target.value)}
+              options={[
+                { label: 'Select account', value: '' },
+                // Company accounts: Cash / Bank / UPI
+                ...(parties || [])
+                  .filter((p:any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+                    return p.isSystemAccount || roles.some(r => ['Cash','Bank','UPI'].includes(r));
+                  })
+                  .map((p:any) => ({
+                    label: `${p.name} (Company Account)`,
+                    value: (p._id || p.id) as string
+                  })),
+                // Partner accounts
+                ...(parties || [])
+                  .filter((p:any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+                    return roles.includes('Partner');
+                  })
+                  .map((p:any) => ({
+                    label: `${p.name} (Partner Account)`,
+                    value: (p._id || p.id) as string
+                  })),
+              ]}
+            />
           </div>
         </div>
 

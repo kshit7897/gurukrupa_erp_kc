@@ -13,6 +13,9 @@ const ALL_ROLES = [
   { value: PartyRole.PARTNER, label: 'Partner', color: 'bg-indigo-100 text-indigo-700' },
   { value: PartyRole.EMPLOYEE, label: 'Employee', color: 'bg-amber-100 text-amber-700' },
   { value: PartyRole.CARTING, label: 'Carting', color: 'bg-orange-100 text-orange-700' },
+  { value: PartyRole.CASH, label: 'Cash', color: 'bg-slate-200 text-slate-800' },
+  { value: PartyRole.BANK, label: 'Bank', color: 'bg-blue-200 text-blue-800' },
+  { value: PartyRole.UPI, label: 'UPI', color: 'bg-purple-200 text-purple-800' },
 ];
 
 // Multi-select dropdown component for roles
@@ -116,7 +119,7 @@ export default function Parties() {
   const loadParties = async () => {
     setIsLoading(true);
     try {
-      const data = await api.parties.list();
+      const data = await api.parties.list(true);
       setParties(data);
     } catch(e) { console.error(e) }
     setIsLoading(false);
@@ -225,6 +228,9 @@ export default function Parties() {
               { label: 'Partners', value: PartyRole.PARTNER },
               { label: 'Employees', value: PartyRole.EMPLOYEE },
               { label: 'Carting', value: PartyRole.CARTING },
+              { label: 'Cash Accounts', value: PartyRole.CASH },
+              { label: 'Bank Accounts', value: PartyRole.BANK },
+              { label: 'UPI/Digital', value: PartyRole.UPI },
             ]} 
           />
         </div>

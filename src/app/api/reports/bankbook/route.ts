@@ -1,44 +1,52 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
-import Payment from '../../../../lib/models/Payment';
+import Party from '../../../../lib/models/Party';
+import LedgerEntry from '../../../../lib/models/LedgerEntry';
 import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
-
-const BANK_MODES = ['online','cheque','upi','bank'];
 
 export async function GET(req: Request) {
   try {
     await dbConnect();
-
     const { companyId } = getCompanyContextFromRequest(req);
-    if (!companyId) {
-      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
-    }
+    if (!companyId) return NextResponse.json({ error: 'No company selected' }, { status: 400 });
 
     const url = new URL(req.url);
     const from = url.searchParams.get('from');
     const to = url.searchParams.get('to');
 
-    const q: any = { mode: { $in: BANK_MODES }, companyId };
+    // 1. Find all Bank/UPI parties
+    const bankParties = await Party.find({ 
+      companyId, 
+      roles: { $in: ['Bank', 'UPI'] } 
+    }).select('_id name type').lean();
+    
+    const bankPartyIds = bankParties.map(p => p._id.toString());
+
+    if (bankPartyIds.length === 0) return NextResponse.json([]);
+
+    // 2. Fetch LedgerEntries for these parties
+    const q: any = { companyId, partyId: { $in: bankPartyIds } };
     if (from && to) q.date = { $gte: from, $lte: to };
 
-    const payments = await Payment.find(q).sort({ date: 1 }).lean();
+    const entries = await LedgerEntry.find(q).sort({ date: 1, createdAt: 1 }).lean();
 
-    const tx = payments.map((p:any) => ({
-      id: p._id || p.id,
-      date: p.date,
-      type: p.type,
-      amount: p.amount || 0,
-      credit: p.type === 'receive' ? (p.amount || 0) : 0,
-      debit: p.type === 'pay' ? (p.amount || 0) : 0,
-      mode: p.mode,
-      reference: p.reference,
-      allocations: p.allocations || [],
-      notes: p.notes || ''
-    }));
+    const tx = entries.map((e: any) => {
+      const party = bankParties.find(p => p._id.toString() === e.partyId);
+      return {
+        id: e._id || e.id,
+        date: e.date,
+        partyName: e.narration || 'Bank Entry',
+        mode: party?.type || 'Bank',
+        credit: e.debit, // Bank Debit = Deposit (In)
+        debit: e.credit, // Bank Credit = Withdrawal (Out)
+        amount: e.debit || e.credit,
+        reference: e.refNo,
+      };
+    });
 
     return NextResponse.json(tx);
-  } catch (err:any) {
-    console.error('GET /api/reports/bankbook error', err);
+  } catch (err: any) {
+    console.error('Bankbook error', err);
     return NextResponse.json({ error: err?.message || 'Failed' }, { status: 500 });
   }
 }

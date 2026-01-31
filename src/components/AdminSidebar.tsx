@@ -32,7 +32,7 @@ const MENU_ITEMS = [
   { path: '/admin/sales/create', label: 'Sale Entry', icon: ShoppingCart },
   { path: '/admin/purchase/create', label: 'Purchase Entry', icon: ShoppingCart },
   { path: '/admin/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/admin/other-txns', label: 'Other Income/Expense', icon: TrendingUp },
+  { path: '/admin/other-txns', label: 'Other Transactions', icon: TrendingUp },
   { path: '/invoices/all', label: 'Invoices', icon: FileText },
   { path: '/admin/payments', label: 'Payments', icon: FileBarChart },
   { path: '/admin/settings', label: 'Settings', icon: Settings },

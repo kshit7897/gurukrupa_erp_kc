@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '../../../../lib/mongodb';
-import Invoice from '../../../../lib/models/Invoice';
 import Party from '../../../../lib/models/Party';
-import Payment from '../../../../lib/models/Payment';
+import LedgerEntry from '../../../../lib/models/LedgerEntry';
 import { getCompanyContextFromRequest } from '../../../../lib/companyContext';
 
 export async function GET(req: Request) {
@@ -24,79 +23,42 @@ export async function GET(req: Request) {
     if (!partyDoc) return NextResponse.json([], { status: 200 });
 
     const q: any = { partyId, companyId };
-    if (start && end) q.date = { $gte: start, $lte: end };
-
-    const invoices = await Invoice.find(q).sort({ date: 1 }).lean();
-
-    const invTx = invoices.map(i => {
-      const due = (i as any).dueAmount != null ? (i as any).dueAmount : Math.max(0, (i.grandTotal || 0) - ((i as any).paidAmount || 0));
-      const paymentMode = ((i as any).paymentMode || (i as any).payment_mode || '') as string;
-      const isCashInvoice = paymentMode.toString().toLowerCase() === 'cash';
-      return {
-        id: i.invoiceNo || (i._id || ''),
-        date: i.date,
-        ref: i.invoiceNo || (i._id || ''),
-        type: i.type === 'SALES' ? 'SALE' : 'PURCHASE',
-        // use due amount (outstanding) instead of full grandTotal so fully-paid invoices
-        // or cash-paid invoices don't artificially inflate the party ledger balance
-        credit: i.type === 'PURCHASE' ? due : 0,
-        debit: i.type === 'SALES' ? due : 0,
-        cash: isCashInvoice,
-        desc: `${i.type === 'SALES' ? 'Sale' : 'Purchase'} Invoice`
-      };
-    });
-
-    // include payments for this party in the date range
-    const payQuery: any = { partyId, companyId };
-    if (start && end) payQuery.date = { $gte: start, $lte: end };
-    const payments = await Payment.find(payQuery).sort({ date: 1 }).lean();
-
-    // Build payment transactions and allocation-level transactions
-    const payTx: any[] = [];
-    // Map invoiceId to invoiceNo for quick lookup
-    const invMap: Record<string, string> = {};
-    (invoices || []).forEach(i => { if (i._id) invMap[(i._id || '').toString()] = i.invoiceNo || (i._id || '').toString(); });
-
-    for (const p of payments) {
-      payTx.push({
-        id: p._id || p.id,
-        date: p.date,
-        ref: p.reference || (p._id || ''),
-        type: 'PAYMENT',
-        credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (p.amount || 0) : 0,
-        debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (p.amount || 0) : 0,
-        cash: ((p.mode || '').toString().toLowerCase() === 'cash'),
-        desc: `Payment ${p.mode || ''}`
-      });
-
-      // If allocations exist, add a transaction per allocation so ledger shows invoice-specific application
-      if (Array.isArray(p.allocations) && p.allocations.length > 0) {
-        for (const a of p.allocations) {
-          const invId = (a.invoiceId || '').toString();
-          const invRef = invMap[invId] || invId;
-          payTx.push({
-            id: `${p._id || p.id}_alloc_${invId}`,
-            date: p.date,
-            ref: invRef,
-            type: 'PAYMENT_ALLOC',
-            credit: (partyDoc.type || '').toString().toLowerCase() === 'customer' ? (a.amount || 0) : 0,
-            debit: (partyDoc.type || '').toString().toLowerCase() === 'supplier' ? (a.amount || 0) : 0,
-            cash: ((p.mode || '').toString().toLowerCase() === 'cash'),
-            desc: `Allocated to Invoice ${invRef}`
-          });
-        }
-      }
+    if (start && end) {
+      q.date = { $gte: start, $lte: end };
+    } else if (start) {
+      q.date = { $gte: start };
+    } else if (end) {
+      q.date = { $lte: end };
     }
 
-    const transactions = invTx.concat(payTx).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const entries = await LedgerEntry.find(q).sort({ date: 1, createdAt: 1 }).lean();
+
+    // Map to a consistent transaction format
+    const transactions = entries.map((e: any) => ({
+      id: e._id.toString(),
+      date: e.date,
+      ref: e.refNo || '-',
+      type: e.entryType || e.refType || 'TXN',
+      debit: Number(e.debit || 0),
+      credit: Number(e.credit || 0),
+      cash: e.paymentMode?.toLowerCase() === 'cash' || e.narration?.toLowerCase().includes('cash'),
+      desc: e.narration || ''
+    }));
 
     // running balance starting from openingBalance
     let balance = (partyDoc.openingBalance || 0);
-    const result = transactions.map(t => {
-      if ((partyDoc.type || '').toString().toLowerCase() === 'customer') {
-        balance = balance + (t.debit || 0) - (t.credit || 0);
+    
+    // Logic for balance: 
+    // Assets (Customer, Cash, Bank, UPI): Debit increases, Credit decreases
+    // Liabilities/Equity (Supplier, Partner, Owner): Credit increases, Debit decreases
+    const roles: string[] = (partyDoc.roles || [partyDoc.type]).map((r: any) => r && r.toString().toLowerCase());
+    const isAsset = roles.some(r => ['customer', 'cash', 'bank', 'upi'].includes(r));
+
+    const result = transactions.map((t: any) => {
+      if (isAsset) {
+        balance = balance + t.debit - t.credit;
       } else {
-        balance = balance + (t.credit || 0) - (t.debit || 0);
+        balance = balance + t.credit - t.debit;
       }
       return { ...t, balance };
     });
