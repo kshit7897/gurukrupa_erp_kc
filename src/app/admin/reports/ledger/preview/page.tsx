@@ -220,41 +220,63 @@ export default function LedgerPreviewPage() {
             {!loading && transactions.length === 0 && <div className="py-12 text-center text-slate-500">No transactions in selected range.</div>}
 
             {!loading && transactions.length > 0 && (
-              <table className="w-full text-[11px] border-collapse table-auto mt-4">
-                <thead>
-                  <tr className="bg-slate-900 text-white uppercase tracking-wider font-bold">
-                    <th className="text-left py-3 px-3 w-[12%]">Date</th>
-                    <th className="text-left py-3 px-3 w-[45%]">Particulars / Description</th>
-                    <th className="text-left py-3 px-3 w-[15%]">Ref No</th>
-                    <th className="text-right py-3 px-3 w-[10%]">Debit (+)</th>
-                    <th className="text-right py-3 px-3 w-[10%]">Credit (-)</th>
-                    <th className="text-right py-3 px-3 w-[13%]">Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="text-slate-800">
-                  {transactions.map((t, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50">
-                      <td className="py-3 px-3 align-top">{(() => {
-                        try {
-                          const isSaleOrPurchase = /sale|purchase/i.test(String(t.type || ''));
-                          const d = isSaleOrPurchase ? (t.deliveryDate || t.date) : (t.date);
-                          return formatDate(d || new Date().toISOString());
-                        } catch (e) {
-                          return formatDate(t.date || new Date().toISOString());
-                        }
-                      })()}</td>
-                      <td className="py-3 px-3 align-top">
-                        <div className="font-bold text-slate-900">{t.type}</div>
-                        {t.desc && <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{t.desc}</div>}
-                      </td>
-                      <td className="py-3 px-3 align-top font-mono text-slate-500">{t.ref}</td>
-                      <td className="py-3 px-3 text-right align-top font-semibold text-rose-600">{t.debit ? `₹ ${Number(t.debit).toFixed(2)}` : '-'}</td>
-                      <td className="py-3 px-3 text-right align-top font-semibold text-emerald-600">{t.credit ? `₹ ${Number(t.credit).toFixed(2)}` : '-'}</td>
-                      <td className="py-3 px-3 text-right align-top font-black text-slate-900 bg-slate-50/30">₹ {Number(t.balance || 0).toFixed(2)}</td>
+              <div className="border border-slate-900 mt-6">
+                <table className="w-full text-[11px] border-collapse table-fixed">
+                  <thead>
+                    <tr className="bg-slate-900 text-white uppercase tracking-wider font-bold">
+                      <th className="text-left py-3 px-3 w-[12%] border-r border-slate-700">Date</th>
+                      <th className="text-left py-3 px-3 w-[45%] border-r border-slate-700">Particulars / Description</th>
+                      <th className="text-left py-3 px-3 w-[15%] border-r border-slate-700">Ref No</th>
+                      <th className="text-right py-3 px-3 w-[10%] border-r border-slate-700">Debit (+)</th>
+                      <th className="text-right py-3 px-3 w-[10%] border-r border-slate-700">Credit (-)</th>
+                      <th className="text-right py-3 px-3 w-[13%]">Balance</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="text-slate-800">
+                    {/* Opening Balance Row */}
+                    <tr className="border-b border-slate-200 bg-slate-50 italic">
+                      <td className="py-2 px-3 border-r border-slate-200">{fromDate ? formatDate(fromDate) : 'Start'}</td>
+                      <td className="py-2 px-3 border-r border-slate-200 font-bold">Opening Balance</td>
+                      <td className="py-2 px-3 border-r border-slate-200 italic text-slate-400">Brought Forward</td>
+                      <td className="py-2 px-3 border-r border-slate-200 text-right">-</td>
+                      <td className="py-2 px-3 border-r border-slate-200 text-right">-</td>
+                      <td className="py-2 px-3 text-right font-black">
+                        ₹ {Math.abs(Number(party?.openingBalance || 0)).toFixed(2)} 
+                        <span className="ml-1 text-[8px] opacity-70">{(Number(party?.openingBalance || 0) >= 0) ? 'Dr' : 'Cr'}</span>
+                      </td>
+                    </tr>
+
+                    {transactions.map((t, idx) => {
+                      const bal = Number(t.balance || 0);
+                      const suffix = bal >= 0 ? 'Dr' : 'Cr';
+                      return (
+                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50">
+                          <td className="py-3 px-3 align-top border-r border-slate-100">{(() => {
+                            try {
+                              const isSaleOrPurchase = /sale|purchase/i.test(String(t.type || ''));
+                              const d = isSaleOrPurchase ? (t.deliveryDate || t.date) : (t.date);
+                              return formatDate(d || new Date().toISOString());
+                            } catch (e) {
+                              return formatDate(t.date || new Date().toISOString());
+                            }
+                          })()}</td>
+                          <td className="py-3 px-3 align-top border-r border-slate-100">
+                            <div className="font-bold text-slate-900 uppercase text-[10px]">{t.type}</div>
+                            {t.desc && <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{t.desc}</div>}
+                          </td>
+                          <td className="py-3 px-3 align-top font-mono text-slate-500 border-r border-slate-100">{t.ref}</td>
+                          <td className="py-3 px-3 text-right align-top font-semibold text-rose-600 border-r border-slate-100">{t.debit ? `₹ ${Number(t.debit).toFixed(2)}` : '-'}</td>
+                          <td className="py-3 px-3 text-right align-top font-semibold text-emerald-600 border-r border-slate-100">{t.credit ? `₹ ${Number(t.credit).toFixed(2)}` : '-'}</td>
+                          <td className="py-3 px-3 text-right align-top font-black text-slate-900 bg-slate-50/30">
+                            ₹ {Math.abs(bal).toFixed(2)}
+                            <span className="ml-1 text-[8px] opacity-70">{suffix}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
 
             {/* Statement Summary */}
@@ -263,33 +285,51 @@ export default function LedgerPreviewPage() {
                 const totalDebit = (transactions || []).reduce((s: number, it: any) => s + (Number(it.debit || 0) || 0), 0);
                 const totalCredit = (transactions || []).reduce((s: number, it: any) => s + (Number(it.credit || 0) || 0), 0);
                 const openingBalance = Number(party?.openingBalance || 0);
-                const closingBalance = transactions[transactions.length - 1]?.balance || 0;
+                const closingBalance = Number(transactions[transactions.length - 1]?.balance || 0);
                 
                 return (
-                  <div className="mt-8 border-t-2 border-slate-900 pt-6">
-                    <div className="flex justify-end">
-                      <div className="w-80 space-y-3">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-slate-500 uppercase font-black tracking-widest">Opening Balance</span>
-                          <span className="font-bold text-slate-700">₹ {openingBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                  <div>
+                    <div className="mt-8 border-t-2 border-slate-900 pt-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 italic text-[10px] text-slate-400 pr-12">
+                          * This is a computer generated statement and does not require a physical signature unless specific local regulations apply. Please report any discrepancies within 7 days.
                         </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-slate-500 uppercase font-black tracking-widest">Total Charges (+)</span>
-                          <span className="font-bold text-rose-600">₹ {totalDebit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-slate-500 uppercase font-black tracking-widest">Total Received (-)</span>
-                          <span className="font-bold text-emerald-600">₹ {totalCredit.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
-                        </div>
-                        <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
-                          <span className="text-sm font-black text-slate-900 uppercase tracking-tighter">Net Amount Due</span>
-                          <span className="text-2xl font-black text-slate-900">₹ {Number(closingBalance).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                        <div className="w-80 space-y-3">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500 uppercase font-black tracking-widest">Opening Balance</span>
+                            <span className="font-bold text-slate-700">₹ {Math.abs(openingBalance).toLocaleString(undefined,{minimumFractionDigits:2})} {openingBalance >= 0 ? 'Dr' : 'Cr'}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500 uppercase font-black tracking-widest">Total Charges (+)</span>
+                            <span className="font-bold text-rose-600">₹ {totalDebit.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500 uppercase font-black tracking-widest">Total Received (-)</span>
+                            <span className="font-bold text-emerald-600">₹ {totalCredit.toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                          </div>
+                          <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                            <span className="text-sm font-black text-slate-900 uppercase tracking-tighter">Closing Balance</span>
+                            <span className="text-2xl font-black text-slate-900">₹ {Math.abs(closingBalance).toLocaleString(undefined,{minimumFractionDigits:2})} {closingBalance >= 0 ? 'Dr' : 'Cr'}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="mt-12 text-center text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t border-slate-100 pt-4">
-                      Thank you for your business with {company?.name || 'us'}
+                    {/* Authorized Signatory */}
+                    <div className="mt-20 flex justify-between items-end border-t border-slate-100 pt-8">
+                       <div className="text-center">
+                          <div className="h-1 bg-slate-200 w-40 mb-2 mx-auto"></div>
+                          <div className="text-[10px] font-black uppercase text-slate-400">Receiver's Seal & Sig</div>
+                       </div>
+                       <div className="text-center">
+                          <div className="text-xs font-black text-slate-800 uppercase mb-4">For {company?.name || 'Authorized Body'}</div>
+                          <div className="h-1 bg-slate-950 w-56 mb-2 mx-auto"></div>
+                          <div className="text-[10px] font-black uppercase text-slate-400">Authorized Signatory</div>
+                       </div>
+                    </div>
+
+                    <div className="mt-12 text-center text-[10px] text-slate-300 font-bold uppercase tracking-[0.25em]">
+                      End of Statement of Account
                     </div>
                   </div>
                 );

@@ -4,200 +4,135 @@ import { numberToWords } from '../numberToWords';
 
 // Use same sizing and visual styles as InvoicePdf to ensure pixel-perfect match
 const styles = StyleSheet.create({
-  page: {
-    padding: 0,
-    fontSize: 10,
-    fontFamily: 'Helvetica',
-    backgroundColor: '#f1f5f9',
-  },
-  container: {
-    margin: 0,
-    padding: 0,
-    width: '100%',
-    minHeight: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  content: {
-    backgroundColor: '#fff',
-    marginTop: 24,
-    marginBottom: 24,
-    width: 530,
-    minHeight: 780,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px #e5e7eb',
-    padding: 28,
-    display: 'flex',
-    flexDirection: 'column',
-    color: '#1e293b',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingBottom: 16,
-    marginBottom: 16,
-  },
-  logoBox: {
-    width: 70,
-    height: 70,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginRight: 16,
-  },
-  companyBlock: { flex: 1, flexDirection: 'column', justifyContent: 'center' },
-  companyName: { fontSize: 18, fontWeight: 'extrabold', color: '#0f172a' },
-  companyDetails: { fontSize: 10, color: '#64748b', marginTop: 2, lineHeight: 1.3 },
-  // Use fixed widths and explicit rows so PDF layout matches preview exactly
-  metaBlock: { width: 200, flexDirection: 'column' },
-  metaContainer: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, paddingTop: 18, backgroundColor: '#fff', alignItems: 'stretch' },
-  // meta rows will be explicit two-column rows (label / value) with locked widths
-  metaRow: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 6, minHeight: 18 },
-  metaLabel: { fontSize: 10, color: '#64748b', width: 80, lineHeight: 1.4 },
-  metaValue: { fontSize: 11, color: '#0f172a', fontWeight: 'bold', width: 140, textAlign: 'right', lineHeight: 1.4 },
-  metaTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    backgroundColor: '#f1f5f9',
-    color: '#334155',
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    textAlign: 'center',
-    marginBottom: 8,
-    alignSelf: 'center',
-    marginTop: -12,
-  },
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', color: '#334155', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  partyBlock: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 8,
-  },
-  partyName: { fontSize: 11, fontWeight: 'bold', color: '#0f172a', marginBottom: 2 },
-  partyDetails: { fontSize: 10, color: '#64748b', lineHeight: 1.2 },
-  summaryBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 6, padding: 10 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  summaryLabel: { color: '#64748b', fontSize: 10 },
-  summaryValue: { fontWeight: 'bold', color: '#0f172a', fontSize: 11 },
-  signBlock: { marginTop: 18, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
-  signText: { fontSize: 10, color: '#334155', textAlign: 'center', marginTop: 8 },
+  page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', backgroundColor: '#ffffff' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', borderBottom: 3, borderBottomColor: '#0f172a', paddingBottom: 20, marginBottom: 30 },
+  logoSection: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  logoBox: { width: 60, height: 60, backgroundColor: '#f8fafc', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' },
+  companyName: { fontSize: 20, fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase' },
+  companyDetails: { fontSize: 8, color: '#64748b', marginTop: 2, textTransform: 'uppercase' },
+  
+  titleBox: { alignItems: 'flex-end' },
+  title: { backgroundColor: '#0f172a', color: '#ffffff', padding: '4 12', borderRadius: 4, fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 10 },
+  metaLabel: { fontSize: 7, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase' },
+  metaValue: { fontSize: 9, color: '#0f172a', fontWeight: 'bold', marginBottom: 5 },
+
+  partySection: { flexDirection: 'row', gap: 20, marginBottom: 40 },
+  partyBox: { flex: 1, backgroundColor: '#f8fafc', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#f1f5f9' },
+  partyLabel: { fontSize: 7, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 5 },
+  partyName: { fontSize: 13, fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase', marginBottom: 5 },
+  partyAddress: { fontSize: 8, color: '#64748b', fontStyle: 'italic' },
+
+  paymentMeta: { flex: 1, justifyContent: 'center', gap: 10 },
+  paymentMetaRow: { flexDirection: 'row', justifyContent: 'space-between', borderBottom: 1, borderBottomColor: '#f1f5f9', paddingBottom: 5 },
+  
+  amountSection: { backgroundColor: '#0f172a', borderRadius: 16, padding: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  amountLabel: { fontSize: 8, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 5 },
+  amountValue: { fontSize: 28, fontWeight: 'bold', color: '#ffffff' },
+  balanceLabel: { fontSize: 8, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right', marginBottom: 5 },
+  balanceValue: { fontSize: 16, fontWeight: 'bold', color: '#ffffff', opacity: 0.8, textAlign: 'right' },
+  
+  wordsSection: { paddingHorizontal: 10, marginBottom: 40 },
+  wordsLabel: { fontSize: 7, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 3 },
+  wordsValue: { fontSize: 9, color: '#334155', fontWeight: 'bold', fontStyle: 'italic', textDecoration: 'underline' },
+
+  notesSection: { borderLeft: 2, borderLeftColor: '#e2e8f0', paddingLeft: 15, marginBottom: 60 },
+  notesText: { fontSize: 9, color: '#64748b', fontStyle: 'italic' },
+
+  signatureArea: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto' },
+  sigBox: { width: 140, textAlign: 'center' },
+  sigLine: { borderTop: 1, borderTopColor: '#e2e8f0', marginTop: 5, paddingTop: 5 },
+  sigLineCompany: { borderTop: 2, borderTopColor: '#0f172a', marginTop: 5, paddingTop: 5 },
+  sigLabel: { fontSize: 7, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase' },
+  companySigLabel: { fontSize: 9, fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase', marginBottom: 30 },
+  
+  footer: { textAlign: 'center', fontSize: 7, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: 3, borderTop: 1, borderTopColor: '#f8fafc', paddingTop: 10 },
 });
 
 export function ReceiptPdf({ payment, party, company }: any) {
-  if (!payment) {
-    return (
-      <Document>
-        <Page size="A4" style={styles.page}>
-          <Text>No payment data</Text>
-        </Page>
-      </Document>
-    );
-  }
+  if (!payment) return <Document><Page size="A4"><Text>No data</Text></Page></Document>;
 
   const title = String(payment?.type || '').toLowerCase() === 'receive' ? 'RECEIPT' : 'PAYMENT VOUCHER';
-  const voucherDisplay =
-    payment.voucherNo && String(payment.voucherNo).trim().length > 0
-      ? payment.voucherNo
-      : `${String(payment?.type || '').toLowerCase() === 'receive' ? 'RCV' : 'PAY'}-${(payment?.date ? new Date(payment.date).getTime() : Date.now()).toString().slice(-8)}`;
-
-  const formatCurrency = (v: any) => {
-    try {
-      const n = Number(v || 0);
-      return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-    } catch (e) { return Number(v || 0).toFixed(2); }
-  };
+  const voucherDisplay = payment.voucherNo || '-';
+  const formatCurrency = (v: any) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2 }).format(Number(v || 0));
 
   return (
-    <Document>
+    <Document title={`Receipt - ${voucherDisplay}`}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.container}>
-          <View style={styles.content}>
-            <View style={styles.header}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                <View style={styles.logoBox}>
-                  {company?.logo ? (
-                    <Image src={company.logo} style={{ width: 60, height: 60, objectFit: 'contain' }} />
-                  ) : (
-                    <View style={{ width: 40, height: 40, backgroundColor: '#0EA5A4', borderRadius: 6, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>LOGO</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.companyBlock}>
-                  <Text style={styles.companyName}>{company?.name || 'Company Name'}</Text>
-                  <Text style={styles.companyDetails}>{company?.address_line_1 || company?.address || ''}</Text>
-                  {company?.address_line_2 && <Text style={styles.companyDetails}>{company.address_line_2}</Text>}
-                  <Text style={styles.companyDetails}>{company?.city ? `${company.city} - ${company?.pincode || ''}` : ''}{company?.state ? `, ${company.state}` : ''}</Text>
-                  <Text style={styles.companyDetails}>Contact: {company?.contactNumbers?.join(', ') || company?.phone || '-'}</Text>
-                  <Text style={[styles.companyDetails, { fontWeight: 'bold' }]}>GSTIN: {company?.gstin || company?.gstNumber || '-'}</Text>
-                </View>
-              </View>
-              <View style={[styles.metaBlock, styles.metaContainer]}>
-                <Text style={styles.metaTitle}>{title}</Text>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Voucher No.</Text>
-                  <Text style={styles.metaValue} wrap={false}>{voucherDisplay}</Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Date</Text>
-                  <Text style={styles.metaValue} wrap={false}>{String(payment.date).slice(0, 10)}</Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Payment Mode</Text>
-                  <Text style={styles.metaValue}>{payment.mode || payment.paymentMode || 'cash'}</Text>
-                </View>
-                {payment.reference && (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Reference No.</Text>
-                    <Text style={styles.metaValue}>{payment.reference}</Text>
-                  </View>
-                )}
-              </View>
+        <View style={styles.header}>
+          <View style={styles.logoSection}>
+            <View style={styles.logoBox}>
+              {company?.logo ? <Image src={company.logo} style={{ width: 45, height: 45, objectFit: 'contain' }} /> : <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#e2e8f0' }}>G</Text>}
             </View>
-
-            <View style={{ marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <View style={{ width: '65%' }}>
-                <Text style={styles.sectionTitle}>{String(payment.type || '').toLowerCase() === 'receive' ? 'Paid By' : 'Paid To'}</Text>
-                <View style={styles.partyBlock}>
-                  <Text style={styles.partyName}>{party?.name || payment.partyName || '-'}</Text>
-                  <Text style={styles.partyDetails}>{party?.billingAddress?.line1 || party?.address || ''}</Text>
-                  {party?.billingAddress?.line2 && <Text style={styles.partyDetails}>{party.billingAddress.line2}</Text>}
-                  <Text style={styles.partyDetails}>{party?.billingAddress?.city || ''}{party?.billingAddress?.pincode ? ` - ${party.billingAddress.pincode}` : ''}</Text>
-                  <Text style={styles.partyDetails}>Contact: {party?.phone || party?.mobile || '-'}</Text>
-                  <Text style={styles.partyDetails}>GSTIN: {party?.gstin || party?.gstNo || '-'}</Text>
-                </View>
-              </View>
-              <View style={{ width: '32%' }}>
-                <Text style={styles.sectionTitle}>Summary</Text>
-                <View style={[styles.summaryBox, { marginBottom: 8 }]}> 
-                  <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Outstanding</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingBefore === 'number' ? formatCurrency(payment.outstandingBefore) : formatCurrency(0))}</Text></View>
-                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>{String(payment?.type || '').toLowerCase() === 'receive' ? 'Received' : 'Paid'}</Text><Text style={styles.summaryValue}>{formatCurrency(payment.amount || 0)}</Text></View>
-                    <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Balance Due</Text><Text style={styles.summaryValue}>{(typeof payment.outstandingAfter === 'number' ? formatCurrency(payment.outstandingAfter) : formatCurrency(0))}</Text></View>
-                </View>
-              </View>
+            <View>
+              <Text style={styles.companyName}>{company?.name}</Text>
+              <Text style={styles.companyDetails}>{company?.address}</Text>
+              <Text style={styles.companyDetails}>GST: {company?.gstin} | PH: {company?.phone}</Text>
             </View>
-
-            <View style={{ marginTop: 8 }}>
-              <Text style={styles.sectionTitle}>Amount in Words</Text>
-              <Text style={{ color: '#0f172a', fontWeight: 'bold' }}>{payment.amountInWords || numberToWords(payment.amount || 0)}</Text>
-            </View>
-
+          </View>
+          <View style={styles.titleBox}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.metaLabel}>Voucher No</Text>
+            <Text style={styles.metaValue}>{voucherDisplay}</Text>
+            <Text style={styles.metaLabel}>Date</Text>
+            <Text style={styles.metaValue}>{payment.date ? String(payment.date).slice(0,10) : '-'}</Text>
           </View>
         </View>
+
+        <View style={styles.partySection}>
+          <View style={styles.partyBox}>
+             <Text style={styles.partyLabel}>{payment.type === 'receive' ? 'Received From' : 'Payment To'}</Text>
+             <Text style={styles.partyName}>{party?.name || payment.partyName}</Text>
+             <Text style={styles.partyAddress}>{party?.billingAddress?.line1}</Text>
+             <Text style={styles.partyAddress}>GSTIN: {party?.gstin || 'N/A'}</Text>
+          </View>
+          <View style={styles.paymentMeta}>
+             <View style={styles.paymentMetaRow}>
+                <Text style={styles.metaLabel}>Payment Mode</Text>
+                <Text style={[styles.metaValue, { marginBottom: 0 }]}>{payment.mode || 'CASH'}</Text>
+             </View>
+             <View style={styles.paymentMetaRow}>
+                <Text style={styles.metaLabel}>Reference No</Text>
+                <Text style={[styles.metaValue, { marginBottom: 0 }]}>{payment.reference || '-'}</Text>
+             </View>
+          </View>
+        </View>
+
+        <View style={styles.amountSection}>
+          <View>
+             <Text style={styles.amountLabel}>Transaction Amount</Text>
+             <Text style={styles.amountValue}>₹ {formatCurrency(payment.amount)}</Text>
+          </View>
+          <View>
+             <Text style={styles.balanceLabel}>Remaining Balance</Text>
+             <Text style={styles.balanceValue}>₹ {formatCurrency(payment.outstandingAfter)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.wordsSection}>
+           <Text style={styles.wordsLabel}>Amount in Words</Text>
+           <Text style={styles.wordsValue}>{numberToWords(payment.amount)} Only</Text>
+        </View>
+
+        {payment.notes && (
+          <View style={styles.notesSection}>
+             <Text style={styles.partyLabel}>Remarks</Text>
+             <Text style={styles.notesText}>"{payment.notes}"</Text>
+          </View>
+        )}
+
+        <View style={styles.signatureArea}>
+          <View style={styles.sigBox}>
+             <View style={styles.sigLine} />
+             <Text style={styles.sigLabel}>Receiver's Signature</Text>
+          </View>
+          <View style={styles.sigBox}>
+             <Text style={styles.companySigLabel}>For {company?.name}</Text>
+             <View style={styles.sigLineCompany} />
+             <Text style={styles.sigLabel}>Authorized Signatory</Text>
+          </View>
+        </View>
+
+        <Text style={styles.footer}>*** End of Receipt ***</Text>
       </Page>
     </Document>
   );

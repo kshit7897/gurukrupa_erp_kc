@@ -41,12 +41,15 @@ const styles = StyleSheet.create({
   partyName: { fontSize: 12, fontWeight: 'bold', color: '#0f172a' },
   partyAddress: { fontSize: 9, color: '#475569', marginTop: 4, lineHeight: 1.4 },
 
-  tableHeader: { flexDirection: 'row', backgroundColor: '#0f172a', paddingVertical: 8, paddingHorizontal: 6, marginTop: 20 },
-  tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: '#f1f5f9', alignItems: 'flex-start' },
-  cell: { paddingRight: 4 },
-  cellHeader: { color: '#ffffff', fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase' },
+  tableContainer: { marginTop: 20, borderWidth: 1, borderColor: '#0f172a' },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#0f172a', paddingVertical: 8, paddingHorizontal: 6 },
+  tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 6, borderBottomWidth: 0.5, borderBottomColor: '#e2e8f0', alignItems: 'flex-start' },
+  cell: { paddingRight: 4, borderRightWidth: 0.5, borderRightColor: '#e2e8f0' },
+  cellLast: { paddingRight: 0, borderRightWidth: 0 },
+  cellHeader: { color: '#ffffff', fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase', borderRightColor: '#1e293b' },
   
-  summaryContainer: { marginTop: 30, borderTopWidth: 2, borderTopColor: '#0f172a', paddingTop: 15, flexDirection: 'row', justifyContent: 'flex-end' },
+  summaryContainer: { marginTop: 30, borderTopWidth: 2, borderTopColor: '#0f172a', paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between' },
+  disclaimer: { flex: 1, fontSize: 7, color: '#94a3b8', fontStyle: 'italic', paddingRight: 40 },
   summaryBox: { width: 220 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   summaryLabel: { fontSize: 8, fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase' },
@@ -54,7 +57,15 @@ const styles = StyleSheet.create({
   netDueRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   netDueLabel: { fontSize: 10, fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase' },
   netDueValue: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
-  footer: { marginTop: 40, borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 15, textAlign: 'center', fontSize: 8, color: '#94a3b8', textTransform: 'uppercase' },
+  
+  signatureArea: { marginTop: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  sigBox: { alignItems: 'center', width: 160 },
+  sigLine: { height: 1, backgroundColor: '#94a3b8', width: '100%', marginBottom: 6 },
+  sigLineCompany: { height: 1, backgroundColor: '#0f172a', width: '100%', marginBottom: 6 },
+  sigLabel: { fontSize: 7, fontWeight: 'bold', color: '#94a3b8', textTransform: 'uppercase' },
+  companySigLabel: { fontSize: 9, fontWeight: 'bold', color: '#0f172a', textTransform: 'uppercase', marginBottom: 30 },
+  
+  footer: { marginTop: 40, textAlign: 'center', fontSize: 8, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: 2 },
 });
 
 function LedgerDoc({ company, party, rows, from, to }: any) {
@@ -100,34 +111,51 @@ function LedgerDoc({ company, party, rows, from, to }: any) {
           </View>
         </View>
 
-        <View style={styles.tableHeader}>
-          <Text style={[styles.cell, styles.cellHeader, { width: '12%' }]}>Date</Text>
-          <Text style={[styles.cell, styles.cellHeader, { width: '44%' }]}>Particulars</Text>
-          <Text style={[styles.cell, styles.cellHeader, { width: '14%' }]}>Ref No</Text>
-          <Text style={[styles.cell, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Debit</Text>
-          <Text style={[styles.cell, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Credit</Text>
-          <Text style={[styles.cell, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Balance</Text>
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.cell, styles.cellHeader, { width: '12%' }]}>Date</Text>
+            <Text style={[styles.cell, styles.cellHeader, { width: '44%' }]}>Particulars</Text>
+            <Text style={[styles.cell, styles.cellHeader, { width: '14%' }]}>Ref No</Text>
+            <Text style={[styles.cell, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Debit</Text>
+            <Text style={[styles.cell, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Credit</Text>
+            <Text style={[styles.cellLast, styles.cellHeader, { width: '10%', textAlign: 'right' }]}>Balance</Text>
+          </View>
+
+          {/* Opening Balance row */}
+          <View style={[styles.tableRow, { backgroundColor: '#f8fafc' }]}>
+            <Text style={[styles.cell, { width: '12%', fontStyle: 'italic' }]}>{from || 'Start'}</Text>
+            <Text style={[styles.cell, { width: '44%', fontWeight: 'bold' }]}>Opening Balance [B/F]</Text>
+            <Text style={[styles.cell, { width: '14%', color: '#94a3b8' }]}>-</Text>
+            <Text style={[styles.cell, { width: '10%', textAlign: 'right' }]}>-</Text>
+            <Text style={[styles.cell, { width: '10%', textAlign: 'right' }]}>-</Text>
+            <Text style={[styles.cellLast, { width: '10%', textAlign: 'right', fontWeight: 'bold' }]}>
+              {Math.abs(openingBalance).toFixed(2)} {openingBalance >= 0 ? 'Dr' : 'Cr'}
+            </Text>
+          </View>
+
+          {rows.map((r: any, idx: number) => (
+            <View key={idx} style={styles.tableRow} wrap={false}>
+              <Text style={[styles.cell, { width: '12%' }]}>{String(r.date || '').slice(0, 10)}</Text>
+              <View style={[styles.cell, { width: '44%' }]}>
+                <Text style={{ fontWeight: 'bold' }}>{r.type}</Text>
+                {r.desc ? <Text style={{ fontSize: 7, color: '#64748b', marginTop: 2 }}>{r.desc}</Text> : null}
+              </View>
+              <Text style={[styles.cell, { width: '14%', fontFamily: 'Courier' }]}>{r.ref}</Text>
+              <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#be123c' }]}>{r.debit ? Number(r.debit).toFixed(2) : '-'}</Text>
+              <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#047857' }]}>{r.credit ? Number(r.credit).toFixed(2) : '-'}</Text>
+              <Text style={[styles.cellLast, { width: '10%', textAlign: 'right', fontWeight: 'bold' }]}>{Math.abs(r.balance || 0).toFixed(2)} {r.balance >= 0 ? 'Dr' : 'Cr'}</Text>
+            </View>
+          ))}
         </View>
 
-        {rows.map((r: any, idx: number) => (
-          <View key={idx} style={styles.tableRow} wrap={false}>
-            <Text style={[styles.cell, { width: '12%' }]}>{String(r.date || '').slice(0, 10)}</Text>
-            <View style={{ width: '44%' }}>
-              <Text style={{ fontWeight: 'bold' }}>{r.type}</Text>
-              {r.desc ? <Text style={{ fontSize: 7, color: '#64748b', marginTop: 2 }}>{r.desc}</Text> : null}
-            </View>
-            <Text style={[styles.cell, { width: '14%', fontFamily: 'Courier' }]}>{r.ref}</Text>
-            <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#be123c' }]}>{r.debit ? Number(r.debit).toFixed(2) : '-'}</Text>
-            <Text style={[styles.cell, { width: '10%', textAlign: 'right', color: '#047857' }]}>{r.credit ? Number(r.credit).toFixed(2) : '-'}</Text>
-            <Text style={[styles.cell, { width: '10%', textAlign: 'right', fontWeight: 'bold' }]}>{Number(r.balance || 0).toFixed(2)}</Text>
-          </View>
-        ))}
-
         <View style={styles.summaryContainer}>
+          <View style={styles.disclaimer}>
+            <Text>* This is a computer generated statement. Please report any discrepancies within 7 days. Errors & Omissions Excepted (E&OE).</Text>
+          </View>
           <View style={styles.summaryBox}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Opening Balance</Text>
-              <Text style={styles.summaryValue}>{openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+              <Text style={styles.summaryValue}>{Math.abs(openingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {openingBalance >= 0 ? 'Dr' : 'Cr'}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total Charges (+)</Text>
@@ -138,13 +166,25 @@ function LedgerDoc({ company, party, rows, from, to }: any) {
               <Text style={[styles.summaryValue, { color: '#047857' }]}>{totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
             </View>
             <View style={styles.netDueRow}>
-              <Text style={styles.netDueLabel}>Net Amount Due</Text>
-              <Text style={styles.netDueValue}>₹ {Number(closingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+              <Text style={styles.netDueLabel}>Closing Balance</Text>
+              <Text style={styles.netDueValue}>₹ {Math.abs(closingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {closingBalance >= 0 ? 'Dr' : 'Cr'}</Text>
             </View>
           </View>
         </View>
 
-        <Text style={styles.footer}>Thank you for your business with {company?.name || 'us'}</Text>
+        <View style={styles.signatureArea}>
+           <View style={styles.sigBox}>
+              <View style={styles.sigLine} />
+              <Text style={styles.sigLabel}>Receiver's Seal & Sig</Text>
+           </View>
+           <View style={styles.sigBox}>
+              <Text style={styles.companySigLabel}>For {company?.name || 'the Company'}</Text>
+              <View style={styles.sigLineCompany} />
+              <Text style={styles.sigLabel}>Authorized Signatory</Text>
+           </View>
+        </View>
+
+        <Text style={styles.footer}>End of statement</Text>
       </Page>
     </Document>
   );
@@ -179,14 +219,48 @@ export async function GET(req: Request) {
 
     const entries = await LedgerEntry.find(q).sort({ date: 1, createdAt: 1 }).lean();
 
-    const transactions = entries.map((e: any) => ({
-      date: e.date,
-      ref: e.refNo || '-',
-      type: e.entryType || e.refType || 'TXN',
-      debit: Number(e.debit || 0),
-      credit: Number(e.credit || 0),
-      desc: e.narration || ''
-    }));
+    // Collect payment IDs to find the "Other Side" of the transaction
+    const refIds = entries
+      .filter((e: any) => e.refId && (e.refType === 'PAYMENT' || e.refType === 'OTHER_TXN'))
+      .map((e: any) => e.refId);
+
+    let otherEntries: any[] = [];
+    if (refIds.length > 0) {
+      // Fetch all ledger records for these payment/txn IDs
+      otherEntries = await LedgerEntry.find({ 
+        refId: { $in: refIds }, 
+        companyId 
+      }).lean();
+    }
+
+    const transactions = entries.map((e: any) => {
+      let desc = e.narration || '';
+      
+      // If it's a payment or related txn, try to find what the "Other Side" was
+      if (e.refId && (e.refType === 'PAYMENT' || e.refType === 'OTHER_TXN')) {
+        const others = otherEntries.filter((oe: any) => 
+          oe.refId === e.refId && 
+          oe.partyId !== e.partyId
+        );
+        if (others.length > 0) {
+          const otherNames = others.map((o: any) => o.partyName || 'Account').join(', ');
+          const isReceive = e.credit > 0;
+          desc = `${isReceive ? 'Received in' : 'Paid from'}: ${otherNames}`;
+          if (e.narration && !e.narration.includes(otherNames)) {
+             desc += ` (${e.narration})`;
+          }
+        }
+      }
+
+      return {
+        date: e.date,
+        ref: e.refNo || '-',
+        type: e.entryType || e.refType || 'TXN',
+        debit: Number(e.debit || 0),
+        credit: Number(e.credit || 0),
+        desc: desc
+      };
+    });
 
     let balance = Number(partyDoc.openingBalance || 0);
     const roles: string[] = (partyDoc.roles || [partyDoc.type]).map((r: any) => r && r.toString().toLowerCase());

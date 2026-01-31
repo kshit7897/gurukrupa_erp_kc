@@ -33,17 +33,51 @@ export async function GET(req: Request) {
 
     const entries = await LedgerEntry.find(q).sort({ date: 1, createdAt: 1 }).lean();
 
+    // Collect payment IDs to find the "Other Side" of the transaction
+    const refIds = entries
+      .filter((e: any) => e.refId && (e.refType === 'PAYMENT' || e.refType === 'OTHER_TXN'))
+      .map((e: any) => e.refId);
+
+    let otherEntries: any[] = [];
+    if (refIds.length > 0) {
+      // Fetch all ledger records for these payment/txn IDs across the whole company
+      otherEntries = await LedgerEntry.find({ 
+        refId: { $in: refIds }, 
+        companyId 
+      }).lean();
+    }
+
     // Map to a consistent transaction format
-    const transactions = entries.map((e: any) => ({
-      id: e._id.toString(),
-      date: e.date,
-      ref: e.refNo || '-',
-      type: e.entryType || e.refType || 'TXN',
-      debit: Number(e.debit || 0),
-      credit: Number(e.credit || 0),
-      cash: e.paymentMode?.toLowerCase() === 'cash' || e.narration?.toLowerCase().includes('cash'),
-      desc: e.narration || ''
-    }));
+    const transactions = entries.map((e: any) => {
+      let desc = e.narration || '';
+      
+      // If it's a payment or related txn, try to find what the "Other Side" was
+      if (e.refId && (e.refType === 'PAYMENT' || e.refType === 'OTHER_TXN')) {
+        const others = otherEntries.filter((oe: any) => 
+          oe.refId === e.refId && 
+          oe.partyId !== e.partyId
+        );
+        if (others.length > 0) {
+          const otherNames = others.map((o: any) => o.partyName || 'Account').join(', ');
+          const isReceive = e.credit > 0;
+          desc = `${isReceive ? 'Received in' : 'Paid from'}: ${otherNames}`;
+          if (e.narration && !e.narration.includes(otherNames)) {
+             desc += ` (${e.narration})`;
+          }
+        }
+      }
+
+      return {
+        id: e._id.toString(),
+        date: e.date,
+        ref: e.refNo || '-',
+        type: e.entryType || e.refType || 'TXN',
+        debit: Number(e.debit || 0),
+        credit: Number(e.credit || 0),
+        cash: e.paymentMode?.toLowerCase() === 'cash' || e.narration?.toLowerCase().includes('cash'),
+        desc: desc
+      };
+    });
 
     // running balance starting from openingBalance
     let balance = (partyDoc.openingBalance || 0);

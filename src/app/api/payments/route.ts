@@ -220,7 +220,7 @@ export async function POST(request: Request) {
           });
         }
 
-        await LedgerEntry.create(ledgerEntries, { session });
+        await LedgerEntry.create(ledgerEntries, { session, ordered: true });
       });
     } finally {
       session.endSession();
@@ -317,7 +317,7 @@ export async function DELETE(request: Request) {
           });
         }
 
-        await LedgerEntry.create(reversalEntries, { session });
+        await LedgerEntry.create(reversalEntries, { session, ordered: true });
 
         const res = await Payment.deleteOne({ _id: id }).session(session);
         deletedCount = res.deletedCount || 0;
