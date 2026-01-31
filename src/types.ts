@@ -88,6 +88,9 @@ export interface InvoiceItem {
   sgstAmount?: number;
   igstAmount?: number;
   taxType?: 'CGST_SGST' | 'IGST';
+  cartingAmount?: number;
+  cartingPartyId?: string;
+  cartingPartyName?: string;
 }
 
 export interface Invoice {
@@ -143,6 +146,7 @@ export interface Invoice {
   serial?: number;
   bill_type?: string;
   financial_year?: string;
+  show_carting_separately?: boolean;
 }
 
 export interface Company {

@@ -68,6 +68,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [cartingSearchQuery, setCartingSearchQuery] = useState('');
   const [showCartingDropdown, setShowCartingDropdown] = useState(false);
   const [currentCartingAmount, setCurrentCartingAmount] = useState<number | ''>(0);
+  const [showCartingSeparately, setShowCartingSeparately] = useState(true);
   const cartingDropdownRef = useRef<HTMLDivElement>(null);
 
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
@@ -122,6 +123,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           setVehicleNo(inv.vehicle_no || '');
           setDeliveryDateMeta(inv.delivery_date || new Date().toISOString().split('T')[0]);
           setDueDate(inv.dueDate || '');
+          setShowCartingSeparately(inv.show_carting_separately ?? true);
+          setCartingEnabled(inv.items?.some((it: any) => it.cartingAmount > 0) || false);
           // normalize item lines to the form's expected shape
           const normalizedItems = (Array.isArray(inv.items) ? inv.items : []).map((it: any) => {
             const qty = Number(it.qty || 0);
@@ -154,7 +157,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               cgstAmount: cgst,
               sgstAmount: sgst,
               igstAmount: igst,
-              taxType
+              taxType,
+              cartingAmount: Number(it.cartingAmount || 0),
+              cartingPartyId: it.cartingPartyId || '',
+              cartingPartyName: it.cartingPartyName || ''
             } as any;
           });
           setAddedItems(normalizedItems);
@@ -349,15 +355,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const qty = Number(currentQty);
     const rate = Number(currentRate);
     const discount = Number(currentDiscount) || 0;
-    const cartingAmt = cartingEnabled ? Number(currentCartingAmount) || 0 : 0;
+    const cartingPerUnit = cartingEnabled ? Number(currentCartingAmount) || 0 : 0;
+    const totalLineCarting = cartingPerUnit * qty;
     
-    // Calculate Base Amount
+    // Calculate Base Amount (Rate * Qty)
     const baseAmount = qty * rate;
     // Calculate Discount Amount
     const discountAmount = baseAmount * (discount / 100);
     // Calculate Taxable Value (Amount) - includes carting if enabled
-    // Carting amount is merged into item amount, GST calculated on merged amount
-    const taxableValue = baseAmount - discountAmount + cartingAmt;
+    const taxableValue = baseAmount - discountAmount + totalLineCarting;
 
     // calculate taxes on merged amount (including carting)
     const taxPct = Number(currentTaxPercent || selectedItem.taxPercent || 0);
@@ -379,7 +385,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       igstAmount: igstAmt,
       taxType: currentTaxMode,
       // Carting details
-      cartingAmount: cartingAmt,
+      cartingAmount: totalLineCarting,
       cartingPartyId: selectedCartingParty?.id,
       cartingPartyName: selectedCartingParty?.name
     };
@@ -403,12 +409,20 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   };
 
   // Calculations - Memoized to prevent re-calc on every render
-  const { subtotal, cgstTotal, sgstTotal, igstTotal, computedTaxTotal } = useMemo(() => {
+  const { subtotal, cgstTotal, sgstTotal, igstTotal, computedTaxTotal, totalCartingAmt } = useMemo(() => {
     const s = addedItems.reduce((sum, item) => sum + (item.amount || 0), 0);
     const c = addedItems.reduce((sum, item) => sum + (item.cgstAmount || 0), 0);
     const sg = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
     const i = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
-    return { subtotal: s, cgstTotal: c, sgstTotal: sg, igstTotal: i, computedTaxTotal: c + sg + i };
+    const cart = addedItems.reduce((sum, item) => sum + ((item as any).cartingAmount || 0), 0);
+    return { 
+      subtotal: s, 
+      cgstTotal: c, 
+      sgstTotal: sg, 
+      igstTotal: i, 
+      computedTaxTotal: c + sg + i,
+      totalCartingAmt: cart
+    };
   }, [addedItems]);
 
   // If manual GST override is enabled, use manual values instead of computed ones
@@ -429,9 +443,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
   // Live calculation for the input line - Memoized
   const { liveBase, liveDisc, liveCarting, liveTaxable } = useMemo(() => {
-    const base = (Number(currentQty) || 0) * (Number(currentRate) || 0);
+    const qty = Number(currentQty) || 0;
+    const base = qty * (Number(currentRate) || 0);
     const disc = base * ((Number(currentDiscount) || 0) / 100);
-    const cart = cartingEnabled ? (Number(currentCartingAmount) || 0) : 0;
+    const cart = cartingEnabled ? (Number(currentCartingAmount) || 0) * qty : 0;
     return { liveBase: base, liveDisc: disc, liveCarting: cart, liveTaxable: base - disc + cart };
   }, [currentQty, currentRate, currentDiscount, cartingEnabled, currentCartingAmount]);
 
@@ -527,7 +542,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           pincode: shippingAddress.pincode || billingAddressState.pincode || '',
           gstin: shippingAddress.gstin || billingAddressState.gstin || selectedParty.gstNo || '',
           phone: shippingAddress.phone || billingAddressState.phone || selectedParty.mobile || ''
-        }
+        },
+        show_carting_separately: showCartingSeparately
       };
 
       if (editingId) {
@@ -1061,60 +1077,74 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           </div>
           
           {cartingEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="relative" ref={cartingDropdownRef}>
-                <label className="text-xs text-slate-500 mb-1 block">Carting Party</label>
-                <div className="relative">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
                   <input 
-                    type="text"
-                    className={`w-full h-10 bg-white border rounded-lg pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-orange-500 ${!selectedCartingParty && cartingEnabled ? 'border-orange-300' : 'border-slate-200'}`}
-                    placeholder="Search carting party..."
-                    value={cartingSearchQuery}
-                    onChange={(e) => {
-                      setCartingSearchQuery(e.target.value);
-                      setShowCartingDropdown(true);
-                      if (selectedCartingParty && selectedCartingParty.name !== e.target.value) {
-                        setSelectedCartingParty(null);
-                      }
-                    }}
-                    onFocus={() => setShowCartingDropdown(true)}
+                    type="checkbox" 
+                    checked={showCartingSeparately} 
+                    onChange={(e) => setShowCartingSeparately(e.target.checked)} 
+                    className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" 
                   />
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <span className="text-sm font-medium text-orange-800">Show Carting Separately in Invoice</span>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="relative" ref={cartingDropdownRef}>
+                  <label className="text-xs text-slate-500 mb-1 block">Carting Party</label>
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      className={`w-full h-10 bg-white border rounded-lg pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-orange-500 ${!selectedCartingParty && cartingEnabled ? 'border-orange-300' : 'border-slate-200'}`}
+                      placeholder="Search carting party..."
+                      value={cartingSearchQuery}
+                      onChange={(e) => {
+                        setCartingSearchQuery(e.target.value);
+                        setShowCartingDropdown(true);
+                        if (selectedCartingParty && selectedCartingParty.name !== e.target.value) {
+                          setSelectedCartingParty(null);
+                        }
+                      }}
+                      onFocus={() => setShowCartingDropdown(true)}
+                    />
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  </div>
+                  
+                  {showCartingDropdown && cartingSearchQuery && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {cartingParties.length > 0 ? (
+                        cartingParties.map(p => (
+                          <div 
+                            key={p.id}
+                            className="px-4 py-2 hover:bg-orange-50 cursor-pointer border-b border-slate-50 last:border-0"
+                            onClick={() => handleSelectCartingParty(p)}
+                          >
+                            <p className="font-medium text-slate-900">{p.name}</p>
+                            <p className="text-xs text-slate-500">{p.mobile}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-orange-600 text-sm">
+                          No carting parties found. Add a party with "Carting" role first.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
-                {showCartingDropdown && cartingSearchQuery && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                    {cartingParties.length > 0 ? (
-                      cartingParties.map(p => (
-                        <div 
-                          key={p.id}
-                          className="px-4 py-2 hover:bg-orange-50 cursor-pointer border-b border-slate-50 last:border-0"
-                          onClick={() => handleSelectCartingParty(p)}
-                        >
-                          <p className="font-medium text-slate-900">{p.name}</p>
-                          <p className="text-xs text-slate-500">{p.mobile}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-orange-600 text-sm">
-                        No carting parties found. Add a party with "Carting" role first.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="text-xs text-slate-500 mb-1 block">Carting Amount (₹)</label>
-                <input 
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="0.00"
-                  value={currentCartingAmount}
-                  onChange={(e) => setCurrentCartingAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                />
+                <div>
+                  <label className="text-xs text-slate-500 mb-1 block">Carting Amount (₹)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    placeholder="0.00"
+                    value={currentCartingAmount}
+                    onChange={(e) => setCurrentCartingAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1135,7 +1165,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
              <p className="text-xs text-blue-600 font-medium">
                 Line Total: ₹ {liveTaxable.toFixed(2)} 
                 <span className="text-slate-400 font-normal ml-1">
-                  (Taxable Value{liveCarting > 0 ? ` incl. ₹${liveCarting.toFixed(2)} carting` : ''})
+                  (Taxable Value{liveCarting > 0 ? ` incl. ₹${liveCarting.toFixed(2)} total carting` : ''})
                 </span>
              </p>
           </div>
@@ -1194,9 +1224,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       <Card className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl mt-6">
          <div className="space-y-3 mb-6">
             <div className="flex justify-between text-slate-400 text-sm">
-               <span>Taxable Value (Subtotal)</span>
-               <span>₹ {subtotal.toFixed(2)}</span>
+               <span>{showCartingSeparately && totalCartingAmt > 0 ? 'Base Sub-Total' : 'Sub-Total'}</span>
+               <span>₹ {(subtotal - (showCartingSeparately ? totalCartingAmt : 0)).toFixed(2)}</span>
             </div>
+            {showCartingSeparately && totalCartingAmt > 0 && (
+              <>
+                <div className="flex justify-between text-slate-400 text-sm">
+                   <span>Total Carting</span>
+                   <span>₹ {totalCartingAmt.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-400 text-sm font-semibold border-t border-slate-800 pt-2">
+                   <span>Taxable Amount</span>
+                   <span>₹ {subtotal.toFixed(2)}</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-slate-400 text-sm">
                <span>Total Tax</span>
                <span>₹ {taxTotal.toFixed(2)}</span>

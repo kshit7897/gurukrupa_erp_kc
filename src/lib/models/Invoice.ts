@@ -19,8 +19,13 @@ const InvoiceSchema = new mongoose.Schema({
     name: String,
     qty: Number,
     rate: Number,
+    discountPercent: Number, // added for consistency
     taxPercent: Number,
-    amount: Number
+    amount: Number,
+    taxType: String, // added for consistency
+    cartingAmount: Number,
+    cartingPartyId: String,
+    cartingPartyName: String
   }],
   subtotal: Number,
   taxAmount: Number,
@@ -45,7 +50,8 @@ const InvoiceSchema = new mongoose.Schema({
   // tax split fields
   cgstAmount: { type: Number, default: 0 },
   sgstAmount: { type: Number, default: 0 },
-  igstAmount: { type: Number, default: 0 }
+  igstAmount: { type: Number, default: 0 },
+  show_carting_separately: { type: Boolean, default: true }
   ,
   // billing and shipping address objects saved with invoice
   billingAddress: {
@@ -78,4 +84,8 @@ InvoiceSchema.index({ companyId: 1, dueAmount: 1 }); // For outstanding/receivab
 InvoiceSchema.index({ companyId: 1, date: -1 }); // For general list sorting
 // invoice_no index declared on field to avoid duplicate index warnings
 
-export default mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
+// Use current schema even if model already exists (helps in dev when adding fields)
+if (mongoose.models.Invoice) {
+  delete mongoose.models.Invoice;
+}
+export default mongoose.model('Invoice', InvoiceSchema);
