@@ -37,6 +37,13 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "diagnose_*.ts",
+    "test_*.ts",
+    "repair_*.ts",
+    "dump_*.ts",
+    "global_*.ts",
+    "check_*.ts",
+    "scripts/**/*.ts"
   ]
 }
