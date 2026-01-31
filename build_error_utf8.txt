@@ -1,0 +1,159 @@
+﻿
+> gurukrupaerp@0.1.0 build
+> next build
+
+   Γû▓ Next.js 15.5.9
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully in 3.8s
+   Skipping linting
+   Checking validity of types ...
+node.exe : Failed to 
+compile.
+At C:\Users\Lenovo\App
+Data\Roaming\npm\npm.p
+s1:24 char:5
++     & "node$exe"  "$
+basedir/node_modules/n
+pm/bin/npm-cli.js" 
+$args
++     ~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Failed to    
+ compile.:String)     
+[], RemoteExcepti    
+on
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+
+./diagnose_ledger_v2.t
+s:14:46
+Type error: No 
+overload matches this 
+call.
+  Overload 1 of 4, 
+'(filter?: 
+_QueryFilter<{ 
+metadata: { 
+invoiceType?: string 
+| null | undefined; 
+balanceType?: string 
+| null | undefined; 
+}; date: string; 
+createdBy: string; 
+createdAt: 
+NativeDate; 
+updatedAt: 
+NativeDate; ... 14 
+more ...; "metadata.ba
+lanceType": string | 
+... 1 more ... | 
+undefined; }> | 
+undefined, 
+projection?: 
+ProjectionType<...> | 
+... 1 more ... | 
+undefined, options?: 
+(QueryOptions<...> & 
+Abortable) | 
+undefined): 
+Query<...>', gave the 
+following error.
+    Type 'ObjectId' 
+is not assignable to 
+type 'Condition<ApplyB
+asicQueryCasting<strin
+g>> | undefined'.
+      Type 'ObjectId' 
+is not assignable to 
+type 'FilterOperators<
+string | RegExp | 
+string[] | BSONRegExp 
+| null>'.
+        Types of 
+property 'id' are 
+incompatible.
+          Type 'Uint8A
+rray<ArrayBufferLike>'
+ is not assignable to 
+type 'undefined'.
+  Overload 2 of 4, 
+'(filter?: Query<any, 
+any, {}, unknown, 
+"find", 
+Record<string, 
+never>> | undefined, 
+projection?: 
+ProjectionType<{ 
+date: string; 
+partyId: string; 
+entryType: string; 
+debit: number; 
+credit: number; ... 
+10 more ...; 
+refType?: "INVOICE" | 
+... 5 more ... | 
+undefined; } & Default
+TimestampProps> | 
+null | undefined, 
+options?: 
+(QueryOptions<...> & 
+Abortable) | 
+undefined): 
+Query<...>', gave the 
+following error.
+    Object literal 
+may only specify 
+known properties, and 
+'refId' does not 
+exist in type 
+'Query<any, any, {}, 
+unknown, "find", 
+Record<string, 
+never>>'.
+
+[0m [90m 12 |[39m
+ [90m 13 |[39m   
+[36mfor[39m 
+([36mconst[39m txn 
+[36mof[39m txns) {
+[31m[1m>[22m[39m[
+90m 14 |[39m     
+[36mconst[39m 
+entries [33m=[39m 
+[36mawait[39m [33mL
+edgerEntry[39m[33m.
+[39mfind({ 
+refId[33m:[39m txn[
+33m.[39m_id[33m,[39
+m refType[33m:[39m 
+[32m'OTHER_TXN'[39m 
+})[33m.[39mlean()[3
+3m;[39m
+ [90m    |[39m      
+                      
+                  
+[31m[1m^[22m[39m
+ [90m 15 |[39m     c
+onsole[33m.[39mlog(
+[32m`- Txn: 
+${txn.txnType}, Date: 
+${txn.date}, Amt: 
+${txn.amount}, From: $
+{txn.fromName}(${txn.f
+romId}), To: ${txn.toN
+ame}(${txn.toId}), 
+Entries: ${entries.len
+gth}`[39m)[33m;[39m
+ [90m 16 |[39m   }
+ [90m 17 |[39m[0m
+Next.js build worker 
+exited with code: 1 
+and signal: null
