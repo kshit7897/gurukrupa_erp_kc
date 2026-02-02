@@ -149,9 +149,27 @@ export async function DELETE(request: Request) {
     const item = await Item.findOne({ _id: id, companyId });
     if (!item) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     
+    // Check if item is used in any invoices
+    const Invoice = (await import('../../../lib/models/Invoice')).default;
+    const invoiceCount = await Invoice.countDocuments({
+      companyId,
+      'items.itemId': id
+    });
+    
+    if (invoiceCount > 0) {
+      return NextResponse.json({ 
+        error: `Cannot delete item. This item is used in ${invoiceCount} invoice(s). Please remove or delete those invoices first.` 
+      }, { status: 400 });
+    }
+    
+    // Delete associated stock movements
+    await StockMovement.deleteMany({ itemId: id, companyId });
+    
+    // Delete the item
     await Item.findByIdAndDelete(id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Failed to delete item:', error);
     return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 });
   }
 }

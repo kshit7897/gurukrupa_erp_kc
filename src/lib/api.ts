@@ -108,10 +108,14 @@ export const api = {
         return out;
       });
     },
-    delete: async (id: string) => {
+    delete: async (id: string, forceCleanup: boolean = false) => {
       return withLoader(async () => {
-        const res = await fetch(`/api/parties?id=${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to delete party');
+        const url = `/api/parties?id=${id}${forceCleanup ? '&forceCleanup=true' : ''}`;
+        const res = await fetch(url, { method: 'DELETE' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Failed to delete party');
+        }
         dataEvents.dispatch();
         try { notify('success', 'Party deleted'); } catch (e) {}
         return true;
@@ -149,7 +153,10 @@ export const api = {
     delete: async (id: string) => {
       return withLoader(async () => {
         const res = await fetch(`/api/items?id=${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to delete item');
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Failed to delete item');
+        }
         dataEvents.dispatch();
         try { notify('success', 'Item deleted'); } catch (e) {}
         return true;

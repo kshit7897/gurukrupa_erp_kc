@@ -228,6 +228,8 @@ export async function DELETE(request: Request) {
     
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const forceCleanup = searchParams.get('forceCleanup') === 'true';
+    
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
     
     // Verify party belongs to this company
@@ -240,16 +242,88 @@ export async function DELETE(request: Request) {
     }
     
     // Check if party has any transactions (with company scope)
-    const ledgerEntries = await LedgerEntry.countDocuments({ 
+    const ledgerEntries = await LedgerEntry.find({ 
       partyId: id,
       entryType: { $ne: 'OPENING_BALANCE' },
       companyId
-    });
+    }).lean();
     
-    if (ledgerEntries > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete party with existing transactions. Please reverse or delete all related transactions first.' 
-      }, { status: 400 });
+    console.log(`[DELETE PARTY] Party ID: ${id}, Company: ${companyId}, Ledger entries (non-opening): ${ledgerEntries.length}`);
+    
+    if (ledgerEntries.length > 0) {
+      // Validate if these ledger entries reference existing records
+      const Invoice = (await import('../../../lib/models/Invoice')).default;
+      const Payment = (await import('../../../lib/models/Payment')).default;
+      
+      let validEntries = 0;
+      let orphanedEntries = 0;
+      const orphanedIds = [];
+      
+      for (const entry of ledgerEntries) {
+        let exists = false;
+        
+        // Check based on entry type
+        if (entry.entryType === 'INVOICE' || entry.entryType === 'REVERSAL') {
+          // Both INVOICE and REVERSAL entries reference invoices
+          const invoice = await Invoice.findById(entry.refId);
+          exists = !!invoice;
+        } else if (entry.entryType === 'PAYMENT' || entry.entryType === 'RECEIPT') {
+          // Both PAYMENT and RECEIPT entries reference payments
+          const payment = await Payment.findById(entry.refId);
+          exists = !!payment;
+        } else {
+          // For other types (like OTHER_TXN), check if refId exists
+          if (entry.refId) {
+            // Try to find in any collection - if not found, consider orphaned
+            const invoice = await Invoice.findById(entry.refId);
+            const payment = await Payment.findById(entry.refId);
+            exists = !!(invoice || payment);
+          } else {
+            // No refId means it's a standalone entry, consider it valid
+            exists = true;
+          }
+        }
+        
+        if (exists) {
+          validEntries++;
+        } else {
+          orphanedEntries++;
+          orphanedIds.push(entry._id);
+        }
+      }
+      
+      console.log(`[DELETE PARTY] Valid entries: ${validEntries}, Orphaned entries: ${orphanedEntries}`);
+      
+      // If there are valid entries, cannot delete
+      if (validEntries > 0) {
+        const byType: any = {};
+        ledgerEntries.forEach((entry: any) => {
+          const type = entry.entryType || 'UNKNOWN';
+          byType[type] = (byType[type] || 0) + 1;
+        });
+        
+        const typeBreakdown = Object.entries(byType)
+          .map(([type, count]) => `${count} ${type}`)
+          .join(', ');
+        
+        return NextResponse.json({ 
+          error: `Cannot delete party with existing transactions (${validEntries} valid). Found: ${typeBreakdown}. Please delete all related invoices, payments, and other transactions first.` 
+        }, { status: 400 });
+      }
+      
+      // If all entries are orphaned, clean them up automatically or suggest cleanup
+      if (orphanedEntries > 0) {
+        if (forceCleanup) {
+          console.log(`[DELETE PARTY] Cleaning up ${orphanedEntries} orphaned entries`);
+          await LedgerEntry.deleteMany({ _id: { $in: orphanedIds } });
+        } else {
+          return NextResponse.json({ 
+            error: `Found ${orphanedEntries} orphaned ledger entries (invoices/payments that no longer exist). Click delete again to clean up and remove party.`,
+            canForceCleanup: true,
+            orphanedCount: orphanedEntries
+          }, { status: 400 });
+        }
+      }
     }
     
     // Delete opening balance ledger entries
@@ -257,6 +331,8 @@ export async function DELETE(request: Request) {
     
     // Delete the party
     await Party.findByIdAndDelete(id);
+    
+    console.log(`[DELETE PARTY] Successfully deleted party ${id}`);
     
     return NextResponse.json({ success: true });
   } catch (error) {
