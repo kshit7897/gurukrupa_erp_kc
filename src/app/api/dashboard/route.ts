@@ -13,22 +13,22 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     await dbConnect();
-    
+
     // Get company context
     const { companyId } = getCompanyContextFromRequest(request);
     if (!companyId) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
-    
+
     // Strict company scope filter
     const companyFilter = { companyId };
-    
+
     const url = new URL(request.url);
     const drilldown = url.searchParams.get('drilldown'); // 'year', 'month', or 'transactions'
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
     const metric = url.searchParams.get('metric'); // 'sales', 'purchase', 'receivable', 'payable'
-    
+
     // If drilldown is requested, return specific data
     if (drilldown === 'year' && metric) {
       return await getYearlyBreakdown(metric, companyId);
@@ -56,11 +56,11 @@ export async function GET(request: Request) {
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const monthSalesAgg = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter, $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $match: { type: 'SALES', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
     ]);
     const monthPurchaseAgg = await Invoice.aggregate([
-      { $match: { type: 'PURCHASE', ...companyFilter, $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $match: { type: 'PURCHASE', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
       { $group: { _id: null, total: { $sum: '$grandTotal' } } }
     ]);
 
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
 
     // Month receivables (sales with dueAmount within month) - with company scope
     const monthReceivablesAgg = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter, $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } },
+      { $match: { type: 'SALES', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
       { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
     ]);
 
@@ -156,11 +156,11 @@ export async function GET(request: Request) {
 
     // Unallocated payments (advances) — these are payments without allocations - with company scope
     const unallocReceiptsAgg = await Payment.aggregate([
-      { $match: { type: 'receive', ...companyFilter, $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] } },
+      { $match: { type: 'receive', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const unallocPaymentsAgg = await Payment.aggregate([
-      { $match: { type: 'pay', ...companyFilter, $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] } },
+      { $match: { type: 'pay', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const unallocatedReceipts = unallocReceiptsAgg[0]?.total || 0;
@@ -168,11 +168,11 @@ export async function GET(request: Request) {
 
     // Unallocated payments within the current month (so monthReceivables/payables can be adjusted) - with company scope
     const monthUnallocReceiptsAgg = await Payment.aggregate([
-      { $match: { $and: [ { type: 'receive' }, companyFilter, { $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] }, { $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } ] } },
+      { $match: { $and: [{ type: 'receive' }, companyFilter, { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, { $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] }] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const monthUnallocPaymentsAgg = await Payment.aggregate([
-      { $match: { $and: [ { type: 'pay' }, companyFilter, { $or: [ { allocations: { $exists: false } }, { allocations: { $size: 0 } } ] }, { $or: [ { date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } } ] } ] } },
+      { $match: { $and: [{ type: 'pay' }, companyFilter, { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, { $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] }] } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
     ]);
     const monthUnallocatedReceipts = monthUnallocReceiptsAgg[0]?.total || 0;
@@ -185,6 +185,7 @@ export async function GET(request: Request) {
       // month-to-date values
       monthSales: roundUp(monthSalesAgg[0]?.total || 0),
       monthPurchase: roundUp(monthPurchaseAgg[0]?.total || 0),
+      monthProfit: roundUp((monthSalesAgg[0]?.total || 0) - (monthPurchaseAgg[0]?.total || 0)),
       monthReceivables: roundUp(Math.max(0, (monthReceivablesAgg[0]?.receivable || 0) - monthUnallocatedReceipts)),
       // adjust outstanding/receivables/payables to account for unallocated advances
       outstanding: roundUp(Math.max(0, (outstandingAgg[0]?.totalDue || 0) - unallocatedReceipts + unallocatedPayments)),
@@ -193,7 +194,7 @@ export async function GET(request: Request) {
       cashIn: roundUp(cashIn),
       cashOut: roundUp(cashOut),
       lowStock: Number(lowStock || 0),
-      currentStock: (currentStockItems || []).map((it:any) => ({ id: it._id?.toString(), name: it.name || it.title || 'Unnamed', sku: it.sku || null, stock: Number(it.stock || 0), unit: it.unit || null })),
+      currentStock: (currentStockItems || []).map((it: any) => ({ id: it._id?.toString(), name: it.name || it.title || 'Unnamed', sku: it.sku || null, stock: Number(it.stock || 0), unit: it.unit || null })),
       recentInvoices,
       recentPayments,
       recentOtherTxns: recentOther
@@ -206,16 +207,49 @@ export async function GET(request: Request) {
 
 // Helper function to get yearly breakdown
 async function getYearlyBreakdown(metric: string, companyId: string) {
-  const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
   const companyFilter = { companyId };
-  
+
+  if (metric === 'profit') {
+    const sales = await Invoice.aggregate([
+      { $match: { type: 'SALES', ...companyFilter } },
+      { $addFields: { year: { $year: { $cond: [{ $type: '$date' }, { $dateFromString: { dateString: '$date', onError: '$createdAt' } }, '$createdAt'] } } } },
+      { $group: { _id: '$year', total: { $sum: '$grandTotal' }, count: { $sum: 1 } } }
+    ]);
+    const purchase = await Invoice.aggregate([
+      { $match: { type: 'PURCHASE', ...companyFilter } },
+      { $addFields: { year: { $year: { $cond: [{ $type: '$date' }, { $dateFromString: { dateString: '$date', onError: '$createdAt' } }, '$createdAt'] } } } },
+      { $group: { _id: '$year', total: { $sum: '$grandTotal' }, count: { $sum: 1 } } }
+    ]);
+
+    const years = new Set([...sales.map(s => s._id), ...purchase.map(p => p._id)]);
+    const data = Array.from(years).map(year => {
+      const s = sales.find(x => x._id === year) || { total: 0, count: 0 };
+      const p = purchase.find(x => x._id === year) || { total: 0, count: 0 };
+      return {
+        year,
+        total: Math.round(s.total - p.total),
+        due: 0,
+        paid: 0,
+        count: s.count + p.count
+      };
+    }).sort((a, b) => b.year - a.year);
+
+    return NextResponse.json({
+      metric,
+      breakdown: 'yearly',
+      data
+    });
+  }
+
+  const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
+
   // Get all years with data
   const yearlyData = await Invoice.aggregate([
     { $match: { type: invoiceType, ...companyFilter } },
     {
       $addFields: {
-        year: { 
-          $year: { 
+        year: {
+          $year: {
             $cond: [
               { $type: '$date' },
               { $dateFromString: { dateString: '$date', onError: '$createdAt' } },
@@ -236,7 +270,7 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
     },
     { $sort: { _id: -1 } }
   ]);
-  
+
   return NextResponse.json({
     metric,
     breakdown: 'yearly',
@@ -252,15 +286,58 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
 
 // Helper function to get monthly breakdown for a year
 async function getMonthlyBreakdown(metric: string, year: number, companyId: string) {
-  const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
   const companyFilter = { companyId };
-  
   const startDate = new Date(year, 0, 1);
   const endDate = new Date(year + 1, 0, 1);
-  
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  if (metric === 'profit') {
+    const agg = (type: string) => Invoice.aggregate([
+      {
+        $match: {
+          type,
+          ...companyFilter,
+          $or: [
+            { date: { $gte: startDate.toISOString().split('T')[0], $lt: endDate.toISOString().split('T')[0] } },
+            { createdAt: { $gte: startDate, $lt: endDate } }
+          ]
+        }
+      },
+      { $addFields: { month: { $month: { $cond: [{ $type: '$date' }, { $dateFromString: { dateString: '$date', onError: '$createdAt' } }, '$createdAt'] } } } },
+      { $group: { _id: '$month', total: { $sum: '$grandTotal' }, count: { $sum: 1 } } }
+    ]);
+
+    const sales = await agg('SALES');
+    const purchase = await agg('PURCHASE');
+
+    const filledData = monthNames.map((name, idx) => {
+      const s = sales.find(m => m._id === idx + 1);
+      const p = purchase.find(m => m._id === idx + 1);
+      const sTot = s?.total || 0;
+      const pTot = p?.total || 0;
+      return {
+        month: idx + 1,
+        monthName: name,
+        total: Math.round(sTot - pTot),
+        due: 0,
+        paid: 0,
+        count: (s?.count || 0) + (p?.count || 0)
+      };
+    });
+
+    return NextResponse.json({
+      metric,
+      year,
+      breakdown: 'monthly',
+      data: filledData
+    });
+  }
+
+  const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
+
   const monthlyData = await Invoice.aggregate([
-    { 
-      $match: { 
+    {
+      $match: {
         type: invoiceType,
         ...companyFilter,
         $or: [
@@ -271,8 +348,8 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
     },
     {
       $addFields: {
-        month: { 
-          $month: { 
+        month: {
+          $month: {
             $cond: [
               { $type: '$date' },
               { $dateFromString: { dateString: '$date', onError: '$createdAt' } },
@@ -293,9 +370,9 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
     },
     { $sort: { _id: 1 } }
   ]);
-  
+
   // Fill in missing months with zero values
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   const filledData = monthNames.map((name, idx) => {
     const monthData = monthlyData.find(m => m._id === idx + 1);
     return {
@@ -307,7 +384,7 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
       count: monthData?.count || 0
     };
   });
-  
+
   return NextResponse.json({
     metric,
     year,
@@ -318,40 +395,66 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
 
 // Helper function to get transaction breakdown for a specific month
 async function getTransactionBreakdown(metric: string, year: number, month: number, companyId: string) {
-  const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
   const companyFilter = { companyId };
-  
+
+  let matchQuery: any = { ...companyFilter };
+
+  if (metric === 'profit') {
+    matchQuery.type = { $in: ['SALES', 'PURCHASE'] };
+  } else {
+    const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
+    matchQuery.type = invoiceType;
+  }
+
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 1);
   const startStr = startDate.toISOString().split('T')[0];
   const endStr = endDate.toISOString().split('T')[0];
-  
+
   const transactions = await Invoice.find({
-    type: invoiceType,
-    ...companyFilter,
+    ...matchQuery,
     $or: [
       { date: { $gte: startStr, $lt: endStr } },
       { createdAt: { $gte: startDate, $lt: endDate } }
     ]
   })
-  .sort({ date: -1, createdAt: -1 })
-  .lean();
-  
+    .sort({ date: -1, createdAt: -1 })
+    .lean();
+
   // Group by party for summary
   const partyWise: Record<string, { partyName: string; total: number; due: number; count: number }> = {};
-  
+
   transactions.forEach((inv: any) => {
     const partyId = inv.partyId || 'unknown';
     const partyName = inv.partyName || inv.billingAddress?.name || 'Unknown Party';
-    
+
     if (!partyWise[partyId]) {
       partyWise[partyId] = { partyName, total: 0, due: 0, count: 0 };
     }
-    partyWise[partyId].total += Number(inv.grandTotal || 0);
+
+    const amount = Number(inv.grandTotal || 0);
+    const isExpense = inv.type === 'PURCHASE';
+
+    if (metric === 'profit') {
+      partyWise[partyId].total += isExpense ? -amount : amount;
+    } else {
+      partyWise[partyId].total += amount;
+    }
+
     partyWise[partyId].due += Number(inv.dueAmount || 0);
     partyWise[partyId].count += 1;
   });
-  
+
+  let totalAmount = 0;
+  if (metric === 'profit') {
+    totalAmount = transactions.reduce((sum: number, inv: any) => {
+      const amt = Number(inv.grandTotal || 0);
+      return sum + (inv.type === 'PURCHASE' ? -amt : amt);
+    }, 0);
+  } else {
+    totalAmount = transactions.reduce((sum: number, inv: any) => sum + Number(inv.grandTotal || 0), 0);
+  }
+
   return NextResponse.json({
     metric,
     year,
@@ -359,7 +462,7 @@ async function getTransactionBreakdown(metric: string, year: number, month: numb
     breakdown: 'transactions',
     summary: {
       totalTransactions: transactions.length,
-      totalAmount: Math.round(transactions.reduce((sum: number, inv: any) => sum + Number(inv.grandTotal || 0), 0)),
+      totalAmount: Math.round(totalAmount),
       totalDue: Math.round(transactions.reduce((sum: number, inv: any) => sum + Number(inv.dueAmount || 0), 0))
     },
     partyWise: Object.entries(partyWise).map(([partyId, data]) => ({
@@ -374,6 +477,7 @@ async function getTransactionBreakdown(metric: string, year: number, month: numb
       date: inv.date,
       partyName: inv.partyName || inv.billingAddress?.name,
       amount: Math.round(Number(inv.grandTotal || 0)),
+      type: inv.type,
       due: Math.round(Number(inv.dueAmount || 0)),
       paid: Math.round(Number(inv.paidAmount || 0))
     }))

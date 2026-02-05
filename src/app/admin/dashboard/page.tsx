@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Card, Modal, Button } from '../../../components/ui/Common';
-import { TrendingUp, TrendingDown, Users, Package, AlertCircle, ChevronRight, Download, FileSpreadsheet, X, ArrowLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Package, AlertCircle, ChevronRight, Download, FileSpreadsheet, X, ArrowLeft, IndianRupee } from 'lucide-react';
 
 import { api } from '../../../lib/api';
 import { Skeleton } from '../../../components/ui/Common';
@@ -56,6 +56,7 @@ export default function Dashboard() {
   const metricLabels: Record<string, string> = {
     sales: 'Sales',
     purchase: 'Purchase',
+    profit: 'Profit',
     receivable: 'Receivables',
     payable: 'Payables'
   };
@@ -211,6 +212,15 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <StatCard 
+          title={`Monthly Profit — ${monthName}`} 
+          value={`₹ ${(Number(stats.monthProfit || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
+          subtext="Click for year-wise breakdown" 
+          icon={IndianRupee} 
+          color="#8b5cf6" 
+          clickable 
+          onClick={() => openDrilldown('profit')} 
+        />
         <StatCard 
           title={`Total Sales — ${monthName}`} 
           value={`₹ ${(Number(stats.monthSales || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
@@ -404,7 +414,9 @@ export default function Dashboard() {
                             <div className="text-xs text-slate-500">{t.partyName} • {t.date}</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-semibold">₹ {t.amount.toLocaleString()}</div>
+                            <div className={`font-semibold ${t.type === 'PURCHASE' && drilldownMetric === 'profit' ? 'text-red-600' : t.type === 'SALES' && drilldownMetric === 'profit' ? 'text-green-600' : ''}`}>
+                                {t.type === 'PURCHASE' && drilldownMetric === 'profit' ? '- ' : ''}₹ {t.amount.toLocaleString()}
+                            </div>
                             {t.due > 0 && <div className="text-xs text-red-600">Due: ₹ {t.due.toLocaleString()}</div>}
                           </div>
                         </div>

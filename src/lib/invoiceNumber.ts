@@ -1,6 +1,7 @@
 import dbConnect from './mongodb';
 import Counter from './models/Counter';
 import Company from './models/Company';
+import Invoice from './models/Invoice';
 
 /**
  * Invoice Numbering System (Revised)
@@ -11,13 +12,12 @@ import Company from './models/Company';
  *    - C:  Cash Invoice
  *    - CR: Credit Invoice (Tax Invoice) / Online
  *    - PUR: Purchase
- * 3. Financial Year: YY/YY (e.g., 25/26)
- * 4. Sequence: 4-digit padded, atomic per Company+Series+FY
+ * 3. Financial Year: YYYY (e.g., 2026) - As per user request, simply the year of the date.
+ * 4. Sequence: 4-digit padded, atomic per Company+Series+FY using Max+1 strategy for reset support.
  * 5. Separator: Hyphen "-"
- * 6. Counter Key: inv:{companyId}:{series}:{financialYear}
  * 
- * Format: {PREFIX}-{SERIES}-{SEQ}-{FY}
- * Example: DE-C-0001-25/26
+ * Format: {PREFIX}-{SERIES}-{SEQ}-{YYYY}
+ * Example: DE-C-0001-2026
  */
 
 interface GenerateOptions {
@@ -25,7 +25,7 @@ interface GenerateOptions {
   date?: string | Date;
   paymentMode?: string;      // 'cash', 'credit', 'online', etc.
   bill_type?: string;        // override for paymentMode
-  invoiceType?: 'SALES' | 'PURCHASE'; 
+  invoiceType?: 'SALES' | 'PURCHASE';
   type?: 'SALES' | 'PURCHASE'; // alias for invoiceType
 }
 
@@ -39,7 +39,7 @@ export async function generateInvoiceNumber(payload: GenerateOptions) {
   // 1. Get Company Prefix
   const company = await Company.findById(payload.companyId).select('invoicePrefix name').lean();
   let prefix = 'GK'; // Default fallback
-  
+
   if (company) {
     if (company.invoicePrefix) {
       prefix = company.invoicePrefix;
@@ -53,9 +53,9 @@ export async function generateInvoiceNumber(payload: GenerateOptions) {
   // 2. Determine Series (C vs CR)
   const actualType = payload.invoiceType || payload.type || 'SALES';
   const mode = (payload.bill_type || payload.paymentMode || '').toLowerCase();
-  
+
   let seriesCode = 'CR'; // Default to Credit
-  
+
   if (actualType === 'PURCHASE') {
     seriesCode = 'PUR';
   } else {
@@ -68,31 +68,31 @@ export async function generateInvoiceNumber(payload: GenerateOptions) {
     }
   }
 
-  // 3. Determine Financial Year (Short Format: 25/26)
+  // 3. Determine Financial Year (Full Year: 2026)
   const dateObj = payload.date ? new Date(payload.date) : new Date();
   if (isNaN(dateObj.getTime())) {
     throw new Error('Invalid date provided for invoice generation');
   }
-  
-  const fy = getFinancialYearShort(dateObj); // "25/26"
 
-  // 4. Atomic Increment
-  // Key format: inv:{companyId}:{series}:{financialYear}
-  // Example: inv:123:C:25/26
-  const counterKey = `inv:${payload.companyId}:${seriesCode}:${fy}`;
-  
-  const counter = await Counter.findOneAndUpdate(
-    { companyId: payload.companyId, key: counterKey },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  ).lean();
-  
-  const nextSeq = (counter?.seq || 1);
+  const fy = getFinancialYearShort(dateObj); // "2026"
+
+  // 4. Calculate Sequence (Max + 1 Strategy)
+  // This allows resetting to 1 if all invoices are deleted, or filling the gap if the last one is deleted.
+  const lastInvoice = await Invoice.findOne({
+    companyId: payload.companyId,
+    bill_type: seriesCode,
+    financial_year: fy
+  })
+    .sort({ serial: -1 })
+    .select('serial')
+    .lean();
+
+  const nextSeq = (lastInvoice?.serial || 0) + 1;
   const seqPadded = String(nextSeq).padStart(4, '0');
 
   // 5. Construct Final Number
   // Format: {PREFIX}-{SERIES}-{SEQ}-{FY}
-  // Example: DE-C-0001-25/26
+  // Example: DE-C-0001-2026
   const invoice_no = `${prefix}-${seriesCode}-${seqPadded}-${fy}`;
 
   return {
@@ -105,22 +105,11 @@ export async function generateInvoiceNumber(payload: GenerateOptions) {
 }
 
 /**
- * Returns FY in format "YY/YY" (e.g. "25/26")
+ * Returns Full Year string (e.g. "2026")
+ * As per user request, this strictly returns the year of the date provided.
  */
 function getFinancialYearShort(date: Date): string {
-  const month = date.getMonth(); // 0-11
-  const year = date.getFullYear();
-  
-  // April (3) starts new FY
-  let startYear = year;
-  if (month < 3) { // Jan, Feb, Mar belong to previous FY start
-    startYear = year - 1;
-  }
-  
-  const startYY = String(startYear).slice(-2);
-  const endYY = String(startYear + 1).slice(-2);
-  
-  return `${startYY}/${endYY}`;
+  return String(date.getFullYear());
 }
 
 export async function generateVoucherNumber(type: string, date: string | Date | undefined, companyId: string) {
@@ -141,7 +130,7 @@ export async function generateVoucherNumber(type: string, date: string | Date | 
 
   // 2. Determine Series (RCV vs PAY)
   const seriesCode = type === 'receive' ? 'RCV' : 'PAY';
-  
+
   // 3. Determine FY
   const dateObj = date ? new Date(date) : new Date();
   const fy = getFinancialYearShort(dateObj);
@@ -149,13 +138,13 @@ export async function generateVoucherNumber(type: string, date: string | Date | 
   // 4. Atomic Increment
   // Key: voucher:{companyId}:{series}:{fy}
   const counterKey = `voucher:${companyId}:${seriesCode}:${fy}`;
-  
+
   const counter = await Counter.findOneAndUpdate(
     { companyId: companyId, key: counterKey },
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   ).lean();
-  
+
   const nextSeq = (counter?.seq || 1);
   const seqPadded = String(nextSeq).padStart(4, '0');
 

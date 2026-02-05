@@ -1023,7 +1023,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               <input 
                  type="number" 
                  className={`w-full h-11 bg-white border rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${currentRate === '' && formError?.includes('rate') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
-                 value={currentRate}
+                 value={currentRate === null ? '' : currentRate}
                  onChange={(e) => setCurrentRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
               />
            </div>
