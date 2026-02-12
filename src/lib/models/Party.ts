@@ -3,9 +3,9 @@ import mongoose from 'mongoose';
 const PartySchema = new mongoose.Schema({
   // Company scoping for multi-company support
   companyId: { type: String, index: true },
-  
+
   name: { type: String, required: true },
-  mobile: { type: String, required: true },
+  mobile: { type: String, required: false },
   email: String,
   address: String,
   gstNo: String,

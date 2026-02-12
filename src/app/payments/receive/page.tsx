@@ -14,7 +14,7 @@ export default function ReceivePaymentPage() {
   const [selectedParty, setSelectedParty] = useState('');
   const [totalOutstanding, setTotalOutstanding] = useState<number>(0);
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0,10));
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mode, setMode] = useState('cash');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,7 +37,7 @@ export default function ReceivePaymentPage() {
         }
         if (amount) setAmount(amount);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const load = async () => {
@@ -47,7 +47,7 @@ export default function ReceivePaymentPage() {
       setParties(pts || []);
       const inv = await api.invoices.list();
       // only keep invoices with outstanding due > 0
-      const unpaid = (inv || []).filter((i:any) => {
+      const unpaid = (inv || []).filter((i: any) => {
         const due = Number(i.dueAmount != null ? i.dueAmount : Math.max(0, (i.grandTotal || 0) - (i.paidAmount || 0)));
         return due > 0;
       });
@@ -55,8 +55,8 @@ export default function ReceivePaymentPage() {
 
       // Default "Received By" = first company account (Cash/Bank/UPI) if available
       const systemRoles = ['Cash', 'Bank', 'UPI'];
-      const companyAccounts = (pts || []).filter((p:any) => {
-        const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+      const companyAccounts = (pts || []).filter((p: any) => {
+        const roles: string[] = (p.roles || [p.type]).map((r: any) => r && r.toString());
         return roles.some(r => systemRoles.includes(r));
       });
       if (companyAccounts.length > 0) {
@@ -74,12 +74,12 @@ export default function ReceivePaymentPage() {
   React.useEffect(() => {
     if (!selectedParty) { setTotalOutstanding(0); return; }
     // prefer party-level currentBalance (includes advances/unallocated). fallback to invoice due sum
-    const partyObj = (parties || []).find((p:any) => (p._id || p.id || '').toString() === selectedParty.toString());
+    const partyObj = (parties || []).find((p: any) => (p._id || p.id || '').toString() === selectedParty.toString());
     if (partyObj && typeof partyObj.currentBalance === 'number') {
       setTotalOutstanding(Number(partyObj.currentBalance || 0));
       return;
     }
-    const total = (invoices || []).filter((i:any) => (i.partyId || '').toString() === selectedParty.toString()).reduce((s:number, inv:any) => {
+    const total = (invoices || []).filter((i: any) => (i.partyId || '').toString() === selectedParty.toString()).reduce((s: number, inv: any) => {
       const due = Number(inv.dueAmount != null ? inv.dueAmount : Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0)));
       return s + (due || 0);
     }, 0);
@@ -98,8 +98,8 @@ export default function ReceivePaymentPage() {
         setSelectedPartyObj(fresh as any);
         // update parties cache with fresh data
         setParties((prev) => {
-          const exists = (prev || []).some((p:any) => (p._id || p.id || '').toString() === selectedParty.toString());
-          if (exists) return (prev || []).map((p:any) => ((p._id || p.id || '').toString() === selectedParty.toString() ? fresh : p));
+          const exists = (prev || []).some((p: any) => (p._id || p.id || '').toString() === selectedParty.toString());
+          if (exists) return (prev || []).map((p: any) => ((p._id || p.id || '').toString() === selectedParty.toString() ? fresh : p));
           return [(fresh as any), ...(prev || [])];
         });
         if (typeof fresh.currentBalance === 'number') {
@@ -108,7 +108,7 @@ export default function ReceivePaymentPage() {
           // fallback: fetch outstanding report and pick the party balance (matches dashboard source)
           try {
             const out = await api.reports.getOutstanding();
-            const found = (out || []).find((pp:any) => (pp._id || pp.id || '').toString() === selectedParty.toString());
+            const found = (out || []).find((pp: any) => (pp._id || pp.id || '').toString() === selectedParty.toString());
             if (found && typeof found.currentBalance === 'number') {
               setTotalOutstanding(Number(found.currentBalance || 0));
             }
@@ -129,8 +129,8 @@ export default function ReceivePaymentPage() {
       if (fresh) {
         setSelectedPartyObj(fresh as any);
         setParties((prev) => {
-          const exists = (prev || []).some((p:any) => (p._id || p.id || '').toString() === partyId.toString());
-          if (exists) return (prev || []).map((p:any) => ((p._id || p.id || '').toString() === partyId.toString() ? fresh : p));
+          const exists = (prev || []).some((p: any) => (p._id || p.id || '').toString() === partyId.toString());
+          if (exists) return (prev || []).map((p: any) => ((p._id || p.id || '').toString() === partyId.toString() ? fresh : p));
           return [(fresh as any), ...(prev || [])];
         });
         // accept numeric strings too
@@ -140,7 +140,7 @@ export default function ReceivePaymentPage() {
         else {
           try {
             const out = await api.reports.getOutstanding();
-            const found = (out || []).find((pp:any) => (pp._id || pp.id || '').toString() === partyId.toString());
+            const found = (out || []).find((pp: any) => (pp._id || pp.id || '').toString() === partyId.toString());
             if (found && typeof found.currentBalance === 'number') setTotalOutstanding(Number(found.currentBalance || 0));
           } catch (e) { /* ignore */ }
         }
@@ -165,9 +165,9 @@ export default function ReceivePaymentPage() {
         }
       } catch (e) { /* ignore */ }
       const outstandingAfter = Math.max(0, outstandingBefore - amt);
-      const receiver = (parties || []).find((p:any) => (p._id || p.id || '').toString() === receivedById.toString()) || null;
+      const receiver = (parties || []).find((p: any) => (p._id || p.id || '').toString() === receivedById.toString()) || null;
       const receiverName = receiver?.name || '';
-      const receiverRoles: string[] = (receiver?.roles || [receiver?.type]).map((r:any) => r && r.toString());
+      const receiverRoles: string[] = (receiver?.roles || [receiver?.type]).map((r: any) => r && r.toString());
       const systemRoles = ['Cash', 'Bank', 'UPI'];
       const receivedByType = receiverRoles.some(r => systemRoles.includes(r)) ? 'COMPANY_ACCOUNT' : 'PARTNER';
 
@@ -213,7 +213,7 @@ export default function ReceivePaymentPage() {
       } else {
         router.push('/admin/payments');
       }
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e);
       alert(e?.message || 'Failed to save');
     } finally { setSaving(false); }
@@ -230,7 +230,7 @@ export default function ReceivePaymentPage() {
 
   const handleCloseReceiptModal = () => {
     if (pdfPreviewUrl) {
-      try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) {}
+      try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) { }
     }
     setPdfPreviewUrl(null);
     setShowReceiptModal(false);
@@ -305,7 +305,7 @@ export default function ReceivePaymentPage() {
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       // revoke previous if present
-      if (pdfPreviewUrl) { try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) {} }
+      if (pdfPreviewUrl) { try { window.URL.revokeObjectURL(pdfPreviewUrl); } catch (e) { } }
       setPdfPreviewUrl(url);
     } catch (e) {
       console.error('preview failed', e);
@@ -345,44 +345,58 @@ export default function ReceivePaymentPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm block mb-1">Party</label>
-            <Select value={selectedParty} onChange={(e:any)=> setSelectedParty(e.target.value)} options={[{ label: 'Select party', value: '' }, ...(parties || []).filter((p:any)=> (p.type||'').toString().toLowerCase()==='customer').map((p:any)=>({ label: p.name, value: p._id || p.id }))]} />
+            <Select
+              value={selectedParty}
+              onChange={(e: any) => setSelectedParty(e.target.value)}
+              options={[
+                { label: 'Select party', value: '' },
+                ...(parties || [])
+                  .filter((p: any) => {
+                    // Strict Customer Filter: Role must include 'Customer'
+                    if (p.isSystemAccount) return false;
+                    const roles: string[] = (p.roles || [p.type]).map((r: any) => r?.toString().toLowerCase());
+                    return roles.includes('customer');
+                  })
+                  .map((p: any) => ({ label: p.name, value: p._id || p.id }))
+              ]}
+            />
           </div>
           <div>
             <label className="text-sm block mb-1">Date</label>
-            <Input type="date" value={date} onChange={(e:any)=> setDate(e.target.value)} />
+            <Input type="date" value={date} onChange={(e: any) => setDate(e.target.value)} />
           </div>
           <div>
             <label className="text-sm block mb-1">Amount Received</label>
-            <Input type="number" value={amount} onChange={(e:any)=> setAmount(e.target.value)} />
+            <Input type="number" value={amount} onChange={(e: any) => setAmount(e.target.value)} />
           </div>
           <div>
             <label className="text-sm block mb-1">Mode</label>
-            <Select value={mode} onChange={(e:any)=> setMode(e.target.value)} options={[{label:'Cash',value:'cash'},{label:'Online',value:'online'},{label:'Cheque',value:'cheque'},{label:'UPI',value:'upi'},{label:'Bank Transfer',value:'bank'}]} />
+            <Select value={mode} onChange={(e: any) => setMode(e.target.value)} options={[{ label: 'Cash', value: 'cash' }, { label: 'Online', value: 'online' }, { label: 'Cheque', value: 'cheque' }, { label: 'UPI', value: 'upi' }, { label: 'Bank Transfer', value: 'bank' }]} />
           </div>
           <div className="md:col-span-2">
             <label className="text-sm block mb-1">Received By (Required)</label>
             <Select
               value={receivedById}
-              onChange={(e:any) => setReceivedById(e.target.value)}
+              onChange={(e: any) => setReceivedById(e.target.value)}
               options={[
                 { label: 'Select account', value: '' },
                 // Company accounts: Cash / Bank / UPI
                 ...(parties || [])
-                  .filter((p:any) => {
-                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
-                    return p.isSystemAccount || roles.some(r => ['Cash','Bank','UPI'].includes(r));
+                  .filter((p: any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r: any) => r && r.toString());
+                    return p.isSystemAccount || roles.some(r => ['Cash', 'Bank', 'UPI'].includes(r));
                   })
-                  .map((p:any) => ({
+                  .map((p: any) => ({
                     label: `${p.name} (Company)`,
                     value: (p._id || p.id) as string
                   })),
                 // Partner accounts
                 ...(parties || [])
-                  .filter((p:any) => {
-                    const roles: string[] = (p.roles || [p.type]).map((r:any) => r && r.toString());
+                  .filter((p: any) => {
+                    const roles: string[] = (p.roles || [p.type]).map((r: any) => r && r.toString());
                     return roles.includes('Partner');
                   })
-                  .map((p:any) => ({
+                  .map((p: any) => ({
                     label: `${p.name} (Partner)`,
                     value: (p._id || p.id) as string
                   })),
@@ -391,11 +405,11 @@ export default function ReceivePaymentPage() {
           </div>
           <div>
             <label className="text-sm block mb-1">Reference</label>
-            <Input value={reference} onChange={(e:any)=> setReference(e.target.value)} />
+            <Input value={reference} onChange={(e: any) => setReference(e.target.value)} />
           </div>
           <div>
             <label className="text-sm block mb-1">Notes</label>
-            <Input value={notes} onChange={(e:any)=> setNotes(e.target.value)} />
+            <Input value={notes} onChange={(e: any) => setNotes(e.target.value)} />
           </div>
         </div>
 

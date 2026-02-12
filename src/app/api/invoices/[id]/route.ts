@@ -12,7 +12,7 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   await dbConnect();
-  
+
   try {
     const { companyId } = getCompanyContextFromRequest(request);
     if (!companyId) {
@@ -27,7 +27,7 @@ export async function GET(
       invoice = await Invoice.findOne({ _id: id, companyId });
     }
     if (!invoice) {
-      invoice = await Invoice.findOne({ 
+      invoice = await Invoice.findOne({
         $or: [{ invoiceNo: id }, { invoice_no: id }],
         companyId
       });
@@ -159,50 +159,31 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to apply stock for updated invoice: ' + (err?.message || err) }, { status: 500 });
     }
 
-    // Step 4: Create ledger reversal and new entry for the update
-    // This ensures the ledger trail is maintained
+    // Step 4: Update ledger entries (Hard Update)
+    // Instead of creating reversals, we wipe old entries and create fresh ones to match current state
     try {
+      // Delete old entries
+      await LedgerEntry.deleteMany({ refId: id, refType: 'INVOICE' });
+
+      // Create new entry for the updated invoice
       const isSales = updatedObj.type === 'SALES';
-      const oldGrand = Number(oldObj.grandTotal || 0);
       const newGrand = Number(updatedObj.grandTotal || 0);
-      
-      // Only create reversal/new entries if amounts changed
-      if (oldGrand !== newGrand || oldObj.partyId !== updatedObj.partyId) {
-        // Create reversal entry for the old invoice
-        await LedgerEntry.create({
-          companyId,
-          partyId: oldObj.partyId,
-          partyName: oldObj.partyName,
-          date: new Date().toISOString().split('T')[0],
-          entryType: 'REVERSAL',
-          refType: 'INVOICE',
-          refId: id,
-          refNo: `REV-${oldObj.invoice_no || oldObj.invoiceNo}`,
-          debit: isSales ? 0 : oldGrand,
-          credit: isSales ? oldGrand : 0,
-          narration: `Reversal for invoice update: ${oldObj.invoice_no || oldObj.invoiceNo}`,
-          paymentMode: oldObj.paymentMode,
-          isReversal: true,
-          metadata: { invoiceType: oldObj.type }
-        });
-        
-        // Create new entry for the updated invoice
-        await LedgerEntry.create({
-          companyId,
-          partyId: updatedObj.partyId,
-          partyName: updatedObj.partyName,
-          date: updatedObj.date,
-          entryType: 'INVOICE',
-          refType: 'INVOICE',
-          refId: id,
-          refNo: updatedObj.invoice_no || updatedObj.invoiceNo,
-          debit: isSales ? newGrand : 0,
-          credit: isSales ? 0 : newGrand,
-          narration: `${isSales ? 'Sales' : 'Purchase'} Invoice (Updated): ${updatedObj.invoice_no || updatedObj.invoiceNo}`,
-          paymentMode: updatedObj.paymentMode,
-          metadata: { invoiceType: updatedObj.type }
-        });
-      }
+
+      await LedgerEntry.create({
+        companyId,
+        partyId: updatedObj.partyId,
+        partyName: updatedObj.partyName,
+        date: updatedObj.date,
+        entryType: 'INVOICE',
+        refType: 'INVOICE',
+        refId: id,
+        refNo: updatedObj.invoice_no || updatedObj.invoiceNo,
+        debit: isSales ? newGrand : 0,
+        credit: isSales ? 0 : newGrand,
+        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${updatedObj.invoice_no || updatedObj.invoiceNo}`,
+        paymentMode: updatedObj.paymentMode,
+        metadata: { invoiceType: updatedObj.type }
+      });
     } catch (ledgerErr) {
       console.error('Ledger entry update failed:', ledgerErr);
       // Continue - don't fail the update for ledger entry failure
@@ -236,38 +217,24 @@ export async function DELETE(
 
     const existingObj = { ...(existing as any).toObject(), id: (existing as any)._id.toString() };
 
-    // Revert stock for this invoice first. Collect warnings but allow delete to proceed so user can remove bad invoices.
+    // Hard Delete Implementation for "True Reflection"
+    // 1. Revert stock changes on Items (updates the Item.stock quantity)
+    // 2. Delete ALL StockMovements (original + the ones just created by revert) to remove history
+    // 3. Delete ALL LedgerEntries to remove financial history
+    // 4. Delete the Invoice
+
+    // 1. Revert stock (updates Item collection)
     const warnings = await revertStockForInvoice(existingObj);
-    
-    // Create ledger reversal entry instead of deleting (per accounting rules: ledger entries must NEVER be deleted)
-    try {
-      const isSales = existingObj.type === 'SALES';
-      const grand = Number(existingObj.grandTotal || 0);
-      
-      await LedgerEntry.create({
-        companyId,
-        partyId: existingObj.partyId,
-        partyName: existingObj.partyName,
-        date: new Date().toISOString().split('T')[0],
-        entryType: 'REVERSAL',
-        refType: 'INVOICE',
-        refId: id,
-        refNo: `REV-${existingObj.invoice_no || existingObj.invoiceNo}`,
-        // Reverse the original entry direction
-        debit: isSales ? 0 : grand,
-        credit: isSales ? grand : 0,
-        narration: `Invoice Deleted/Reversed: ${existingObj.invoice_no || existingObj.invoiceNo}`,
-        paymentMode: existingObj.paymentMode,
-        reversedEntryId: id,
-        isReversal: true,
-        metadata: { invoiceType: existingObj.type }
-      });
-    } catch (ledgerErr) {
-      console.error('Ledger reversal entry creation failed:', ledgerErr);
-      // Continue with deletion even if ledger entry fails
-    }
-    
+
+    // 2. Delete all stock movements related to this invoice (cleans up history)
+    await (mongoose.models.StockMovement || mongoose.model('StockMovement')).deleteMany({ refId: id });
+
+    // 3. Delete all ledger entries related to this invoice
+    await LedgerEntry.deleteMany({ refId: id, refType: 'INVOICE' });
+
+    // 4. Delete the invoice
     await Invoice.findByIdAndDelete(id);
+
     if (Array.isArray(warnings) && warnings.length > 0) {
       return NextResponse.json({ deleted: true, warnings });
     }

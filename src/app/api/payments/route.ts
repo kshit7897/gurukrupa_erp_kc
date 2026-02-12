@@ -11,7 +11,7 @@ async function findInvoiceFlexible(id: string, companyId?: string, session?: mon
   if (!id) return null;
   const opts = session ? { session } : undefined;
   const companyFilter = companyId ? { companyId } : {};
-  
+
   if (mongoose.Types.ObjectId.isValid(id)) {
     const inv = await Invoice.findOne({ _id: id, ...companyFilter }, null, opts);
     if (inv) return inv;
@@ -23,13 +23,13 @@ async function findInvoiceFlexible(id: string, companyId?: string, session?: mon
 export async function GET(request: Request) {
   try {
     await dbConnect();
-    
+
     // Get company context
     const { companyId } = getCompanyContextFromRequest(request);
     if (!companyId) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
-    
+
     const { searchParams } = new URL(request.url);
     const partyId = searchParams.get('party');
     const id = searchParams.get('id');
@@ -64,13 +64,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await dbConnect();
-    
+
     // Get company context
     const { companyId } = getCompanyContextFromRequest(request);
     if (!companyId) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
-    
+
     const body = await request.json();
     if (!body || !body.partyId || typeof body.amount !== 'number' || !body.type) {
       return NextResponse.json({ error: 'partyId, type and numeric amount required' }, { status: 400 });
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
           const timestamp = Date.now().toString().slice(-8);
           voucherNo = `${prefix}-${timestamp}`;
         }
-        
+
         payment = await Payment.create([{
           companyId, // Add company scope
           voucherNo,
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
             await invoice.save({ session });
           }
         }
-        
+
         // Create ledger entries for the payment (double-entry for receipts)
         const isReceive = body.type === 'receive';
         const ledgerDate = body.date || new Date().toISOString().split('T')[0];
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
         // 2) Source/Target account ledger (cash/bank/UPI or partner)
         const accountId = isReceive ? body.receivedById : body.paidFromId;
         const accountName = isReceive ? body.receivedByName : body.paidFromName;
-        
+
         if (accountId) {
           ledgerEntries.push({
             companyId,
@@ -238,13 +238,13 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     await dbConnect();
-    
+
     // Get company context
     const { companyId } = getCompanyContextFromRequest(request);
     if (!companyId) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
-    
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'payment id required' }, { status: 400 });
@@ -254,13 +254,18 @@ export async function DELETE(request: Request) {
     try {
       await session.withTransaction(async () => {
         // Verify payment belongs to this company
-        const payment = await Payment.findOne({ 
-          _id: id, 
+        const payment = await Payment.findOne({
+          _id: id,
           companyId
         }).session(session);
         if (!payment) return;
 
-        // revert allocations: for each allocation, reduce invoice.paidAmount and recompute dueAmount
+        // Hard Delete Implementation
+        // 1. Revert allocations (updates Invoice amounts)
+        // 2. Delete ALL LedgerEntries related to this payment
+        // 3. Delete the Payment
+
+        // 1. Revert allocations
         if (Array.isArray(payment.allocations) && payment.allocations.length > 0) {
           for (const a of payment.allocations) {
             const inv = await findInvoiceFlexible(a.invoiceId, companyId, session);
@@ -271,54 +276,10 @@ export async function DELETE(request: Request) {
           }
         }
 
-        // Create reversal ledger entry instead of deleting
-        const isReceive = payment.type === 'receive';
-        const reversalDate = new Date().toISOString().split('T')[0];
+        // 2. Delete ledger entries (Hard Delete)
+        await LedgerEntry.deleteMany({ refId: id, refType: 'PAYMENT' }).session(session);
 
-        const reversalEntries: any[] = [];
-
-        // Reverse party ledger entry
-        reversalEntries.push({
-          companyId, // Add company scope
-          partyId: payment.partyId,
-          partyName: payment.partyName || '',
-          date: reversalDate,
-          entryType: 'REVERSAL',
-          refType: 'PAYMENT',
-          refId: id,
-          refNo: `REV-${payment.voucherNo}`,
-          // Reverse the original entry
-          debit: isReceive ? Number(payment.amount || 0) : 0,
-          credit: isReceive ? 0 : Number(payment.amount || 0),
-          narration: `Reversal of ${payment.voucherNo}`,
-          paymentMode: payment.mode || 'cash',
-          reversedEntryId: id,
-          isReversal: true
-        });
-
-        // Reverse receiving account ledger entry for receipts (if present)
-        if (isReceive && payment.receivedById) {
-          reversalEntries.push({
-            companyId,
-            partyId: payment.receivedById,
-            partyName: payment.receivedByName || '',
-            date: reversalDate,
-            entryType: 'REVERSAL',
-            refType: 'PAYMENT',
-            refId: id,
-            refNo: `REV-${payment.voucherNo}`,
-            // Reverse original debit on receiving account
-            debit: 0,
-            credit: Number(payment.amount || 0),
-            narration: `Reversal of receiving account for ${payment.voucherNo}`,
-            paymentMode: payment.mode || 'cash',
-            reversedEntryId: id,
-            isReversal: true
-          });
-        }
-
-        await LedgerEntry.create(reversalEntries, { session, ordered: true });
-
+        // 3. Delete the payment
         const res = await Payment.deleteOne({ _id: id }).session(session);
         deletedCount = res.deletedCount || 0;
       });

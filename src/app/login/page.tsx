@@ -38,21 +38,21 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Login failed');
       }
-      
+
       const { token, user, companies, requireCompanySelection, autoSelectedCompany } = data;
-      
+
       // Save to auth storage
       if (token && user) {
         saveAuthToStorage(token, user);
         setAuth(token, user);
       }
-      
+
       // Handle company selection
       if (requireCompanySelection && companies && companies.length > 1) {
         // Multiple companies - redirect to company selection
@@ -93,7 +93,7 @@ export default function Login() {
       <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-[400px]">
         <div className="bg-white py-8 px-6 shadow-2xl shadow-slate-900/20 rounded-2xl sm:px-10 border border-slate-100/50">
           <form className="space-y-6" onSubmit={handleLogin}>
-            
+
             {pwdChanged === '1' && (
               <div className="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center animate-in fade-in slide-in-from-top-2 mb-3">
                 <ShieldCheck className="h-4 w-4 mr-2 text-green-700" />

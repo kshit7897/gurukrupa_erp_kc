@@ -19,7 +19,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const router = useRouter();
   // avoid using next/navigation's useSearchParams here to prevent SSR bailout during build
   // we'll read window.location.search inside effects where needed
-  
+
   const [parties, setParties] = useState<Party[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -46,7 +46,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [showItemDropdown, setShowItemDropdown] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  
+
   // Validation State
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  
+
   const [newPartyData, setNewPartyData] = useState<Partial<Party>>({
     name: '', mobile: '', type: isSales ? PartyType.CUSTOMER : PartyType.SUPPLIER, email: '', gstNo: '', cin: '', address: '', openingBalance: 0
   });
@@ -268,8 +268,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     // validation
     if (!newPartyData.name) { showError('Party Name is required.'); return; }
     const mobile = (newPartyData.mobile || '').toString().replace(/\D/g, '');
-    if (!mobile) { showError('Mobile number is required.'); return; }
-    if (mobile.length !== 10) { showError('Mobile number must be 10 digits.'); return; }
+    // Mobile is now optional
+    // if (!mobile) { showError('Mobile number is required.'); return; }
+    if (mobile && mobile.length !== 10) { showError('Mobile number must be 10 digits.'); return; }
     if (newPartyData.email) {
       const em = (newPartyData.email || '').toString();
       const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -289,7 +290,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const val = e.target.value;
     setItemSearchQuery(val);
     setShowItemDropdown(true);
-    if(selectedItem && selectedItem.name !== val) {
+    if (selectedItem && selectedItem.name !== val) {
       setSelectedItem(null);
       setCurrentRate('');
     }
@@ -319,7 +320,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   };
 
   const handleSaveNewItem = async () => {
-    if(!newItemData.name) {
+    if (!newItemData.name) {
       showError("Product Name is required.");
       return;
     }
@@ -357,7 +358,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const discount = Number(currentDiscount) || 0;
     const cartingPerUnit = cartingEnabled ? Number(currentCartingAmount) || 0 : 0;
     const totalLineCarting = cartingPerUnit * qty;
-    
+
     // Calculate Base Amount (Rate * Qty)
     const baseAmount = qty * rate;
     // Calculate Discount Amount
@@ -415,11 +416,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const sg = addedItems.reduce((sum, item) => sum + (item.sgstAmount || 0), 0);
     const i = addedItems.reduce((sum, item) => sum + (item.igstAmount || 0), 0);
     const cart = addedItems.reduce((sum, item) => sum + ((item as any).cartingAmount || 0), 0);
-    return { 
-      subtotal: s, 
-      cgstTotal: c, 
-      sgstTotal: sg, 
-      igstTotal: i, 
+    return {
+      subtotal: s,
+      cgstTotal: c,
+      sgstTotal: sg,
+      igstTotal: i,
       computedTaxTotal: c + sg + i,
       totalCartingAmt: cart
     };
@@ -432,12 +433,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const effSgst = manualGstEnabled ? (manualGstMode === 'CGST_SGST' ? manualTax / 2 : 0) : sgstTotal;
     const effIgst = manualGstEnabled ? (manualGstMode === 'IGST' ? manualTax : 0) : igstTotal;
     const tTotal = manualGstEnabled ? (effCgst + effSgst + effIgst) : computedTaxTotal;
-    return { 
-      effectiveCgstTotal: effCgst, 
-      effectiveSgstTotal: effSgst, 
-      effectiveIgstTotal: effIgst, 
-      taxTotal: tTotal, 
-      total: subtotal + tTotal 
+    return {
+      effectiveCgstTotal: effCgst,
+      effectiveSgstTotal: effSgst,
+      effectiveIgstTotal: effIgst,
+      taxTotal: tTotal,
+      total: subtotal + tTotal
     };
   }, [manualGstAmount, manualGstEnabled, manualGstMode, cgstTotal, sgstTotal, igstTotal, computedTaxTotal, subtotal]);
 
@@ -485,7 +486,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       }
     }
     if (paymentMode !== 'cash' && paymentMode !== 'credit' && !paymentDetails) {
-       if(!confirm('You have not entered payment remarks (Cheque No/Trans ID). Continue?')) return;
+      if (!confirm('You have not entered payment remarks (Cheque No/Trans ID). Continue?')) return;
     }
 
     setIsSaving(true);
@@ -506,7 +507,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         paymentMode,
         paymentDetails,
         dueDate: paymentMode === 'credit' ? dueDate : undefined
-      ,
+        ,
         // invoice metadata
         buyer_order_no: invoiceNo,
         vehicle_no: vehicleNo,
@@ -569,11 +570,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     // Also support new multi-role system
     const roles = (p as any).roles || [p.type];
     const targetRole = isSales ? 'Customer' : 'Supplier';
-    const matchesRole = roles.includes(targetRole) || p.type === (isSales ? PartyType.CUSTOMER : PartyType.SUPPLIER);
-    return matchesRole && p.name.toLowerCase().includes(partySearchQuery.toLowerCase());
+
+    // Strict check: Must have the specific role AND not be a system account (Cash/Bank/UPI)
+    // System accounts are handled elsewhere or should not be selected as the primary party for an invoice
+    if (p.isSystemAccount) return false;
+
+    // Check if role exists (case-insensitive just in case, though enum is strict)
+    const matchesRole = roles.some((r: any) => r && r.toString().toLowerCase() === targetRole.toLowerCase());
+
+    // Fallback: check p.type for backward compatibility
+    const matchesType = (p.type || '').toString().toLowerCase() === (isSales ? PartyType.CUSTOMER : PartyType.SUPPLIER).toLowerCase();
+
+    return (matchesRole || matchesType) && p.name.toLowerCase().includes(partySearchQuery.toLowerCase());
   });
 
-  const filteredItems = items.filter(i => 
+  const filteredItems = items.filter(i =>
     i.name.toLowerCase().includes(itemSearchQuery.toLowerCase())
   );
 
@@ -590,23 +601,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   };
 
   const unitOptions = [
-    {label: 'PCS (Pieces)', value: 'PCS'},
-    {label: 'KG (Kilograms)', value: 'KG'},
-    {label: 'BOX (Boxes)', value: 'BOX'},
-    {label: 'BAG (Bags)', value: 'BAG'},
-    {label: 'TON (Tons)', value: 'TON'},
-    {label: 'LTR (Liters)', value: 'LTR'},
-    {label: 'MTR (Meters)', value: 'MTR'},
-    {label: 'DOZ (Dozens)', value: 'DOZ'},
-    {label: 'BDL (Bundles)', value: 'BDL'},
-    {label: 'SQFT (Sq. Feet)', value: 'SQFT'},
-    {label: 'PKT (Packets)', value: 'PKT'},
-    {label: 'SET (Sets)', value: 'SET'}
+    { label: 'PCS (Pieces)', value: 'PCS' },
+    { label: 'KG (Kilograms)', value: 'KG' },
+    { label: 'BOX (Boxes)', value: 'BOX' },
+    { label: 'BAG (Bags)', value: 'BAG' },
+    { label: 'TON (Tons)', value: 'TON' },
+    { label: 'LTR (Liters)', value: 'LTR' },
+    { label: 'MTR (Meters)', value: 'MTR' },
+    { label: 'DOZ (Dozens)', value: 'DOZ' },
+    { label: 'BDL (Bundles)', value: 'BDL' },
+    { label: 'SQFT (Sq. Feet)', value: 'SQFT' },
+    { label: 'PKT (Packets)', value: 'PKT' },
+    { label: 'SET (Sets)', value: 'SET' }
   ];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-24 animate-in fade-in duration-300">
-      
+
       {/* HEADER & ERROR BANNER */}
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -630,19 +641,19 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
       <Card className="bg-white p-5 space-y-5 shadow-sm border border-slate-200">
         <div className="flex justify-between items-center">
-           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
             <User className="h-3 w-3" /> Party Details
           </h3>
           {selectedParty && (
             <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">VERIFIED</span>
           )}
         </div>
-        
+
         <div className="space-y-4">
           <div className="relative" ref={partyDropdownRef}>
             <label className="text-xs text-slate-500 mb-1 block font-semibold">Select Party</label>
             <div className="relative">
-              <input 
+              <input
                 type="text"
                 className={`w-full h-11 bg-slate-50 border text-slate-900 rounded-lg pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium ${!selectedParty && formError?.includes('Party') ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}`}
                 placeholder={isSales ? "Search Customer..." : "Search Supplier..."}
@@ -657,7 +668,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                 {filteredParties.length > 0 ? (
                   filteredParties.map(p => (
-                    <div 
+                    <div
                       key={p.id}
                       className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0"
                       onClick={() => handleSelectParty(p)}
@@ -667,7 +678,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     </div>
                   ))
                 ) : (
-                  <div 
+                  <div
                     className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-medium flex items-center gap-2"
                     onClick={openNewPartyModal}
                   >
@@ -679,54 +690,54 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-             <div>
-                <label className="text-xs text-slate-500 mb-1 block">Invoice Date</label>
-                <input 
-                  type="date" 
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
-                  className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-             </div>
-             <div>
-                <label className="text-xs text-slate-500 mb-1 block">Payment Mode</label>
-                <select 
-                  value={paymentMode}
-                  onChange={(e) => {
-                    setPaymentMode(e.target.value);
-                    setPaymentDetails(''); 
-                  }}
-                  className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="credit">Credit</option>
-                </select>
-             </div>
-             
-             {paymentMode === 'credit' ? (
-                <div className="animate-in fade-in">
-                   <label className="text-xs text-slate-500 mb-1 block">Due Date (Auto)</label>
-                   <div className="w-full h-10 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm flex items-center text-slate-600">
-                      <CalendarClock className="h-4 w-4 mr-2 text-slate-400" />
-                      {dueDate}
-                   </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Invoice Date</label>
+              <input
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+                className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Payment Mode</label>
+              <select
+                value={paymentMode}
+                onChange={(e) => {
+                  setPaymentMode(e.target.value);
+                  setPaymentDetails('');
+                }}
+                className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="cash">Cash</option>
+                <option value="credit">Credit</option>
+              </select>
+            </div>
+
+            {paymentMode === 'credit' ? (
+              <div className="animate-in fade-in">
+                <label className="text-xs text-slate-500 mb-1 block">Due Date (Auto)</label>
+                <div className="w-full h-10 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm flex items-center text-slate-600">
+                  <CalendarClock className="h-4 w-4 mr-2 text-slate-400" />
+                  {dueDate}
                 </div>
-             ) : paymentMode !== 'cash' ? (
-               <div className="animate-in fade-in slide-in-from-left-2 duration-200">
-                 <label className="text-xs text-slate-500 mb-1 block">
-                   {paymentMode === 'cheque' ? 'Cheque No / Bank' : 'Transaction ID / UTR'}
-                 </label>
-                 <input
-                   type="text"
-                   placeholder={paymentMode === 'cheque' ? "e.g. 000123 HDFC Bank" : "e.g. UPI/12345/..."}
-                   value={paymentDetails}
-                   onChange={(e) => setPaymentDetails(e.target.value)}
-                   className="w-full h-10 bg-white border border-blue-300 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                 />
-               </div>
-             ) : (
-                <div className="hidden md:block"></div>
-             )}
+              </div>
+            ) : paymentMode !== 'cash' ? (
+              <div className="animate-in fade-in slide-in-from-left-2 duration-200">
+                <label className="text-xs text-slate-500 mb-1 block">
+                  {paymentMode === 'cheque' ? 'Cheque No / Bank' : 'Transaction ID / UTR'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={paymentMode === 'cheque' ? "e.g. 000123 HDFC Bank" : "e.g. UPI/12345/..."}
+                  value={paymentDetails}
+                  onChange={(e) => setPaymentDetails(e.target.value)}
+                  className="w-full h-10 bg-white border border-blue-300 rounded-lg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+            ) : (
+              <div className="hidden md:block"></div>
+            )}
           </div>
           {/* Invoice Metadata (Vehicle, Delivery, Transport, Terms). Buyer's Order No will be auto-set. Supplier's Ref removed. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
@@ -762,7 +773,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={company.logo} alt="logo" className="w-full h-full object-contain" />
                   ) : (
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4"/><path d="M7 10h10v4H7z" fill="white"/></svg>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="14" rx="2" fill="#0EA5A4" /><path d="M7 10h10v4H7z" fill="white" /></svg>
                   )}
                 </div>
                 <div>
@@ -801,13 +812,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                 </div>
                 <div className="bg-slate-50 border border-slate-100 rounded p-3">
                   <div className="text-xs font-semibold text-slate-500 uppercase">Ship To</div>
-                    <div className="mt-2 text-sm font-semibold text-slate-800">{shippingAddress.name || billingAddressState.name || selectedParty?.name}</div>
-                    <div className="mt-1 text-sm text-slate-600 leading-tight">
-                      {shippingAddress.line1 || ''}
-                      {shippingAddress.line2 && (<div>{shippingAddress.line2}</div>)}
-                      <div>{shippingAddress.city || ''}{shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}</div>
-                      <div className="mt-1">GSTIN: {shippingAddress.gstin || billingAddressState.gstin || selectedParty?.gstNo || '-'}</div>
-                    </div>
+                  <div className="mt-2 text-sm font-semibold text-slate-800">{shippingAddress.name || billingAddressState.name || selectedParty?.name}</div>
+                  <div className="mt-1 text-sm text-slate-600 leading-tight">
+                    {shippingAddress.line1 || ''}
+                    {shippingAddress.line2 && (<div>{shippingAddress.line2}</div>)}
+                    <div>{shippingAddress.city || ''}{shippingAddress.pincode ? ` - ${shippingAddress.pincode}` : ''}</div>
+                    <div className="mt-1">GSTIN: {shippingAddress.gstin || billingAddressState.gstin || selectedParty?.gstNo || '-'}</div>
+                  </div>
                 </div>
               </div>
               <div className="col-span-2 row-span-2">
@@ -904,52 +915,52 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       {/* SHIPPING / DELIVERY ADDRESS */}
       <Card className="bg-white p-5 space-y-4 shadow-sm border border-slate-200">
         <div className="flex items-center justify-between">
-           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-             <MapPin className="h-3 w-3" /> Delivery Address
-           </h3>
-           <div className="text-sm text-slate-500"> 
-               <label className="inline-flex items-center gap-2">
-                 <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
-                 <span className="text-sm">Delivery address same as party address</span>
-               </label>
-           </div>
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <MapPin className="h-3 w-3" /> Delivery Address
+          </h3>
+          <div className="text-sm text-slate-500">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={deliverySame} onChange={(e) => { setDeliverySame(e.target.checked); if (e.target.checked) { setShippingAddress({ ...billingAddressState }); } }} className="h-4 w-4" />
+              <span className="text-sm">Delivery address same as party address</span>
+            </label>
+          </div>
         </div>
 
         <div>
-           <div>
-             <label className="text-xs text-slate-500 mb-1 block">Name</label>
-             <input type="text" value={shippingAddress.name} onChange={(e) => setShippingAddress({...shippingAddress, name: e.target.value})} disabled={deliverySame} readOnly={deliverySame} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
-           </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Name</label>
+            <input type="text" value={shippingAddress.name} onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })} disabled={deliverySame} readOnly={deliverySame} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+          </div>
           {/* Show fields only when user unchecks deliverySame */}
           {!deliverySame && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
               <div className="md:col-span-2">
                 <label className="text-xs text-slate-500 mb-1 block">Address Line 1</label>
-                <input type="text" value={shippingAddress.line1} onChange={(e) => setShippingAddress({...shippingAddress, line1: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.line1} onChange={(e) => setShippingAddress({ ...shippingAddress, line1: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">City</label>
-                <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({...shippingAddress, city: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs text-slate-500 mb-1 block">Address Line 2</label>
-                <input type="text" value={shippingAddress.line2} onChange={(e) => setShippingAddress({...shippingAddress, line2: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.line2} onChange={(e) => setShippingAddress({ ...shippingAddress, line2: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">State</label>
-                <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({...shippingAddress, state: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Pincode</label>
-                <input type="text" value={shippingAddress.pincode} onChange={(e) => setShippingAddress({...shippingAddress, pincode: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.pincode} onChange={(e) => setShippingAddress({ ...shippingAddress, pincode: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">GSTIN</label>
-                <input type="text" value={shippingAddress.gstin} onChange={(e) => setShippingAddress({...shippingAddress, gstin: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.gstin} onChange={(e) => setShippingAddress({ ...shippingAddress, gstin: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Phone</label>
-                <input type="text" value={shippingAddress.phone} onChange={(e) => setShippingAddress({...shippingAddress, phone: e.target.value})} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
+                <input type="text" value={shippingAddress.phone} onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })} className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm" />
               </div>
             </div>
           )}
@@ -961,106 +972,106 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
           <Tag className="h-3 w-3" /> Add Items
         </h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-           
-           <div className="md:col-span-4 relative" ref={itemDropdownRef}>
-              <label className="text-xs text-slate-500 mb-1 block ml-1">Product Name</label>
-              <div className="relative">
-                <input 
-                   type="text" 
-                   className={`w-full h-11 bg-white border text-slate-900 rounded-lg pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${!selectedItem && formError?.includes('valid product') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
-                   placeholder="Search Item..."
-                   value={itemSearchQuery}
-                   onChange={handleItemSearchChange}
-                   onFocus={() => setShowItemDropdown(true)}
-                />
-                <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-              </div>
 
-              {showItemDropdown && itemSearchQuery && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                  {filteredItems.length > 0 ? (
-                    filteredItems.map(i => (
-                      <div 
-                        key={i.id}
-                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between"
-                        onClick={() => handleSelectItem(i)}
-                      >
-                        <div>
-                          <p className="font-medium text-slate-900">{i.name}</p>
-                          <p className="text-xs text-slate-500">Stock: {i.stock} {i.unit}</p>
-                        </div>
-                        <div className="text-right">
-                           <p className="text-sm font-bold text-slate-700">₹ {isSales ? i.saleRate : i.purchaseRate}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div 
-                      className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-medium flex items-center gap-2"
-                      onClick={openNewItemModal}
+          <div className="md:col-span-4 relative" ref={itemDropdownRef}>
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Product Name</label>
+            <div className="relative">
+              <input
+                type="text"
+                className={`w-full h-11 bg-white border text-slate-900 rounded-lg pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${!selectedItem && formError?.includes('valid product') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
+                placeholder="Search Item..."
+                value={itemSearchQuery}
+                onChange={handleItemSearchChange}
+                onFocus={() => setShowItemDropdown(true)}
+              />
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+            </div>
+
+            {showItemDropdown && itemSearchQuery && (
+              <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                {filteredItems.length > 0 ? (
+                  filteredItems.map(i => (
+                    <div
+                      key={i.id}
+                      className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between"
+                      onClick={() => handleSelectItem(i)}
                     >
-                      <Plus className="h-4 w-4" /> Add New Product "{itemSearchQuery}"
+                      <div>
+                        <p className="font-medium text-slate-900">{i.name}</p>
+                        <p className="text-xs text-slate-500">Stock: {i.stock} {i.unit}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-700">₹ {isSales ? i.saleRate : i.purchaseRate}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-           </div>
+                  ))
+                ) : (
+                  <div
+                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer text-blue-600 font-medium flex items-center gap-2"
+                    onClick={openNewItemModal}
+                  >
+                    <Plus className="h-4 w-4" /> Add New Product "{itemSearchQuery}"
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-           <div className="md:col-span-2">
-              <label className="text-xs text-slate-500 mb-1 block ml-1">Qty</label>
-              <input 
-                 type="number" 
-                 className={`w-full h-11 bg-white border rounded-lg px-3 text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${(!currentQty || Number(currentQty) <= 0) && formError?.includes('quantity') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
-                 value={currentQty}
-                 onChange={(e) => setCurrentQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              />
-           </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Qty</label>
+            <input
+              type="number"
+              className={`w-full h-11 bg-white border rounded-lg px-3 text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${(!currentQty || Number(currentQty) <= 0) && formError?.includes('quantity') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
+              value={currentQty}
+              onChange={(e) => setCurrentQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+          </div>
 
-           <div className="md:col-span-2">
-              <label className="text-xs text-slate-500 mb-1 block ml-1">Rate (₹)</label>
-              <input 
-                 type="number" 
-                 className={`w-full h-11 bg-white border rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${currentRate === '' && formError?.includes('rate') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
-                 value={currentRate === null ? '' : currentRate}
-                 onChange={(e) => setCurrentRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              />
-           </div>
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Rate (₹)</label>
+            <input
+              type="number"
+              className={`w-full h-11 bg-white border rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${currentRate === '' && formError?.includes('rate') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
+              value={currentRate === null ? '' : currentRate}
+              onChange={(e) => setCurrentRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+          </div>
 
-            <div className="md:col-span-2">
-              <label className="text-xs text-slate-500 mb-1 block ml-1">Disc (%)</label>
-              <input 
-                type="number" 
-                className="w-full h-11 bg-white border border-blue-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                placeholder="0"
-                value={currentDiscount}
-                onChange={(e) => setCurrentDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              />
-              <div className="mt-2 flex items-center gap-2">
-               <input 
-                type="number" 
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Disc (%)</label>
+            <input
+              type="number"
+              className="w-full h-11 bg-white border border-blue-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              placeholder="0"
+              value={currentDiscount}
+              onChange={(e) => setCurrentDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number"
                 min="0" step="0.01"
                 className="w-20 h-8 px-2 border rounded text-right"
                 placeholder="GST %"
                 value={currentTaxPercent as any}
                 onChange={(e) => setCurrentTaxPercent(e.target.value === '' ? '' : Number(e.target.value))}
-               />
-               <select value={currentTaxMode} onChange={(e) => setCurrentTaxMode(e.target.value as any)} className="h-8 px-2 border rounded text-sm">
+              />
+              <select value={currentTaxMode} onChange={(e) => setCurrentTaxMode(e.target.value as any)} className="h-8 px-2 border rounded text-sm">
                 <option value="CGST_SGST">CGST+SGST</option>
                 <option value="IGST">IGST</option>
-               </select>
-              </div>
+              </select>
             </div>
+          </div>
         </div>
-        
+
         {/* Carting Section */}
         <div className="mt-4 p-3 bg-orange-50/50 border border-orange-100 rounded-lg">
           <div className="flex items-center gap-3 mb-3">
             <label className="inline-flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={cartingEnabled} 
+              <input
+                type="checkbox"
+                checked={cartingEnabled}
                 onChange={(e) => {
                   setCartingEnabled(e.target.checked);
                   if (!e.target.checked) {
@@ -1068,23 +1079,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     setCartingSearchQuery('');
                     setCurrentCartingAmount(0);
                   }
-                }} 
-                className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" 
+                }}
+                className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
               />
               <span className="text-sm font-medium text-orange-800">Add Carting Charges</span>
             </label>
             <span className="text-xs text-orange-600">(Merged into item amount, GST calculated on total)</span>
           </div>
-          
+
           {cartingEnabled && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={showCartingSeparately} 
-                    onChange={(e) => setShowCartingSeparately(e.target.checked)} 
-                    className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500" 
+                  <input
+                    type="checkbox"
+                    checked={showCartingSeparately}
+                    onChange={(e) => setShowCartingSeparately(e.target.checked)}
+                    className="h-4 w-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
                   />
                   <span className="text-sm font-medium text-orange-800">Show Carting Separately in Invoice</span>
                 </label>
@@ -1094,7 +1105,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                 <div className="relative" ref={cartingDropdownRef}>
                   <label className="text-xs text-slate-500 mb-1 block">Carting Party</label>
                   <div className="relative">
-                    <input 
+                    <input
                       type="text"
                       className={`w-full h-10 bg-white border rounded-lg pl-9 pr-4 focus:outline-none focus:ring-2 focus:ring-orange-500 ${!selectedCartingParty && cartingEnabled ? 'border-orange-300' : 'border-slate-200'}`}
                       placeholder="Search carting party..."
@@ -1110,12 +1121,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     />
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   </div>
-                  
+
                   {showCartingDropdown && cartingSearchQuery && (
                     <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                       {cartingParties.length > 0 ? (
                         cartingParties.map(p => (
-                          <div 
+                          <div
                             key={p.id}
                             className="px-4 py-2 hover:bg-orange-50 cursor-pointer border-b border-slate-50 last:border-0"
                             onClick={() => handleSelectCartingParty(p)}
@@ -1132,10 +1143,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     </div>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">Carting Amount (₹)</label>
-                  <input 
+                  <input
                     type="number"
                     min="0"
                     step="0.01"
@@ -1149,25 +1160,25 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             </div>
           )}
         </div>
-        
+
         {/* Add Button */}
         <div className="flex justify-end mt-4">
-          <button 
+          <button
             onClick={handleAddItemToInvoice}
             className="px-6 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2"
           >
             <Plus className="h-5 w-5" /> Add Item to Invoice
           </button>
         </div>
-        
+
         {selectedItem && (
           <div className="flex justify-end px-1">
-             <p className="text-xs text-blue-600 font-medium">
-                Line Total: ₹ {liveTaxable.toFixed(2)} 
-                <span className="text-slate-400 font-normal ml-1">
-                  (Taxable Value{liveCarting > 0 ? ` incl. ₹${liveCarting.toFixed(2)} total carting` : ''})
-                </span>
-             </p>
+            <p className="text-xs text-blue-600 font-medium">
+              Line Total: ₹ {liveTaxable.toFixed(2)}
+              <span className="text-slate-400 font-normal ml-1">
+                (Taxable Value{liveCarting > 0 ? ` incl. ₹${liveCarting.toFixed(2)} total carting` : ''})
+              </span>
+            </p>
           </div>
         )}
       </div>
@@ -1175,9 +1186,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       <div className="space-y-3">
         {addedItems.length === 0 ? (
           <div className={`text-center py-10 text-slate-400 bg-slate-50 rounded-xl border-2 border-dashed ${formError?.includes('empty') ? 'border-red-300 bg-red-50/20' : 'border-slate-200'}`}>
-             <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-             <p className="text-sm font-medium">No items added yet</p>
-             <p className="text-xs mt-1">Search and add products above</p>
+            <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm font-medium">No items added yet</p>
+            <p className="text-xs mt-1">Search and add products above</p>
           </div>
         ) : (
           addedItems.map((item, index) => {
@@ -1222,45 +1233,45 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       </div>
 
       <Card className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl mt-6">
-         <div className="space-y-3 mb-6">
-            <div className="flex justify-between text-slate-400 text-sm">
-               <span>{showCartingSeparately && totalCartingAmt > 0 ? 'Base Sub-Total' : 'Sub-Total'}</span>
-               <span>₹ {(subtotal - (showCartingSeparately ? totalCartingAmt : 0)).toFixed(2)}</span>
-            </div>
-            {showCartingSeparately && totalCartingAmt > 0 && (
-              <>
-                <div className="flex justify-between text-slate-400 text-sm">
-                   <span>Total Carting</span>
-                   <span>₹ {totalCartingAmt.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-400 text-sm font-semibold border-t border-slate-800 pt-2">
-                   <span>Taxable Amount</span>
-                   <span>₹ {subtotal.toFixed(2)}</span>
-                </div>
-              </>
-            )}
-            <div className="flex justify-between text-slate-400 text-sm">
-               <span>Total Tax</span>
-               <span>₹ {taxTotal.toFixed(2)}</span>
-            </div>
-            <div className="h-px bg-slate-800 my-2"></div>
-            <div className="flex justify-between items-center">
-               <span className="font-bold text-lg">Grand Total</span>
-               <span className="font-bold text-3xl text-blue-400">₹ {total.toFixed(2)}</span>
-            </div>
-         </div>
-         
-         <button 
-            onClick={handleSaveInvoice}
-            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSaving}
-          >
-             {isSaving ? <SoftLoader size="sm" /> : <FileText className="h-5 w-5" />}
-             {isSaving ? 'Processing...' : 'Save and Preview'}
-          </button>
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between text-slate-400 text-sm">
+            <span>{showCartingSeparately && totalCartingAmt > 0 ? 'Base Sub-Total' : 'Sub-Total'}</span>
+            <span>₹ {(subtotal - (showCartingSeparately ? totalCartingAmt : 0)).toFixed(2)}</span>
+          </div>
+          {showCartingSeparately && totalCartingAmt > 0 && (
+            <>
+              <div className="flex justify-between text-slate-400 text-sm">
+                <span>Total Carting</span>
+                <span>₹ {totalCartingAmt.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400 text-sm font-semibold border-t border-slate-800 pt-2">
+                <span>Taxable Amount</span>
+                <span>₹ {subtotal.toFixed(2)}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between text-slate-400 text-sm">
+            <span>Total Tax</span>
+            <span>₹ {taxTotal.toFixed(2)}</span>
+          </div>
+          <div className="h-px bg-slate-800 my-2"></div>
+          <div className="flex justify-between items-center">
+            <span className="font-bold text-lg">Grand Total</span>
+            <span className="font-bold text-3xl text-blue-400">₹ {total.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveInvoice}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-900/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSaving}
+        >
+          {isSaving ? <SoftLoader size="sm" /> : <FileText className="h-5 w-5" />}
+          {isSaving ? 'Processing...' : 'Save and Preview'}
+        </button>
       </Card>
 
-      <Modal 
+      <Modal
         isOpen={isPartyModalOpen}
         onClose={() => setIsPartyModalOpen(false)}
         title="Add New Party to Master"
@@ -1272,26 +1283,26 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         }
       >
         <div className="space-y-4">
-          <Input label="Party Name" value={newPartyData.name} onChange={e => setNewPartyData({...newPartyData, name: e.target.value})} />
+          <Input label="Party Name" value={newPartyData.name} onChange={e => setNewPartyData({ ...newPartyData, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Mobile Number" value={newPartyData.mobile} onChange={e => setNewPartyData({...newPartyData, mobile: (e.target.value || '').toString().replace(/\D/g,'').slice(0,10)})} />
-            <Select 
-              label="Party Type" 
+            <Input label="Mobile Number" value={newPartyData.mobile} onChange={e => setNewPartyData({ ...newPartyData, mobile: (e.target.value || '').toString().replace(/\D/g, '').slice(0, 10) })} />
+            <Select
+              label="Party Type"
               value={newPartyData.type}
-              onChange={e => setNewPartyData({...newPartyData, type: e.target.value as PartyType})}
-              options={[{label: 'Customer', value: PartyType.CUSTOMER}, {label: 'Supplier', value: PartyType.SUPPLIER}]} 
+              onChange={e => setNewPartyData({ ...newPartyData, type: e.target.value as PartyType })}
+              options={[{ label: 'Customer', value: PartyType.CUSTOMER }, { label: 'Supplier', value: PartyType.SUPPLIER }]}
             />
           </div>
-          <Input label="GSTIN (Optional)" value={newPartyData.gstNo} onChange={e => setNewPartyData({...newPartyData, gstNo: e.target.value})} />
-          <Input label="CIN (Optional)" value={newPartyData.cin} onChange={e => setNewPartyData({...newPartyData, cin: e.target.value})} />
+          <Input label="GSTIN (Optional)" value={newPartyData.gstNo} onChange={e => setNewPartyData({ ...newPartyData, gstNo: e.target.value })} />
+          <Input label="CIN (Optional)" value={newPartyData.cin} onChange={e => setNewPartyData({ ...newPartyData, cin: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Pincode (Optional)" value={(newPartyData.billingAddress as any)?.pincode || ''} onChange={e => setNewPartyData({...newPartyData, billingAddress: { ...(newPartyData.billingAddress || {}), pincode: (e.target.value || '').toString().replace(/\D/g,'').slice(0,6) }})} />
-            <Input label="Address" value={newPartyData.address} onChange={e => setNewPartyData({...newPartyData, address: e.target.value})} />
+            <Input label="Pincode (Optional)" value={(newPartyData.billingAddress as any)?.pincode || ''} onChange={e => setNewPartyData({ ...newPartyData, billingAddress: { ...(newPartyData.billingAddress || {}), pincode: (e.target.value || '').toString().replace(/\D/g, '').slice(0, 6) } })} />
+            <Input label="Address" value={newPartyData.address} onChange={e => setNewPartyData({ ...newPartyData, address: e.target.value })} />
           </div>
         </div>
       </Modal>
 
-      <Modal 
+      <Modal
         isOpen={isItemModalOpen}
         onClose={() => setIsItemModalOpen(false)}
         title="Add New Product to Master"
@@ -1303,21 +1314,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
         }
       >
         <div className="space-y-4">
-          <Input label="Product Name" value={newItemData.name} onChange={e => setNewItemData({...newItemData, name: e.target.value})} />
+          <Input label="Product Name" value={newItemData.name} onChange={e => setNewItemData({ ...newItemData, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-4">
-            <Input label="HSN Code" value={newItemData.hsn} onChange={e => setNewItemData({...newItemData, hsn: e.target.value})} />
-            <Select 
-              label="Unit" 
+            <Input label="HSN Code" value={newItemData.hsn} onChange={e => setNewItemData({ ...newItemData, hsn: e.target.value })} />
+            <Select
+              label="Unit"
               value={newItemData.unit}
-              onChange={e => setNewItemData({...newItemData, unit: e.target.value})}
-              options={unitOptions} 
+              onChange={e => setNewItemData({ ...newItemData, unit: e.target.value })}
+              options={unitOptions}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-             <Input label="Purchase Rate" type="number" value={newItemData.purchaseRate} onChange={e => setNewItemData({...newItemData, purchaseRate: parseFloat(e.target.value)})} />
-             <Input label="Sale Rate" type="number" value={newItemData.saleRate} onChange={e => setNewItemData({...newItemData, saleRate: parseFloat(e.target.value)})} />
+            <Input label="Purchase Rate" type="number" value={newItemData.purchaseRate} onChange={e => setNewItemData({ ...newItemData, purchaseRate: parseFloat(e.target.value) })} />
+            <Input label="Sale Rate" type="number" value={newItemData.saleRate} onChange={e => setNewItemData({ ...newItemData, saleRate: parseFloat(e.target.value) })} />
           </div>
-          <Input label="Tax %" type="number" value={newItemData.taxPercent} onChange={e => setNewItemData({...newItemData, taxPercent: parseFloat(e.target.value)})} />
+          <Input label="Tax %" type="number" value={newItemData.taxPercent} onChange={e => setNewItemData({ ...newItemData, taxPercent: parseFloat(e.target.value) })} />
         </div>
       </Modal>
     </div>

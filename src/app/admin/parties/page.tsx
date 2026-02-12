@@ -19,12 +19,12 @@ const ALL_ROLES = [
 ];
 
 // Multi-select dropdown component for roles
-const RoleMultiSelect = ({ 
-  selectedRoles, 
-  onChange 
-}: { 
-  selectedRoles: PartyRole[], 
-  onChange: (roles: PartyRole[]) => void 
+const RoleMultiSelect = ({
+  selectedRoles,
+  onChange
+}: {
+  selectedRoles: PartyRole[],
+  onChange: (roles: PartyRole[]) => void
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,7 +50,7 @@ const RoleMultiSelect = ({
   return (
     <div className="relative" ref={dropdownRef}>
       <label className="block text-sm font-medium text-slate-700 mb-1">Party Roles</label>
-      <div 
+      <div
         className="min-h-[42px] w-full border border-slate-200 rounded-lg px-3 py-2 cursor-pointer flex flex-wrap gap-1 items-center bg-white"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -60,12 +60,12 @@ const RoleMultiSelect = ({
           selectedRoles.map(role => {
             const roleConfig = ALL_ROLES.find(r => r.value === role);
             return (
-              <span 
-                key={role} 
+              <span
+                key={role}
                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${roleConfig?.color || 'bg-slate-100 text-slate-700'}`}
               >
                 {roleConfig?.label || role}
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); toggleRole(role); }}
                   className="hover:opacity-70"
                 >
@@ -77,11 +77,11 @@ const RoleMultiSelect = ({
         )}
         <ChevronDown className={`h-4 w-4 text-slate-400 ml-auto transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
-      
+
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
           {ALL_ROLES.map(role => (
-            <div 
+            <div
               key={role.value}
               className={`px-3 py-2 cursor-pointer flex items-center justify-between hover:bg-slate-50 ${selectedRoles.includes(role.value) ? 'bg-blue-50' : ''}`}
               onClick={() => toggleRole(role.value)}
@@ -121,13 +121,13 @@ export default function Parties() {
     try {
       const data = await api.parties.list(true);
       setParties(data);
-    } catch(e) { console.error(e) }
+    } catch (e) { console.error(e) }
     setIsLoading(false);
   };
 
   useEffect(() => { loadParties(); }, []);
   useEffect(() => {
-    const onData = () => { loadParties().catch(() => {}); };
+    const onData = () => { loadParties().catch(() => { }); };
     document.addEventListener('gurukrupa:data:updated', onData);
     return () => document.removeEventListener('gurukrupa:data:updated', onData);
   }, []);
@@ -141,7 +141,7 @@ export default function Parties() {
   const handleEdit = (party: Party) => {
     setEditingId(party.id);
     const fallbackRole: PartyRole = party.type === PartyType.SUPPLIER ? PartyRole.SUPPLIER : PartyRole.CUSTOMER;
-    setFormData({ 
+    setFormData({
       ...party,
       roles: (party.roles && party.roles.length ? party.roles : [fallbackRole]),
       openingBalanceType: (party as any).openingBalanceType || BalanceType.DR,
@@ -151,8 +151,8 @@ export default function Parties() {
 
   const openNewModal = () => {
     setEditingId(null);
-    setFormData({ 
-      name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', cin: '', address: '', 
+    setFormData({
+      name: '', mobile: '', type: PartyType.CUSTOMER, email: '', gstNo: '', cin: '', address: '',
       city: '', state: '', pincode: '',
       openingBalance: 0, openingBalanceType: BalanceType.DR,
       roles: [PartyRole.CUSTOMER],
@@ -168,8 +168,9 @@ export default function Parties() {
       return;
     }
     const mobile = (formData.mobile || '').toString().replace(/\D/g, '');
-    if (!mobile) { setNotification({ type: 'error', message: 'Mobile number is required' }); return; }
-    if (mobile.length !== 10) { setNotification({ type: 'error', message: 'Mobile number must be 10 digits' }); return; }
+    // Mobile is now optional
+    // if (!mobile) { setNotification({ type: 'error', message: 'Mobile number is required' }); return; }
+    if (mobile && mobile.length !== 10) { setNotification({ type: 'error', message: 'Mobile number must be 10 digits' }); return; }
     if (formData.email) {
       const em = (formData.email || '').toString();
       const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -217,12 +218,12 @@ export default function Parties() {
           <Input placeholder="Search parties..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <div className="w-full sm:w-48">
-          <Select 
-            value={filterType} 
-            onChange={(e) => setFilterType(e.target.value as any)} 
+          <Select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
             options={[
-              { label: 'All Parties', value: 'ALL' }, 
-              { label: 'Customers', value: PartyRole.CUSTOMER }, 
+              { label: 'All Parties', value: 'ALL' },
+              { label: 'Customers', value: PartyRole.CUSTOMER },
               { label: 'Suppliers', value: PartyRole.SUPPLIER },
               { label: 'Owners', value: PartyRole.OWNER },
               { label: 'Partners', value: PartyRole.PARTNER },
@@ -231,7 +232,7 @@ export default function Parties() {
               { label: 'Cash Accounts', value: PartyRole.CASH },
               { label: 'Bank Accounts', value: PartyRole.BANK },
               { label: 'UPI/Digital', value: PartyRole.UPI },
-            ]} 
+            ]}
           />
         </div>
       </div>
@@ -296,113 +297,113 @@ export default function Parties() {
       {/* Desktop table */}
       <div className="hidden md:block">
         <Table headers={["Name", "Roles", "Mobile", "City", "GSTIN", "Balance", "Action"]}>
-           {isLoading ? (
-             <Skeleton variant="tableRow" lines={6} colSpan={7} />
-           ) : parties.length === 0 ? (
+          {isLoading ? (
+            <Skeleton variant="tableRow" lines={6} colSpan={7} />
+          ) : parties.length === 0 ? (
             <tr><td colSpan={7} className="text-center py-8 text-slate-500">No parties found. Add your first party.</td></tr>
           ) : (
-              parties
-                .filter(p => {
-                  if (filterType === 'ALL') return true;
-                  const roles: PartyRole[] = (p.roles && p.roles.length)
-                    ? p.roles
-                    : [p.type === PartyType.SUPPLIER ? PartyRole.SUPPLIER : PartyRole.CUSTOMER];
-                  return roles.includes(filterType);
-                })
-                .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map(party => {
-                  const roles: PartyRole[] = (party.roles && party.roles.length)
-                    ? party.roles
-                    : [party.type === PartyType.SUPPLIER ? PartyRole.SUPPLIER : PartyRole.CUSTOMER];
-                  const balanceType = (party as any).openingBalanceType || 'DR';
-                  return (
-                    <tr key={party.id}>
-                      <td className="px-4 py-3 font-medium text-slate-900">{party.name}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {roles.map(role => {
-                            const roleConfig = ALL_ROLES.find(r => r.value === role);
-                            return (
-                              <span key={role} className={`px-2 py-0.5 rounded text-xs font-semibold ${roleConfig?.color || 'bg-slate-100 text-slate-700'}`}>
-                                {role}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{party.mobile}</td>
-                      <td className="px-4 py-3 text-slate-600">{party.city || '-'}</td>
-                      <td className="px-4 py-3 text-slate-600 font-mono text-xs">{party.gstNo || party.gstin || '-'}</td>
-                      <td className="px-4 py-3 font-semibold text-right">
-                        <span className={balanceType === 'DR' ? 'text-green-600' : 'text-red-600'}>
-                          ₹ {party.openingBalance} <span className="text-xs font-normal">({balanceType})</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right space-x-2">
-                        <button onClick={() => handleEdit(party)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"><Edit2 className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(party.id)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
-                      </td>
-                    </tr>
-                  );
-                })
+            parties
+              .filter(p => {
+                if (filterType === 'ALL') return true;
+                const roles: PartyRole[] = (p.roles && p.roles.length)
+                  ? p.roles
+                  : [p.type === PartyType.SUPPLIER ? PartyRole.SUPPLIER : PartyRole.CUSTOMER];
+                return roles.includes(filterType);
+              })
+              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map(party => {
+                const roles: PartyRole[] = (party.roles && party.roles.length)
+                  ? party.roles
+                  : [party.type === PartyType.SUPPLIER ? PartyRole.SUPPLIER : PartyRole.CUSTOMER];
+                const balanceType = (party as any).openingBalanceType || 'DR';
+                return (
+                  <tr key={party.id}>
+                    <td className="px-4 py-3 font-medium text-slate-900">{party.name}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {roles.map(role => {
+                          const roleConfig = ALL_ROLES.find(r => r.value === role);
+                          return (
+                            <span key={role} className={`px-2 py-0.5 rounded text-xs font-semibold ${roleConfig?.color || 'bg-slate-100 text-slate-700'}`}>
+                              {role}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{party.mobile}</td>
+                    <td className="px-4 py-3 text-slate-600">{party.city || '-'}</td>
+                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{party.gstNo || party.gstin || '-'}</td>
+                    <td className="px-4 py-3 font-semibold text-right">
+                      <span className={balanceType === 'DR' ? 'text-green-600' : 'text-red-600'}>
+                        ₹ {party.openingBalance} <span className="text-xs font-normal">({balanceType})</span>
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <button onClick={() => handleEdit(party)} className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"><Edit2 className="h-4 w-4" /></button>
+                      <button onClick={() => handleDelete(party.id)} className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                    </td>
+                  </tr>
+                );
+              })
           )}
         </Table>
       </div>
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Party" : "Add New Party"} footer={<><Button variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={isLoading}>{isLoading ? 'Saving...' : 'Save Party'}</Button></>}>
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          <Input label="Party Name *" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-          
+          <Input label="Party Name *" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Mobile Number *" value={formData.mobile} onChange={e => setFormData({...formData, mobile: (e.target.value || '').toString().replace(/\D/g,'').slice(0,10)})} />
-            <Input label="Email (Optional)" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            <Input label="Mobile Number *" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: (e.target.value || '').toString().replace(/\D/g, '').slice(0, 10) })} />
+            <Input label="Email (Optional)" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
           </div>
-          
-          <RoleMultiSelect 
-            selectedRoles={formData.roles || [PartyRole.CUSTOMER]} 
+
+          <RoleMultiSelect
+            selectedRoles={formData.roles || [PartyRole.CUSTOMER]}
             onChange={(roles) => setFormData({
-              ...formData, 
-              roles, 
+              ...formData,
+              roles,
               type: (roles[0] === PartyRole.SUPPLIER ? PartyType.SUPPLIER : PartyType.CUSTOMER)
-            })} 
+            })}
           />
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="GST Number (Optional)" value={formData.gstNo || formData.gstin} onChange={e => setFormData({...formData, gstNo: e.target.value, gstin: e.target.value})} />
-            <Input label="CIN (Optional)" value={formData.cin} onChange={e => setFormData({...formData, cin: e.target.value})} />
+            <Input label="GST Number (Optional)" value={formData.gstNo || formData.gstin} onChange={e => setFormData({ ...formData, gstNo: e.target.value, gstin: e.target.value })} />
+            <Input label="CIN (Optional)" value={formData.cin} onChange={e => setFormData({ ...formData, cin: e.target.value })} />
           </div>
-          
-          <Input label="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-          
+
+          <Input label="Address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input label="City" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-            <Input label="State" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} />
+            <Input label="City" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
+            <Input label="State" value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} />
             <Input label="Pincode" value={formData.pincode || (formData.billingAddress as any)?.pincode || ''} onChange={e => {
-              const pincode = (e.target.value || '').toString().replace(/\D/g,'').slice(0,6);
+              const pincode = (e.target.value || '').toString().replace(/\D/g, '').slice(0, 6);
               setFormData({
-                ...formData, 
+                ...formData,
                 pincode,
                 billingAddress: { ...(formData.billingAddress || {}), pincode }
               });
             }} />
           </div>
-          
+
           <div className="border-t border-slate-200 pt-4 mt-4">
             <h4 className="text-sm font-semibold text-slate-700 mb-3">Opening Balance</h4>
             <div className="grid grid-cols-2 gap-4">
-              <Input 
-                label="Amount" 
-                type="number" 
-                value={formData.openingBalance} 
-                onChange={e => setFormData({...formData, openingBalance: parseFloat(e.target.value) || 0})} 
+              <Input
+                label="Amount"
+                type="number"
+                value={formData.openingBalance}
+                onChange={e => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
               />
-              <Select 
-                label="Type" 
-                value={formData.openingBalanceType || 'DR'} 
-                onChange={e => setFormData({...formData, openingBalanceType: e.target.value as BalanceType})} 
+              <Select
+                label="Type"
+                value={formData.openingBalanceType || 'DR'}
+                onChange={e => setFormData({ ...formData, openingBalanceType: e.target.value as BalanceType })}
                 options={[
-                  {label: 'Debit (DR) - Receivable', value: 'DR'}, 
-                  {label: 'Credit (CR) - Payable', value: 'CR'}
-                ]} 
+                  { label: 'Debit (DR) - Receivable', value: 'DR' },
+                  { label: 'Credit (CR) - Payable', value: 'CR' }
+                ]}
               />
             </div>
             <p className="text-xs text-slate-500 mt-2">
