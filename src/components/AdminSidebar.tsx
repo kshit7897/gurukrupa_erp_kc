@@ -24,7 +24,7 @@ import {
   Building2,
   RefreshCw,
 } from 'lucide-react';
-
+//kshit
 const MENU_ITEMS = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin/parties', label: 'Parties', icon: Users },
@@ -63,7 +63,7 @@ export const AdminSidebar = () => {
         setDisplayName(u.name || u.username || 'User');
         setDisplayRole(u.role || (u.isAdmin ? 'admin' : 'staff') || 'user');
       }
-      
+
       // Get active company name from cookie
       const companyName = getCookie('activeCompanyName');
       if (companyName) {
@@ -75,7 +75,7 @@ export const AdminSidebar = () => {
   }, []);
 
   const handleLogout = () => {
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => { });
     clearAuthStorage();
     localStorage.removeItem('gurukrupa_user');
     // Clear company cookies
@@ -83,7 +83,7 @@ export const AdminSidebar = () => {
     document.cookie = 'activeCompanyName=; path=/; max-age=0';
     router.push('/login');
   };
-  
+
   const handleSwitchCompany = () => {
     // Clear company cookies and redirect to selection page
     document.cookie = 'activeCompanyId=; path=/; max-age=0';
@@ -106,7 +106,7 @@ export const AdminSidebar = () => {
             )}
           </div>
         </div>
-        <button 
+        <button
           onClick={handleSwitchCompany}
           className="h-9 w-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xs ring-2 ring-white shadow-sm"
           title="Switch Company"
@@ -117,9 +117,8 @@ export const AdminSidebar = () => {
 
       {/* SIDEBAR (Desktop + Mobile Drawer) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#0f172a] text-white transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) md:translate-x-0 md:static md:h-screen ${
-          isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#0f172a] text-white transform transition-transform duration-300 cubic-bezier(0.4, 0, 0.2, 1) md:translate-x-0 md:static md:h-screen ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+          }`}
       >
         {/* Sidebar Header */}
         <div className="border-b border-slate-800/50 bg-[#0f172a]">
@@ -134,7 +133,7 @@ export const AdminSidebar = () => {
               <X className="h-6 w-6" />
             </button>
           </div>
-          
+
           {/* Active Company Indicator */}
           {activeCompanyName && (
             <div className="px-4 pb-3">
@@ -179,17 +178,15 @@ export const AdminSidebar = () => {
                     key={item.path}
                     href={item.path}
                     onClick={() => setIsSidebarOpen(false)}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      isActive
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                         : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center">
                       <item.icon
-                        className={`h-5 w-5 mr-3 transition-colors ${
-                          isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'
-                        }`}
+                        className={`h-5 w-5 mr-3 transition-colors ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-white'
+                          }`}
                       />
                       {item.label}
                     </div>
@@ -225,7 +222,7 @@ export const AdminSidebar = () => {
             </button>
             <div className="mt-2 flex items-center px-3 py-2 bg-slate-800/50 rounded-xl border border-slate-700/50">
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-inner">
-                {displayName ? displayName.split(' ').map(s => s[0]).slice(0,2).join('').toUpperCase() : 'U'}
+                {displayName ? displayName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase() : 'U'}
               </div>
               <div className="ml-3 overflow-hidden">
                 <p className="text-sm font-medium text-white truncate">{displayName || 'User'}</p>
