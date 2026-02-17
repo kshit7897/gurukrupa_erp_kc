@@ -55,8 +55,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout error', e);
     }
 
-    // 3. Hard redirect to login
-    window.location.href = '/login';
+    // 3. Hard redirect to login with cache busting
+    window.location.href = `/login?t=${Date.now()}`;
   }, []);
 
   // On mount, restore session if valid
