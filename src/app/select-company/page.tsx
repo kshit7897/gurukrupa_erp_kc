@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, Plus, Edit2, Trash2, Check, LogOut, Loader2 } from 'lucide-react';
+import { useAuth } from '../../components/AuthProvider';
 
 interface Company {
   id: string;
@@ -86,14 +87,10 @@ export default function SelectCompanyPage() {
     }
   }
 
-  async function handleLogout() {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-    } catch (err) {
-      console.error('Logout error', err);
-      router.push('/login');
-    }
+  const { logout } = useAuth();
+
+  function handleLogout() {
+    logout();
   }
 
   async function deleteCompany(company: Company) {

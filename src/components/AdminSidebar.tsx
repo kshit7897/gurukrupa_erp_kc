@@ -24,6 +24,7 @@ import {
   Building2,
   RefreshCw,
 } from 'lucide-react';
+import { useAuth } from './AuthProvider'; // Added useAuth
 //kshit
 const MENU_ITEMS = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -74,14 +75,11 @@ export const AdminSidebar = () => {
     }
   }, []);
 
-  const handleLogout = () => {
-    fetch('/api/auth/logout', { method: 'POST' }).catch(() => { });
-    clearAuthStorage();
-    localStorage.removeItem('gurukrupa_user');
-    // Clear company cookies
-    document.cookie = 'activeCompanyId=; path=/; max-age=0';
-    document.cookie = 'activeCompanyName=; path=/; max-age=0';
-    router.push('/login');
+  const { logout } = useAuth(); // Use centralized logout
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    logout();
   };
 
   const handleSwitchCompany = () => {
@@ -179,8 +177,8 @@ export const AdminSidebar = () => {
                     href={item.path}
                     onClick={() => setIsSidebarOpen(false)}
                     className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
                       }`}
                   >
                     <div className="flex items-center">
