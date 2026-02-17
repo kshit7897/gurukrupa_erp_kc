@@ -69,6 +69,20 @@ export async function middleware(req: NextRequest) {
   if (pathname.match(/\.(.*)$/)) return NextResponse.next();
 
   const token = req.cookies.get('token')?.value;
+
+  // If user is already logged in and tries to access login page, redirect to dashboard/company selection
+  if (token && pathname === '/login') {
+    const activeCompanyId = req.cookies.get('activeCompanyId')?.value;
+    const url = req.nextUrl.clone();
+
+    if (activeCompanyId) {
+      url.pathname = '/admin/dashboard';
+    } else {
+      url.pathname = '/select-company';
+    }
+    return NextResponse.redirect(url);
+  }
+
   if (!token) {
     // API unauthenticated -> 401
     if (pathname.startsWith('/api')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -85,7 +99,7 @@ export async function middleware(req: NextRequest) {
 
   // Check if company is selected
   const activeCompanyId = req.cookies.get('activeCompanyId')?.value || payload?.activeCompanyId;
-  
+
   // If no company selected and trying to access protected routes, redirect to company selection
   if (!activeCompanyId && !pathname.startsWith('/select-company') && !pathname.startsWith('/api/companies')) {
     // For API routes, return error

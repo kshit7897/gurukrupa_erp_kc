@@ -26,6 +26,14 @@ export default function Login() {
     }
   }, []);
 
+  // Redirect if already logged in
+  const { user, token, isLoading: authLoading } = useAuth();
+  useEffect(() => {
+    if (!authLoading && user && token) {
+      router.replace('/admin/dashboard');
+    }
+  }, [user, token, authLoading, router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
