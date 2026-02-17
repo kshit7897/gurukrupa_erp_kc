@@ -42,12 +42,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // Logout and clear storage
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // 1. Clear local storage immediately
     setToken(null);
     setUser(null);
     clearAuthStorage();
-    // Navigate to server-side logout to ensure cookies are cleared before redirect
-    window.location.href = '/api/auth/logout';
+
+    // 2. Call API to clear cookies
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error', e);
+    }
+
+    // 3. Hard redirect to login
+    window.location.href = '/login';
   }, []);
 
   // On mount, restore session if valid

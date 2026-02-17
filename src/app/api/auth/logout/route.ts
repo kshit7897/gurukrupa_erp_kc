@@ -14,14 +14,4 @@ export async function POST() {
   }
 }
 
-export async function GET(req: any) {
-  const url = req.nextUrl.clone();
-  url.pathname = '/login';
 
-  const res = NextResponse.redirect(url);
-  // Clear all auth cookies
-  res.cookies.set('token', '', { httpOnly: true, path: '/', maxAge: 0 });
-  res.cookies.set('activeCompanyId', '', { httpOnly: false, path: '/', maxAge: 0 });
-  res.cookies.set('activeCompanyName', '', { httpOnly: false, path: '/', maxAge: 0 });
-  return res;
-}

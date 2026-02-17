@@ -61,21 +61,11 @@ export default function Login() {
         setAuth(token, user);
       }
 
-      // Handle company selection
-      if (requireCompanySelection && companies && companies.length > 1) {
-        // Multiple companies - redirect to company selection
-        window.location.href = '/select-company';
-      } else if (companies && companies.length === 0) {
-        // No companies - admin can create, others need access
-        if (user?.role === 'admin') {
-          window.location.href = '/select-company';
-        } else {
-          setError('No companies available. Please contact an administrator.');
-        }
-      } else {
-        // Single company auto-selected - proceed to dashboard
-        window.location.href = '/admin/dashboard';
-      }
+      // Explicitly save to storage for PWA persistence
+      saveAuthToStorage(token, user);
+
+      // Always redirect to company selection as requested
+      window.location.href = '/select-company';
     } catch (err) {
       const msg = (err as any)?.message || 'Invalid username or password.';
       setError(msg.includes('Invalid') ? 'Invalid username or password.' : msg);
