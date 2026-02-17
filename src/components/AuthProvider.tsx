@@ -17,8 +17,8 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   user: null,
   isLoading: true,
-  setAuth: (_token: string | null, _user: any | null) => {},
-  logout: () => {},
+  setAuth: (_token: string | null, _user: any | null) => { },
+  logout: () => { },
 });
 
 export function useAuth() {
@@ -42,7 +42,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // Logout and clear storage
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error', e);
+    }
     setToken(null);
     setUser(null);
     clearAuthStorage();
