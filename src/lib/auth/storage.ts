@@ -27,7 +27,7 @@ export function getAuthFromStorage(): AuthData | null {
 }
 
 export function isAuthExpired(loginTime: number): boolean {
-  const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  const SESSION_DURATION = 365 * 24 * 60 * 60 * 1000; // 365 days
   return Date.now() - loginTime > SESSION_DURATION;
 }
 

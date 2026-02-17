@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       activeCompanyId,
     },
     secret,
-    { expiresIn: '24h' }
+    { expiresIn: '365d' }
   );
 
   const safeUser = {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
   res.cookies.set('token', newToken, {
     httpOnly: true,
     path: '/',
-    maxAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 * 365, // 1 year
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
