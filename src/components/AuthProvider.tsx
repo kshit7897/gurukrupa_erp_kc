@@ -101,14 +101,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (data) clearAuthStorage();
       setIsLoading(false);
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        router.replace('/login');
+        window.location.href = '/login';
       }
     };
 
     run().catch(() => {
       setIsLoading(false);
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        router.replace('/login');
+        window.location.href = '/login';
       }
     });
   }, [router]);

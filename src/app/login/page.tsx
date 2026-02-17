@@ -64,17 +64,17 @@ export default function Login() {
       // Handle company selection
       if (requireCompanySelection && companies && companies.length > 1) {
         // Multiple companies - redirect to company selection
-        router.push('/select-company');
+        window.location.href = '/select-company';
       } else if (companies && companies.length === 0) {
         // No companies - admin can create, others need access
         if (user?.role === 'admin') {
-          router.push('/select-company');
+          window.location.href = '/select-company';
         } else {
           setError('No companies available. Please contact an administrator.');
         }
       } else {
         // Single company auto-selected - proceed to dashboard
-        router.push('/admin/dashboard');
+        window.location.href = '/admin/dashboard';
       }
     } catch (err) {
       const msg = (err as any)?.message || 'Invalid username or password.';
