@@ -51,7 +51,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setToken(null);
     setUser(null);
     clearAuthStorage();
-    router.replace('/login');
+    // Force reload to clear client state completely
+    window.location.href = '/login';
   }, [router]);
 
   // On mount, restore session if valid

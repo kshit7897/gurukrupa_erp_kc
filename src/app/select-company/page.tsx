@@ -17,7 +17,7 @@ export default function SelectCompanyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams?.get('redirect') || '/admin/dashboard';
-  
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function SelectCompanyPage() {
       setCompanies(data.companies || []);
       setUserId(data.userId || '');
       setUserRole(data.userRole || 'staff');
-      
+
       // If no companies and user is admin, show create modal
       if ((!data.companies || data.companies.length === 0) && data.userRole === 'admin') {
         setShowCreateModal(true);
@@ -62,7 +62,7 @@ export default function SelectCompanyPage() {
     try {
       setSelecting(company.id);
       setError('');
-      
+
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,14 +72,14 @@ export default function SelectCompanyPage() {
           companyId: company.id
         })
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to select company');
       }
-      
-      // Redirect to dashboard or requested page
-      router.push(redirect);
+
+      // Redirect to dashboard or requested page (force reload to update session)
+      window.location.href = redirect;
     } catch (err: any) {
       setError(err.message || 'Failed to select company');
       setSelecting(null);
@@ -100,7 +100,7 @@ export default function SelectCompanyPage() {
     if (!confirm(`Are you sure you want to delete "${company.name}"? This action cannot be undone.`)) {
       return;
     }
-    
+
     try {
       const res = await fetch(`/api/companies?id=${company.id}`, { method: 'DELETE' });
       if (!res.ok) {
@@ -153,9 +153,8 @@ export default function SelectCompanyPage() {
           {companies.map((company) => (
             <div
               key={company.id}
-              className={`bg-white rounded-xl shadow-sm border-2 transition-all duration-200 hover:shadow-md ${
-                selecting === company.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100 hover:border-blue-300'
-              }`}
+              className={`bg-white rounded-xl shadow-sm border-2 transition-all duration-200 hover:shadow-md ${selecting === company.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100 hover:border-blue-300'
+                }`}
             >
               <div className="p-5">
                 <div className="flex items-start justify-between mb-3">
@@ -172,14 +171,14 @@ export default function SelectCompanyPage() {
                     <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Default</span>
                   )}
                 </div>
-                
+
                 {(company.gstNumber || company.city) && (
                   <div className="text-sm text-gray-500 mb-4">
                     {company.gstNumber && <p>GST: {company.gstNumber}</p>}
                     {company.city && <p>{company.city}</p>}
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => selectCompany(company)}
@@ -198,7 +197,7 @@ export default function SelectCompanyPage() {
                       </>
                     )}
                   </button>
-                  
+
                   {userRole === 'admin' && (
                     <>
                       <button
@@ -262,13 +261,13 @@ export default function SelectCompanyPage() {
   );
 }
 
-function CompanyModal({ 
-  company, 
-  onClose, 
-  onSaved 
-}: { 
-  company: Company | null; 
-  onClose: () => void; 
+function CompanyModal({
+  company,
+  onClose,
+  onSaved
+}: {
+  company: Company | null;
+  onClose: () => void;
   onSaved: () => void;
 }) {
   const [saving, setSaving] = useState(false);
@@ -317,34 +316,34 @@ function CompanyModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!form.name.trim()) {
       setError('Company name is required');
       return;
     }
-    
+
     try {
       setSaving(true);
       setError('');
-      
+
       const payload = {
         ...form,
         gstin: form.gstNumber,
         address_line_1: form.address,
         ...(company ? { id: company.id } : {})
       };
-      
+
       const res = await fetch('/api/companies', {
         method: company ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to save company');
       }
-      
+
       onSaved();
     } catch (err: any) {
       setError(err.message || 'Failed to save company');
@@ -367,14 +366,14 @@ function CompanyModal({
             &times;
           </button>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
               {error}
             </div>
           )}
-          
+
           {/* Basic Info */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">Basic Information</h3>
@@ -422,7 +421,7 @@ function CompanyModal({
               </div>
             </div>
           </div>
-          
+
           {/* Address */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">Address</h3>
@@ -469,7 +468,7 @@ function CompanyModal({
               </div>
             </div>
           </div>
-          
+
           {/* Bank Details */}
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">Bank Details</h3>
@@ -516,7 +515,7 @@ function CompanyModal({
               </div>
             </div>
           </div>
-          
+
           {/* Actions */}
           <div className="flex items-center gap-3 pt-4 border-t">
             <button
