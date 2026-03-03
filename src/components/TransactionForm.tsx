@@ -32,7 +32,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [company, setCompany] = useState<any | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [existingInvoiceNo, setExistingInvoiceNo] = useState<string>('');
+  // We use this single state for both existing invoices and newly fetched auto-generated ones
+  const [customInvoiceNo, setCustomInvoiceNo] = useState<string>('');
   const [partySearchQuery, setPartySearchQuery] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [selectedParty, setSelectedParty] = useState<Party | null>(null);
@@ -116,7 +117,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           const inv: any = await api.invoices.get(id);
           if (!inv) return;
           // populate fields
-          setExistingInvoiceNo(inv.invoiceNo || inv.invoice_no || '');
+          setCustomInvoiceNo(inv.invoiceNo || inv.invoice_no || '');
           setInvoiceDate(inv.date || new Date().toISOString().split('T')[0]);
           setPaymentMode(inv.paymentMode || inv.payment_mode || 'cash');
           setPaymentDetails(inv.paymentDetails || '');
@@ -194,6 +195,28 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
       setDueDate('');
     }
   }, [paymentMode, invoiceDate]);
+
+  // Effect to fetch the predicted NEXT invoice number if NOT editing
+  useEffect(() => {
+    if (editingId) return; // Don't auto-fetch if editing an existing invoice
+
+    // Slight debounce/delay to prevent spamming the API on every keystroke
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/invoices/next-number?paymentMode=${paymentMode}&date=${invoiceDate}&type=${type}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.invoice_no) {
+            setCustomInvoiceNo(data.invoice_no);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch next invoice number", e);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [paymentMode, invoiceDate, type, editingId]);
 
   const loadMasterData = async () => {
     try {
@@ -492,9 +515,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setIsSaving(true);
     setFormError(null);
     try {
-      const invoiceNo = editingId ? (existingInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`) : `INV-${Math.floor(Math.random() * 100000)}`;
+      // Use the potentially user-modified customInvoiceNo
+      const invoiceNo = customInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`;
       const newInvoice: any = {
-        invoiceNo,
+        invoice_no: invoiceNo, // Pass this to backend to check and save
         date: invoiceDate,
         partyId: selectedParty.id,
         partyName: selectedParty.name,
@@ -689,7 +713,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block font-semibold text-blue-600">Invoice No. <span className="text-[10px] text-slate-400 font-normal">(Auto/Edit)</span></label>
+              <input
+                type="text"
+                value={customInvoiceNo}
+                onChange={(e) => setCustomInvoiceNo(e.target.value.toUpperCase())}
+                placeholder="e.g. GK-CR-0001-2026"
+                className="w-full h-10 bg-blue-50/50 border border-blue-200 rounded-lg px-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
             <div>
               <label className="text-xs text-slate-500 mb-1 block">Invoice Date</label>
               <input
@@ -790,7 +824,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               <div className="w-1/3 text-right">
                 <div className="inline-block text-sm text-slate-700 font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200">{isSales ? (paymentMode === 'cash' ? 'CASH MEMO' : 'TAX INVOICE') : 'PURCHASE VOUCHER'}</div>
                 <div className="mt-3 text-sm text-right">
-                  <div className="flex justify-end"><div className="w-40 text-slate-600">Invoice No.</div><div className="w-48 font-bold text-slate-900">{existingInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`}</div></div>
+                  <div className="flex justify-end"><div className="w-40 text-slate-600">Invoice No.</div><div className="w-48 font-bold text-slate-900">{customInvoiceNo || `INV-${Math.floor(Math.random() * 100000)}`}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Inv. Date</div><div className="w-48">{formatDate(invoiceDate)}</div></div>
                   <div className="flex justify-end mt-1"><div className="w-40 text-slate-600">Payment Mode</div><div className="w-48">{paymentMode}</div></div>
                 </div>
@@ -826,7 +860,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                   <div className="w-full space-y-2 text-slate-600">
                     <div className="flex justify-between items-center">
                       <div className="w-40 font-medium text-slate-700">Buyer&apos;s Order No</div>
-                      <div className="text-right text-slate-900 whitespace-nowrap ml-4">{existingInvoiceNo || '-'}</div>
+                      <div className="text-right text-slate-900 whitespace-nowrap ml-4">{customInvoiceNo || '-'}</div>
                     </div>
                     <div className="flex justify-between items-center">
                       <div className="w-40 font-medium text-slate-700">Vehicle Number</div>

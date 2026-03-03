@@ -85,27 +85,71 @@ export async function PATCH(
       payload.dueAmount = Math.max(0, grand - (payload.paidAmount || 0));
     }
 
-    // If payment mode changed, regenerate invoice number/serial for the new bill type
-    try {
-      const newMode = payload.paymentMode || existing.paymentMode || 'cash';
-      if (newMode && newMode !== origPaymentMode) {
-        const gen = await generateInvoiceNumber({ paymentMode: newMode, date: payload.date || existing.date, bill_type: payload.bill_type, companyId });
-        if (gen && gen.invoice_no) {
-          payload.invoice_no = gen.invoice_no;
-          payload.serial = gen.serial;
-          payload.bill_type = gen.bill_type;
-          payload.financial_year = gen.financial_year;
-          payload.invoiceNo = gen.invoice_no;
+    // --- CUSTOM INVOICE NUMBER HANDLING ---
+    // Make sure we have the correct fy and bill_type from the request or fallback to existing
+    let finalInvoiceNo = payload.invoice_no || payload.invoiceNo || existing.invoice_no || existing.invoiceNo;
+
+    // Determine if it was modified
+    const isCustomInvoice = (payload.invoice_no && payload.invoice_no !== existing.invoice_no) ||
+      (payload.invoiceNo && payload.invoiceNo !== existing.invoiceNo);
+
+    if (isCustomInvoice) {
+      // 1. Get financial year and bill type context
+      const genMeta = await generateInvoiceNumber({ paymentMode: payload.paymentMode || existing.paymentMode, date: payload.date || existing.date, bill_type: payload.bill_type || existing.bill_type, companyId });
+      const fy = genMeta.financial_year;
+      const parsedBillType = genMeta.bill_type;
+
+      // 2. Check for duplicates in DB (excluding *this* very invoice)
+      const duplicate = await Invoice.findOne({
+        companyId,
+        financial_year: fy,
+        invoice_no: finalInvoiceNo,
+        _id: { $ne: id } // must not equal the current invoice ID
+      });
+
+      if (duplicate) {
+        return NextResponse.json({ error: `Duplicate Invoice Warning: Invoice No '${finalInvoiceNo}' already exists in Financial Year ${fy}.` }, { status: 409 });
+      }
+
+      // 3. Extract logic
+      let extractedSerial = genMeta.serial;
+      const parts = finalInvoiceNo.split('-');
+      if (parts.length >= 3) {
+        const potentialSerial = parseInt(parts[2], 10);
+        if (!isNaN(potentialSerial)) {
+          extractedSerial = potentialSerial;
         }
       }
-    } catch (e) {
-      console.error('Failed to regenerate invoice number on paymentMode change', e);
-      // fallback: preserve existing number below
-    }
 
-    // Ensure invoice_no/serial are preserved unless explicitly changed or regenerated above
-    if (!payload.invoice_no && !payload.invoiceNo) {
-      payload.invoice_no = existing.invoice_no || existing.invoiceNo;
+      payload.invoice_no = finalInvoiceNo;
+      payload.invoiceNo = finalInvoiceNo;
+      payload.serial = extractedSerial;
+      payload.bill_type = parsedBillType;
+      payload.financial_year = fy;
+
+    } else {
+      // If payment mode changed, regenerate invoice number/serial for the new bill type
+      try {
+        const newMode = payload.paymentMode || existing.paymentMode || 'cash';
+        if (newMode && newMode !== origPaymentMode) {
+          const gen = await generateInvoiceNumber({ paymentMode: newMode, date: payload.date || existing.date, bill_type: payload.bill_type, companyId });
+          if (gen && gen.invoice_no) {
+            payload.invoice_no = gen.invoice_no;
+            payload.serial = gen.serial;
+            payload.bill_type = gen.bill_type;
+            payload.financial_year = gen.financial_year;
+            payload.invoiceNo = gen.invoice_no;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to regenerate invoice number on paymentMode change', e);
+        // fallback: preserve existing number below
+      }
+
+      // Ensure invoice_no/serial are preserved unless explicitly changed or regenerated above
+      if (!payload.invoice_no && !payload.invoiceNo) {
+        payload.invoice_no = existing.invoice_no || existing.invoiceNo;
+      }
     }
 
     // Step 1: revert stock effects of existing invoice
