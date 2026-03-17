@@ -1109,9 +1109,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           <Tag className="h-3 w-3" /> Add Items
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-
-          <div className="md:col-span-4 relative" ref={itemDropdownRef}>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="md:col-span-6 relative" ref={itemDropdownRef}>
             <label className="text-xs text-slate-500 mb-1 block ml-1">Product Name</label>
             <div className="relative">
               <input
@@ -1155,7 +1154,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             )}
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2">
             <label className="text-xs text-slate-500 mb-1 block ml-1">Qty</label>
             <input
               type="number"
@@ -1184,8 +1183,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
               onChange={(e) => handleRateWithGstChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
             />
           </div>
+        </div>
 
-          <div className="md:col-span-1">
+        {/* Second Row for Optional/Secondary Details */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="md:col-span-2">
             <label className="text-xs text-slate-500 mb-1 block ml-1">Disc (%)</label>
             <input
               type="number"
@@ -1197,26 +1199,31 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           </div>
 
           <div className="md:col-span-2">
-            <label className="text-xs text-slate-500 mb-1 block ml-1">GST & Mode</label>
-            <div className="flex items-center gap-1.5 h-11">
-              <input
-                type="number"
-                min="0" step="0.01"
-                className="w-16 h-11 px-2 border border-blue-200 rounded-lg text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-                placeholder="GST %"
-                value={currentTaxPercent as any}
-                onChange={(e) => handleTaxPctChange(e.target.value === '' ? '' : Number(e.target.value))}
-              />
-              <select 
-                value={currentTaxMode} 
-                onChange={(e) => setCurrentTaxMode(e.target.value as any)} 
-                className="flex-1 h-11 px-2 border border-blue-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-              >
-                <option value="CGST_SGST">CGST+SGST</option>
-                <option value="IGST">IGST</option>
-              </select>
-            </div>
+            <label className="text-xs text-slate-500 mb-1 block ml-1">GST %</label>
+            <input
+              type="number"
+              min="0" step="0.01"
+              className="w-full h-11 px-2 border border-blue-200 rounded-lg text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              placeholder="GST %"
+              value={currentTaxPercent as any}
+              onChange={(e) => handleTaxPctChange(e.target.value === '' ? '' : Number(e.target.value))}
+            />
           </div>
+
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">GST Type</label>
+            <select 
+              value={currentTaxMode} 
+              onChange={(e) => setCurrentTaxMode(e.target.value as any)} 
+              className="w-full h-11 px-2 border border-blue-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+            >
+              <option value="CGST_SGST">CGST+SGST</option>
+              <option value="IGST">IGST</option>
+            </select>
+          </div>
+
+          {/* Spacer to align buttons or other elements if needed */}
+          <div className="md:col-span-6"></div>
         </div>
 
         {/* Carting Section */}
