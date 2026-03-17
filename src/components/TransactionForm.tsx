@@ -361,9 +361,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
   const handleTaxPctChange = (val: number | '') => {
     setCurrentTaxPercent(val);
-    if (currentRate !== '') {
-      const taxPct = Number(val || 0);
-      const withGst = Number(currentRate) * (1 + taxPct / 100);
+    const taxPct = Number(val || 0);
+
+    if (currentRateWithGst !== '') {
+      // Anchor to Inclusive Rate: Calculate Ex-GST rate based on fixed Inclusive rate
+      const incRate = Number(currentRateWithGst);
+      const exGst = incRate / (1 + taxPct / 100);
+      setCurrentRate(Number(exGst.toFixed(2)));
+    } else if (currentRate !== '') {
+      // Fallback: If no inclusive rate is present, calculate it based on Ex-GST rate
+      const exRate = Number(currentRate);
+      const withGst = exRate * (1 + taxPct / 100);
       setCurrentRateWithGst(Number(withGst.toFixed(2)));
     }
   };
@@ -1147,11 +1155,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             )}
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="text-xs text-slate-500 mb-1 block ml-1">Qty</label>
             <input
               type="number"
-              className={`w-full h-11 bg-white border rounded-lg px-3 text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${(!currentQty || Number(currentQty) <= 0) && formError?.includes('quantity') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
+              className={`w-full h-11 bg-white border rounded-lg px-2 text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${(!currentQty || Number(currentQty) <= 0) && formError?.includes('quantity') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
               value={currentQty}
               onChange={(e) => setCurrentQty(e.target.value === '' ? '' : parseFloat(e.target.value))}
             />
@@ -1177,25 +1185,33 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
             />
           </div>
 
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className="text-xs text-slate-500 mb-1 block ml-1">Disc (%)</label>
             <input
               type="number"
-              className="w-full h-11 bg-white border border-blue-200 rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              className="w-full h-11 bg-white border border-blue-200 rounded-lg px-2 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
               placeholder="0"
               value={currentDiscount}
               onChange={(e) => setCurrentDiscount(e.target.value === '' ? '' : parseFloat(e.target.value))}
             />
-            <div className="mt-2 flex items-center gap-2">
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">GST & Mode</label>
+            <div className="flex items-center gap-1.5 h-11">
               <input
                 type="number"
                 min="0" step="0.01"
-                className="w-20 h-8 px-2 border rounded text-right"
+                className="w-16 h-11 px-2 border border-blue-200 rounded-lg text-center font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
                 placeholder="GST %"
                 value={currentTaxPercent as any}
                 onChange={(e) => handleTaxPctChange(e.target.value === '' ? '' : Number(e.target.value))}
               />
-              <select value={currentTaxMode} onChange={(e) => setCurrentTaxMode(e.target.value as any)} className="h-8 px-2 border rounded text-sm">
+              <select 
+                value={currentTaxMode} 
+                onChange={(e) => setCurrentTaxMode(e.target.value as any)} 
+                className="flex-1 h-11 px-2 border border-blue-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
                 <option value="CGST_SGST">CGST+SGST</option>
                 <option value="IGST">IGST</option>
               </select>
