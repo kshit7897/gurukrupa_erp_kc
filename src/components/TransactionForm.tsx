@@ -54,6 +54,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   // Line Item States
   const [currentQty, setCurrentQty] = useState<number | ''>(1);
   const [currentRate, setCurrentRate] = useState<number | ''>('');
+  const [currentRateWithGst, setCurrentRateWithGst] = useState<number | ''>('');
   const [currentDiscount, setCurrentDiscount] = useState<number | ''>(0);
   const [currentTaxMode, setCurrentTaxMode] = useState<'CGST_SGST' | 'IGST'>('CGST_SGST');
   const [currentTaxPercent, setCurrentTaxPercent] = useState<number | ''>('');
@@ -322,10 +323,49 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
   const handleSelectItem = (item: Item) => {
     setItemSearchQuery(item.name);
     setSelectedItem(item);
-    setCurrentRate(isSales ? item.saleRate : item.purchaseRate);
-    setCurrentTaxPercent(item.taxPercent || '');
+    const rate = isSales ? item.saleRate : item.purchaseRate;
+    setCurrentRate(rate);
+    const taxPct = item.taxPercent || 0;
+    setCurrentTaxPercent(taxPct || '');
+    if (rate !== '') {
+      const withGst = Number(rate) * (1 + Number(taxPct) / 100);
+      setCurrentRateWithGst(Number(withGst.toFixed(2)));
+    } else {
+      setCurrentRateWithGst('');
+    }
     setShowItemDropdown(false);
     setFormError(null);
+  };
+
+  const handleRateChange = (val: number | '') => {
+    setCurrentRate(val);
+    const taxPct = Number(currentTaxPercent || selectedItem?.taxPercent || 0);
+    if (val === '') {
+      setCurrentRateWithGst('');
+    } else {
+      const withGst = Number(val) * (1 + taxPct / 100);
+      setCurrentRateWithGst(Number(withGst.toFixed(2)));
+    }
+  };
+
+  const handleRateWithGstChange = (val: number | '') => {
+    setCurrentRateWithGst(val);
+    const taxPct = Number(currentTaxPercent || selectedItem?.taxPercent || 0);
+    if (val === '') {
+      setCurrentRate('');
+    } else {
+      const exGst = Number(val) / (1 + taxPct / 100);
+      setCurrentRate(Number(exGst.toFixed(2)));
+    }
+  };
+
+  const handleTaxPctChange = (val: number | '') => {
+    setCurrentTaxPercent(val);
+    if (currentRate !== '') {
+      const taxPct = Number(val || 0);
+      const withGst = Number(currentRate) * (1 + taxPct / 100);
+      setCurrentRateWithGst(Number(withGst.toFixed(2)));
+    }
   };
 
   const openNewItemModal = () => {
@@ -419,6 +459,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setItemSearchQuery('');
     setCurrentQty(1);
     setCurrentRate('');
+    setCurrentRateWithGst('');
     setCurrentDiscount(0);
     setCurrentTaxPercent('');
     // Reset carting for next item
@@ -1064,12 +1105,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
           </div>
 
           <div className="md:col-span-2">
-            <label className="text-xs text-slate-500 mb-1 block ml-1">Rate (₹)</label>
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Rate (Ex-GST)</label>
             <input
               type="number"
               className={`w-full h-11 bg-white border rounded-lg px-3 text-right font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm ${currentRate === '' && formError?.includes('rate') ? 'border-red-300 ring-2 ring-red-100' : 'border-blue-200'}`}
               value={currentRate === null ? '' : currentRate}
-              onChange={(e) => setCurrentRate(e.target.value === '' ? '' : parseFloat(e.target.value))}
+              onChange={(e) => handleRateChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="text-xs text-slate-500 mb-1 block ml-1">Rate (Inc-GST)</label>
+            <input
+              type="number"
+              className="w-full h-11 bg-blue-50 border border-blue-200 rounded-lg px-3 text-right font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              value={currentRateWithGst === null ? '' : currentRateWithGst}
+              onChange={(e) => handleRateWithGstChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
             />
           </div>
 
@@ -1089,7 +1140,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                 className="w-20 h-8 px-2 border rounded text-right"
                 placeholder="GST %"
                 value={currentTaxPercent as any}
-                onChange={(e) => setCurrentTaxPercent(e.target.value === '' ? '' : Number(e.target.value))}
+                onChange={(e) => handleTaxPctChange(e.target.value === '' ? '' : Number(e.target.value))}
               />
               <select value={currentTaxMode} onChange={(e) => setCurrentTaxMode(e.target.value as any)} className="h-8 px-2 border rounded text-sm">
                 <option value="CGST_SGST">CGST+SGST</option>
