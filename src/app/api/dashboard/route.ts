@@ -40,59 +40,87 @@ export async function GET(request: Request) {
       return await getTransactionBreakdown(metric, parseInt(year), parseInt(month), companyId);
     }
 
-    // Totals (all-time) - with company scope
-    const totalSales = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter } },
-      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
-    ]);
-    const totalPurchase = await Invoice.aggregate([
-      { $match: { type: 'PURCHASE', ...companyFilter } },
-      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
-    ]);
-
-    // Month-to-date totals
+    // Month-to-date range calculation
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const monthFilter = { $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] };
 
-    const monthSalesAgg = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
-      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+    // Parallelize all independent database queries
+    const [
+      totalSalesAgg,
+      totalPurchaseAgg,
+      monthSalesAgg,
+      monthPurchaseAgg,
+      outstandingAgg,
+      receivablesAgg,
+      monthReceivablesAgg,
+      lowStock,
+      currentStockItems,
+      recentInvoices,
+      recentPayments,
+      recentOther,
+      payablesAgg,
+      cashAgg,
+      otherAgg,
+      unallocReceiptsAgg,
+      unallocPaymentsAgg,
+      monthUnallocReceiptsAgg,
+      monthUnallocPaymentsAgg
+    ] = await Promise.all([
+      // 1. Total Sales
+      Invoice.aggregate([{ $match: { type: 'SALES', ...companyFilter } }, { $group: { _id: null, total: { $sum: '$grandTotal' } } }]),
+      // 2. Total Purchase
+      Invoice.aggregate([{ $match: { type: 'PURCHASE', ...companyFilter } }, { $group: { _id: null, total: { $sum: '$grandTotal' } } }]),
+      // 3. Month Sales
+      Invoice.aggregate([{ $match: { type: 'SALES', ...companyFilter, ...monthFilter } }, { $group: { _id: null, total: { $sum: '$grandTotal' } } }]),
+      // 4. Month Purchase
+      Invoice.aggregate([{ $match: { type: 'PURCHASE', ...companyFilter, ...monthFilter } }, { $group: { _id: null, total: { $sum: '$grandTotal' } } }]),
+      // 5. Total Outstanding
+      Invoice.aggregate([{ $match: companyFilter }, { $group: { _id: null, totalDue: { $sum: { $ifNull: ['$dueAmount', 0] } } } }]),
+      // 6. Total Receivables
+      Invoice.aggregate([{ $match: { type: 'SALES', ...companyFilter } }, { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }]),
+      // 7. Month Receivables
+      Invoice.aggregate([{ $match: { type: 'SALES', ...companyFilter, ...monthFilter } }, { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }]),
+      // 8. Low Stock Count
+      Item.countDocuments({ stock: { $lt: 10 }, ...companyFilter }),
+      // 9. Stock Snapshot
+      Item.find({ stock: { $exists: true }, ...companyFilter }).sort({ stock: -1 }).limit(4).select({ name: 1, stock: 1, sku: 1, unit: 1 }).lean(),
+      // 10, 11, 12. Recent Activity
+      Invoice.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean(),
+      Payment.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean(),
+      OtherTxn.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean(),
+      // 13. Payables
+      Invoice.aggregate([{ $match: { type: 'PURCHASE', ...companyFilter } }, { $group: { _id: null, payable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }]),
+      // 14, 15 Cash flow
+      Payment.aggregate([{ $match: companyFilter }, { $group: { _id: '$type', total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      OtherTxn.aggregate([{ $match: companyFilter }, { $group: { _id: '$kind', total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      // 16, 17, 18, 19 Unallocated advances
+      Payment.aggregate([{ $match: { type: 'receive', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } }, { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      Payment.aggregate([{ $match: { type: 'pay', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } }, { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      Payment.aggregate([{ 
+        $match: { 
+          $and: [
+            { type: 'receive' },
+            companyFilter, 
+            { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, 
+            monthFilter 
+          ] 
+        } 
+      }, { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      Payment.aggregate([{ 
+        $match: { 
+          $and: [
+            { type: 'pay' },
+            companyFilter, 
+            { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, 
+            monthFilter 
+          ] 
+        } 
+      }, { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
     ]);
-    const monthPurchaseAgg = await Invoice.aggregate([
-      { $match: { type: 'PURCHASE', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
-      { $group: { _id: null, total: { $sum: '$grandTotal' } } }
-    ]);
 
-    // Outstanding (sum of dueAmount for all invoices) - with company scope
-    const outstandingAgg = await Invoice.aggregate([
-      { $match: companyFilter },
-      { $group: { _id: null, totalDue: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
-    ]);
-
-    // Receivables: due amounts only for sales (customers) - with company scope
-    const receivablesAgg = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter } },
-      { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
-    ]);
-
-    // Month receivables (sales with dueAmount within month) - with company scope
-    const monthReceivablesAgg = await Invoice.aggregate([
-      { $match: { type: 'SALES', ...companyFilter, $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] } },
-      { $group: { _id: null, receivable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
-    ]);
-
-    // Low stock count - with company scope
-    const lowStock = await Item.countDocuments({ stock: { $lt: 10 }, ...companyFilter });
-    // Current stock snapshot: top items by stock (positive stock), limit 4 - with company scope
-    const currentStockItems = await Item.find({ stock: { $exists: true }, ...companyFilter }).sort({ stock: -1 }).limit(4).select({ name: 1, stock: 1, sku: 1, unit: 1 }).lean();
-
-    // Recent transactions (fetch more for sparkline computation client-side) - with company scope
-    const recentInvoices = await Invoice.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean();
-    const recentPayments = await Payment.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean();
-    const recentOther = await OtherTxn.find(companyFilter).sort({ createdAt: -1 }).limit(20).lean();
-
-    // Combine invoices and payments into a unified recent transactions list (sorted by createdAt desc)
+    // Combine recent transactions
     const mappedInvoices = (recentInvoices || []).map((inv: any) => ({
       id: inv._id?.toString(),
       kind: 'invoice',
@@ -128,22 +156,7 @@ export async function GET(request: Request) {
     const combined = [...mappedInvoices, ...mappedPayments, ...mappedOther].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const recentTransactions = combined.slice(0, 5);
 
-    // Payables: due amounts for PURCHASE invoices - with company scope
-    const payablesAgg = await Invoice.aggregate([
-      { $match: { type: 'PURCHASE', ...companyFilter } },
-      { $group: { _id: null, payable: { $sum: { $ifNull: ['$dueAmount', 0] } } } }
-    ]);
-
-    // Cash In / Cash Out include payments and other income/expense entries - with company scope
-    const cashAgg = await Payment.aggregate([
-      { $match: companyFilter },
-      { $group: { _id: '$type', total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
-    const otherAgg = await OtherTxn.aggregate([
-      { $match: companyFilter },
-      { $group: { _id: '$kind', total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
-
+    // Calculate Cash flow totals
     let cashIn = 0, cashOut = 0;
     (cashAgg || []).forEach((c: any) => {
       if ((c._id || '').toString() === 'receive') cashIn += c.total || 0;
@@ -154,40 +167,18 @@ export async function GET(request: Request) {
       if ((o._id || '').toString() === 'expense') cashOut += o.total || 0;
     });
 
-    // Unallocated payments (advances) — these are payments without allocations - with company scope
-    const unallocReceiptsAgg = await Payment.aggregate([
-      { $match: { type: 'receive', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
-    const unallocPaymentsAgg = await Payment.aggregate([
-      { $match: { type: 'pay', ...companyFilter, $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
     const unallocatedReceipts = unallocReceiptsAgg[0]?.total || 0;
     const unallocatedPayments = unallocPaymentsAgg[0]?.total || 0;
 
-    // Unallocated payments within the current month (so monthReceivables/payables can be adjusted) - with company scope
-    const monthUnallocReceiptsAgg = await Payment.aggregate([
-      { $match: { $and: [{ type: 'receive' }, companyFilter, { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, { $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] }] } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
-    const monthUnallocPaymentsAgg = await Payment.aggregate([
-      { $match: { $and: [{ type: 'pay' }, companyFilter, { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }, { $or: [{ date: { $gte: monthStart, $lt: nextMonthStart } }, { createdAt: { $gte: monthStart, $lt: nextMonthStart } }] }] } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }
-    ]);
-    const monthUnallocatedReceipts = monthUnallocReceiptsAgg[0]?.total || 0;
-    const monthUnallocatedPayments = monthUnallocPaymentsAgg[0]?.total || 0;
-
     const roundUp = (v: any) => Math.ceil(Number(v || 0));
+
     return NextResponse.json({
-      totalSales: roundUp(totalSales[0]?.total),
-      totalPurchase: roundUp(totalPurchase[0]?.total),
-      // month-to-date values
+      totalSales: roundUp(totalSalesAgg[0]?.total || 0),
+      totalPurchase: roundUp(totalPurchaseAgg[0]?.total || 0),
       monthSales: roundUp(monthSalesAgg[0]?.total || 0),
       monthPurchase: roundUp(monthPurchaseAgg[0]?.total || 0),
       monthProfit: roundUp((monthSalesAgg[0]?.total || 0) - (monthPurchaseAgg[0]?.total || 0)),
-      monthReceivables: roundUp(Math.max(0, (monthReceivablesAgg[0]?.receivable || 0) - monthUnallocatedReceipts)),
-      // adjust outstanding/receivables/payables to account for unallocated advances
+      monthReceivables: roundUp(Math.max(0, (monthReceivablesAgg[0]?.receivable || 0) - (monthUnallocReceiptsAgg[0]?.total || 0))),
       outstanding: roundUp(Math.max(0, (outstandingAgg[0]?.totalDue || 0) - unallocatedReceipts + unallocatedPayments)),
       receivables: roundUp(Math.max(0, (receivablesAgg[0]?.receivable || 0) - unallocatedReceipts)),
       payables: roundUp(Math.max(0, (payablesAgg[0]?.payable || 0) - unallocatedPayments)),
