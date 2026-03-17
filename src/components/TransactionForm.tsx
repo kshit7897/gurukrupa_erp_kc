@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button, Input, Card, Modal, Select, SoftLoader } from './ui/Common';
-import { Plus, Trash2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, AlertCircle, X, CalendarClock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, User, ShoppingCart, Tag, MapPin, Phone, FileText, Package, AlertCircle, X, CalendarClock } from 'lucide-react';
 import { InvoiceItem, Party, Item, Invoice, PartyType } from '../types';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/formatDate';
@@ -471,6 +471,59 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     const newItems = [...addedItems];
     newItems.splice(index, 1);
     setAddedItems(newItems);
+  };
+
+  const handleEditItem = (index: number) => {
+    const item = addedItems[index];
+    const itemWithCarting = item as any;
+
+    // Restore basic item details
+    const masterItem = items.find(i => i.id === item.itemId);
+    if (masterItem) {
+      setSelectedItem(masterItem);
+      setItemSearchQuery(masterItem.name);
+    } else {
+      setItemSearchQuery(item.name);
+    }
+
+    setCurrentQty(item.qty);
+    setCurrentRate(item.rate);
+    setCurrentDiscount(item.discountPercent);
+    setCurrentTaxPercent(item.taxPercent);
+    setCurrentTaxMode(item.taxType || 'CGST_SGST');
+
+    // Calculate Inc-GST rate for entry form
+    const taxPct = Number(item.taxPercent || 0);
+    const withGst = Number(item.rate) * (1 + taxPct / 100);
+    setCurrentRateWithGst(Number(withGst.toFixed(2)));
+
+    // Restore carting details
+    const cartingPerUnit = itemWithCarting.cartingAmount / item.qty;
+    if (cartingPerUnit > 0) {
+      setCartingEnabled(true);
+      setCurrentCartingAmount(cartingPerUnit);
+      if (itemWithCarting.cartingPartyId) {
+        const cParty = parties.find(p => p.id === itemWithCarting.cartingPartyId);
+        if (cParty) {
+          setSelectedCartingParty(cParty);
+          setCartingSearchQuery(cParty.name);
+        } else if (itemWithCarting.cartingPartyName) {
+          setCartingSearchQuery(itemWithCarting.cartingPartyName);
+        }
+      }
+    } else {
+      setCartingEnabled(false);
+      setCurrentCartingAmount(0);
+      setSelectedCartingParty(null);
+      setCartingSearchQuery('');
+    }
+
+    // Remove item from list
+    handleRemoveItem(index);
+
+    // Scroll up to entry form
+    window.scrollTo({ top: 300, behavior: 'smooth' });
+    setFormError(null);
   };
 
   // Calculations - Memoized to prevent re-calc on every render
@@ -1307,9 +1360,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                     <p className="text-sm font-bold text-slate-700">₹ {item.amount?.toFixed(2)}</p>
                     <p className="text-xs text-slate-400">Taxable</p>
                   </div>
-                  <button onClick={() => handleRemoveItem(index)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleEditItem(index)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Item">
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleRemoveItem(index)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete Item">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
