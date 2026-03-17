@@ -327,7 +327,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
     setCurrentRate(rate);
     const taxPct = item.taxPercent || 0;
     setCurrentTaxPercent(taxPct || '');
-    if (rate !== '') {
+    if (typeof rate === 'number') {
       const withGst = Number(rate) * (1 + Number(taxPct) / 100);
       setCurrentRateWithGst(Number(withGst.toFixed(2)));
     } else {
