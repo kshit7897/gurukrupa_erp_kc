@@ -72,18 +72,13 @@ export async function PATCH(
     const grand = Number(payload.grandTotal || existing.grandTotal || 0);
     const origPaymentMode = existing.paymentMode || 'cash';
 
-    if (payload.paymentMode === 'cash') {
-      payload.paidAmount = grand;
-      payload.dueAmount = 0;
-    } else if (payload.paymentMode) {
-      // If converting from cash -> non-cash and client didn't provide paidAmount, assume unpaid (0)
-      if ((origPaymentMode === 'cash' || origPaymentMode === 'CASH') && (payload.paidAmount == null || payload.paidAmount === '')) {
-        payload.paidAmount = 0;
-      } else {
-        payload.paidAmount = Number(payload.paidAmount != null ? payload.paidAmount : (existing.paidAmount || 0));
-      }
+    if (payload.paymentMode) {
+      // No auto-settlement for cash or any other mode.
+      // Always base dueAmount on grandTotal and preserved paidAmount.
+      payload.paidAmount = Number(payload.paidAmount != null ? payload.paidAmount : (existing.paidAmount || 0));
       payload.dueAmount = Math.max(0, grand - (payload.paidAmount || 0));
     }
+
 
     // --- CUSTOM INVOICE NUMBER HANDLING ---
     // Make sure we have the correct fy and bill_type from the request or fallback to existing
