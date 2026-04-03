@@ -1212,9 +1212,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
 
           <div className="md:col-span-2">
             <label className="text-xs text-slate-500 mb-1 block ml-1">GST Type</label>
-            <select 
-              value={currentTaxMode} 
-              onChange={(e) => setCurrentTaxMode(e.target.value as any)} 
+            <select
+              value={currentTaxMode}
+              onChange={(e) => setCurrentTaxMode(e.target.value as any)}
               className="w-full h-11 px-2 border border-blue-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
             >
               <option value="CGST_SGST">CGST+SGST</option>
@@ -1306,7 +1306,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({ type }) => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Carting Amount (₹)</label>
+                  <label className="text-xs text-slate-500 mb-1 block">Carting Rate (₹)</label>
                   <input
                     type="number"
                     min="0"
