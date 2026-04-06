@@ -161,6 +161,21 @@ export const api = {
       dataEvents.dispatch();
       try { notify('success', 'Payment deleted'); } catch (e) {}
       return out;
+    },
+    update: async (id: string, payment: any) => {
+      const res = await fetch(`/api/payments?id=${id}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(payment) 
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to update payment');
+      }
+      const out = await res.json();
+      dataEvents.dispatch();
+      try { notify('success', 'Payment updated'); } catch (e) {}
+      return out;
     }
   },
   invoices: {

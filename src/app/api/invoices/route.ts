@@ -176,28 +176,68 @@ export async function POST(request: Request) {
     // Create ledger entry for the invoice
     try {
       const isSales = payload.type === 'SALES';
-      await LedgerEntry.create({
-        companyId, // Add company scope
+      const invoiceNo = payload.invoice_no || payload.invoiceNo;
+      
+      // Separate Carting Charges from Main Party liability/receivable
+      const cartingMap = new Map<string, { amount: number, name: string }>();
+      let totalCartingToOthers = 0;
+
+      if (Array.isArray(payload.items)) {
+        payload.items.forEach((it: any) => {
+          const cAmt = Number(it.cartingAmount || 0);
+          const cPartyId = (it.cartingPartyId || '').toString();
+          if (cAmt > 0 && cPartyId && cPartyId !== payload.partyId.toString()) {
+            const existing = cartingMap.get(cPartyId) || { amount: 0, name: it.cartingPartyName || 'Unknown Carting Party' };
+            existing.amount += cAmt;
+            cartingMap.set(cPartyId, existing);
+            totalCartingToOthers += cAmt;
+          }
+        });
+      }
+
+      const ledgerEntries: any[] = [];
+
+      // 1. Main Party Ledger Entry (Gross Amount - Carting to Others)
+      ledgerEntries.push({
+        companyId,
         partyId: payload.partyId,
         partyName: payload.partyName,
         date: payload.date,
         entryType: 'INVOICE',
         refType: 'INVOICE',
         refId: invoiceId,
-        refNo: payload.invoice_no || payload.invoiceNo,
-        // Sales: Debit (receivable from customer)
-        // Purchase: Credit (payable to supplier)
-        debit: isSales ? grand : 0,
-        credit: isSales ? 0 : grand,
-        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${payload.invoice_no || payload.invoiceNo}`,
+        refNo: invoiceNo,
+        // Net amount for main party
+        debit: isSales ? (grand - totalCartingToOthers) : 0,
+        credit: isSales ? 0 : (grand - totalCartingToOthers),
+        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${invoiceNo}${totalCartingToOthers > 0 ? ' (Net of Carting)' : ''}`,
         paymentMode: payload.paymentMode,
-        metadata: {
-          invoiceType: payload.type
-        }
+        metadata: { invoiceType: payload.type }
       });
+
+      // 2. Individual Carting Party Ledger Entries
+      cartingMap.forEach((data, cPartyId) => {
+        ledgerEntries.push({
+          companyId,
+          partyId: cPartyId,
+          partyName: data.name,
+          date: payload.date,
+          entryType: 'INVOICE',
+          refType: 'INVOICE',
+          refId: invoiceId,
+          refNo: invoiceNo,
+          // Transporter gets their share
+          debit: isSales ? data.amount : 0,
+          credit: isSales ? 0 : data.amount,
+          narration: `Carting Charges for Invoice: ${invoiceNo}`,
+          paymentMode: payload.paymentMode,
+          metadata: { invoiceType: payload.type, isCarting: true }
+        });
+      });
+
+      await LedgerEntry.insertMany(ledgerEntries);
     } catch (ledgerErr) {
       console.error('Ledger entry creation failed:', ledgerErr);
-      // Continue - don't fail invoice creation for ledger entry failure
     }
 
     // Update stock; if this fails, delete the created invoice and ledger entry

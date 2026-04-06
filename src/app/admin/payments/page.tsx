@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Button, Input, Select, Table, Card, Modal, SoftLoader } from '../../../components/ui/Common';
-import { Plus, Download, Eye, Trash2, ReceiptIndianRupee, Wallet } from 'lucide-react';
+import { Plus, Download, Eye, Trash2, ReceiptIndianRupee, Wallet, Pencil } from 'lucide-react';
 import { api } from '../../../lib/api';
 import { formatDate } from '../../../lib/formatDate';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,7 @@ export default function PaymentsPage() {
   // Modal states
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [toEdit, setToEdit] = useState<any | null>(null);
   const [savedPayment, setSavedPayment] = useState<any | null>(null);
 
   const load = async () => {
@@ -131,6 +132,18 @@ export default function PaymentsPage() {
                     <td className="px-6 py-4 text-right pr-6">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="sm" icon={Eye} onClick={() => router.push(`/payments/receipt/${p.id}`)} title="View Receipt" />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          icon={Pencil} 
+                          onClick={() => {
+                            setToEdit(p);
+                            if (p.type === 'receive') setShowReceiveModal(true);
+                            else setShowPayModal(true);
+                          }} 
+                          className="text-blue-500 hover:text-blue-700" 
+                          title="Edit" 
+                        />
                         <Button variant="ghost" size="sm" icon={Trash2} onClick={() => { setToDelete(p); setDeleteResult(null); }} className="text-rose-400 hover:text-rose-600" title="Delete" />
                       </div>
                     </td>
@@ -145,40 +158,44 @@ export default function PaymentsPage() {
       {/* Receive Modal */}
       <Modal 
         isOpen={showReceiveModal} 
-        onClose={() => setShowReceiveModal(false)}
-        title="Payment Received (Mili Hui Rakam)"
+        onClose={() => { setShowReceiveModal(false); setToEdit(null); }}
+        title={toEdit ? "Edit Receipt (Rakam Sudhare)" : "Payment Received (Mili Hui Rakam)"}
         full
       >
         <PaymentForm 
           type="receive" 
+          initialData={toEdit}
           onSuccess={(p) => {
             setShowReceiveModal(false);
+            setToEdit(null);
             setSavedPayment(p);
             load();
-            setNotif({ type: 'success', message: 'Receipt recorded successfully' });
+            setNotif({ type: 'success', message: `Receipt ${toEdit ? 'updated' : 'recorded'} successfully` });
             setTimeout(() => setNotif(null), 3000);
           }} 
-          onCancel={() => setShowReceiveModal(false)} 
+          onCancel={() => { setShowReceiveModal(false); setToEdit(null); }} 
         />
       </Modal>
 
       {/* Pay Modal */}
       <Modal 
         isOpen={showPayModal} 
-        onClose={() => setShowPayModal(false)}
-        title="Make Payment (Diyi Hui Rakam)"
+        onClose={() => { setShowPayModal(false); setToEdit(null); }}
+        title={toEdit ? "Edit Payment (Kharcha Sudhare)" : "Make Payment (Diyi Hui Rakam)"}
         full
       >
         <PaymentForm 
           type="pay" 
+          initialData={toEdit}
           onSuccess={(p) => {
             setShowPayModal(false);
+            setToEdit(null);
             setSavedPayment(p);
             load();
-            setNotif({ type: 'success', message: 'Payment recorded successfully' });
+            setNotif({ type: 'success', message: `Payment ${toEdit ? 'updated' : 'recorded'} successfully` });
             setTimeout(() => setNotif(null), 3000);
           }} 
-          onCancel={() => setShowPayModal(false)} 
+          onCancel={() => { setShowPayModal(false); setToEdit(null); }} 
         />
       </Modal>
 

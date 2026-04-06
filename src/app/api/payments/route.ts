@@ -233,8 +233,150 @@ export async function POST(request: Request) {
   }
 }
 
+// PUT: update an existing payment and reflect changes in invoices and ledgers
+export async function PUT(request: Request) {
+  try {
+    await dbConnect();
+
+    // Get company context
+    const { companyId } = getCompanyContextFromRequest(request);
+    if (!companyId) {
+      return NextResponse.json({ error: 'No company selected' }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'payment id required' }, { status: 400 });
+
+    const body = await request.json();
+    if (!body || typeof body.amount !== 'number') {
+      return NextResponse.json({ error: 'Numeric amount required' }, { status: 400 });
+    }
+
+    const session = await mongoose.startSession();
+    let updatedPayment: any = null;
+
+    try {
+      await session.withTransaction(async () => {
+        // 1. Find existing payment
+        const oldPayment = await Payment.findOne({ _id: id, companyId }).session(session);
+        if (!oldPayment) throw new Error('Payment not found');
+
+        // 2. REVERSE: Revert old allocations from invoices
+        if (Array.isArray(oldPayment.allocations) && oldPayment.allocations.length > 0) {
+          for (const a of oldPayment.allocations) {
+            const inv = await Invoice.findOne({ _id: a.invoiceId, companyId }).session(session);
+            if (!inv) continue;
+            inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - Number(a.amount || 0));
+            inv.dueAmount = Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0));
+            await inv.save({ session });
+          }
+        }
+
+        // 3. REVERSE: Delete old Ledger Entries
+        await LedgerEntry.deleteMany({ refId: id, refType: 'PAYMENT' }).session(session);
+
+        // 4. PREPARE NEW: Calculate new allocations
+        const partyId = body.partyId || oldPayment.partyId;
+        const type = oldPayment.type;
+        const newAmount = Number(body.amount);
+        let remaining = newAmount;
+        const newAllocations: Array<{ invoiceId: string; amount: number }> = [];
+
+        // Simple FIFO re-allocation across old invoices or provided ones
+        const potentialInvoices = body.invoiceIds?.length > 0 ? body.invoiceIds : oldPayment.invoiceIds || [];
+        for (const invId of potentialInvoices) {
+          if (remaining <= 0) break;
+          const inv = await Invoice.findOne({ _id: invId, partyId, companyId }).session(session);
+          if (!inv) continue;
+          const dueNow = Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0));
+          if (dueNow <= 0) continue;
+          const apply = Math.min(dueNow, remaining);
+          newAllocations.push({ invoiceId: invId, amount: apply });
+          remaining -= apply;
+        }
+
+        // 5. UPDATE: Update the payment document
+        oldPayment.amount = newAmount;
+        oldPayment.partyId = partyId;
+        oldPayment.partyName = body.partyName || oldPayment.partyName;
+        oldPayment.date = body.date || oldPayment.date;
+        oldPayment.mode = body.mode || oldPayment.mode;
+        oldPayment.reference = body.reference || oldPayment.reference;
+        oldPayment.notes = body.notes || oldPayment.notes;
+        oldPayment.allocations = newAllocations;
+        oldPayment.invoiceIds = newAllocations.map(a => a.invoiceId);
+        oldPayment.receivedById = body.receivedById || oldPayment.receivedById;
+        oldPayment.receivedByName = body.receivedByName || oldPayment.receivedByName;
+        oldPayment.paidFromId = body.paidFromId || oldPayment.paidFromId;
+        oldPayment.paidFromName = body.paidFromName || oldPayment.paidFromName;
+        
+        await oldPayment.save({ session });
+        updatedPayment = oldPayment;
+
+        // 6. APPLY: Apply new allocations to invoices
+        for (const a of newAllocations) {
+          const inv = await Invoice.findOne({ _id: a.invoiceId, companyId }).session(session);
+          if (!inv) continue;
+          inv.paidAmount = (inv.paidAmount || 0) + Number(a.amount || 0);
+          inv.dueAmount = Math.max(0, (inv.grandTotal || 0) - inv.paidAmount);
+          await inv.save({ session });
+        }
+
+        // 7. APPLY: Create new Ledger Entries
+        const isReceive = type === 'receive';
+        const ledgerDate = oldPayment.date.split('T')[0];
+        const ledgerEntries: any[] = [];
+
+        // a) Party Ledger
+        ledgerEntries.push({
+          companyId,
+          partyId,
+          partyName: oldPayment.partyName,
+          date: ledgerDate,
+          entryType: isReceive ? 'RECEIPT' : 'PAYMENT',
+          refType: 'PAYMENT',
+          refId: id,
+          refNo: oldPayment.voucherNo,
+          debit: isReceive ? 0 : newAmount,
+          credit: isReceive ? newAmount : 0,
+          narration: `[UPDATED] ${isReceive ? 'Receipt' : 'Payment'}: ${oldPayment.voucherNo}`,
+          paymentMode: oldPayment.mode
+        });
+
+        // b) Account Ledger
+        const accountId = isReceive ? oldPayment.receivedById : oldPayment.paidFromId;
+        const accountName = isReceive ? oldPayment.receivedByName : oldPayment.paidFromName;
+        if (accountId) {
+          ledgerEntries.push({
+            companyId,
+            partyId: accountId,
+            partyName: accountName || '',
+            date: ledgerDate,
+            entryType: isReceive ? 'RECEIPT' : 'PAYMENT',
+            refType: 'PAYMENT',
+            refId: id,
+            refNo: oldPayment.voucherNo,
+            debit: isReceive ? newAmount : 0,
+            credit: isReceive ? 0 : newAmount,
+            narration: `[UPDATED] ${isReceive ? 'Received into' : 'Paid from'} ${accountName}: ${oldPayment.voucherNo}`,
+            paymentMode: oldPayment.mode
+          });
+        }
+        await LedgerEntry.create(ledgerEntries, { session });
+      });
+    } finally {
+      session.endSession();
+    }
+
+    return NextResponse.json({ ...updatedPayment.toObject(), id: updatedPayment._id.toString() });
+  } catch (err: any) {
+    console.error('PUT /api/payments error', err);
+    return NextResponse.json({ error: err?.message || 'Failed to update payment' }, { status: 500 });
+  }
+}
+
 // DELETE: remove a payment and revert allocations
-// NOTE: Ledger entries should NOT be deleted per accounting rules - create reversal entry instead
 export async function DELETE(request: Request) {
   try {
     await dbConnect();
@@ -260,15 +402,10 @@ export async function DELETE(request: Request) {
         }).session(session);
         if (!payment) return;
 
-        // Hard Delete Implementation
-        // 1. Revert allocations (updates Invoice amounts)
-        // 2. Delete ALL LedgerEntries related to this payment
-        // 3. Delete the Payment
-
         // 1. Revert allocations
         if (Array.isArray(payment.allocations) && payment.allocations.length > 0) {
           for (const a of payment.allocations) {
-            const inv = await findInvoiceFlexible(a.invoiceId, companyId, session);
+            const inv = await Invoice.findOne({ _id: a.invoiceId, companyId }).session(session);
             if (!inv) continue;
             inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - Number(a.amount || 0));
             inv.dueAmount = Math.max(0, (inv.grandTotal || 0) - (inv.paidAmount || 0));
@@ -276,7 +413,7 @@ export async function DELETE(request: Request) {
           }
         }
 
-        // 2. Delete ledger entries (Hard Delete)
+        // 2. Delete ledger entries
         await LedgerEntry.deleteMany({ refId: id, refType: 'PAYMENT' }).session(session);
 
         // 3. Delete the payment

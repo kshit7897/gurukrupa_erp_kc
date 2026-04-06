@@ -204,11 +204,32 @@ export async function PATCH(
       // Delete old entries
       await LedgerEntry.deleteMany({ refId: id, refType: 'INVOICE' });
 
-      // Create new entry for the updated invoice
+      // Create new entries for the updated invoice
       const isSales = updatedObj.type === 'SALES';
       const newGrand = Number(updatedObj.grandTotal || 0);
+      const invoiceNo = updatedObj.invoice_no || updatedObj.invoiceNo;
 
-      await LedgerEntry.create({
+      // Separate Carting Charges
+      const cartingMap = new Map<string, { amount: number, name: string }>();
+      let totalCartingToOthers = 0;
+
+      if (Array.isArray(updatedObj.items)) {
+        updatedObj.items.forEach((it: any) => {
+          const cAmt = Number(it.cartingAmount || 0);
+          const cPartyId = (it.cartingPartyId || '').toString();
+          if (cAmt > 0 && cPartyId && cPartyId !== updatedObj.partyId.toString()) {
+            const existing = cartingMap.get(cPartyId) || { amount: 0, name: it.cartingPartyName || 'Unknown Carting Party' };
+            existing.amount += cAmt;
+            cartingMap.set(cPartyId, existing);
+            totalCartingToOthers += cAmt;
+          }
+        });
+      }
+
+      const ledgerEntries: any[] = [];
+
+      // 1. Main Party Ledger Entry
+      ledgerEntries.push({
         companyId,
         partyId: updatedObj.partyId,
         partyName: updatedObj.partyName,
@@ -216,16 +237,36 @@ export async function PATCH(
         entryType: 'INVOICE',
         refType: 'INVOICE',
         refId: id,
-        refNo: updatedObj.invoice_no || updatedObj.invoiceNo,
-        debit: isSales ? newGrand : 0,
-        credit: isSales ? 0 : newGrand,
-        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${updatedObj.invoice_no || updatedObj.invoiceNo}`,
+        refNo: invoiceNo,
+        debit: isSales ? (newGrand - totalCartingToOthers) : 0,
+        credit: isSales ? 0 : (newGrand - totalCartingToOthers),
+        narration: `${isSales ? 'Sales' : 'Purchase'} Invoice: ${invoiceNo}${totalCartingToOthers > 0 ? ' (Net of Carting)' : ''}`,
         paymentMode: updatedObj.paymentMode,
         metadata: { invoiceType: updatedObj.type }
       });
+
+      // 2. Carting Party Ledger Entries
+      cartingMap.forEach((data, cPartyId) => {
+        ledgerEntries.push({
+          companyId,
+          partyId: cPartyId,
+          partyName: data.name,
+          date: updatedObj.date,
+          entryType: 'INVOICE',
+          refType: 'INVOICE',
+          refId: id,
+          refNo: invoiceNo,
+          debit: isSales ? data.amount : 0,
+          credit: isSales ? 0 : data.amount,
+          narration: `Carting Charges for Invoice: ${invoiceNo}`,
+          paymentMode: updatedObj.paymentMode,
+          metadata: { invoiceType: updatedObj.type, isCarting: true }
+        });
+      });
+
+      await LedgerEntry.insertMany(ledgerEntries);
     } catch (ledgerErr) {
       console.error('Ledger entry update failed:', ledgerErr);
-      // Continue - don't fail the update for ledger entry failure
     }
 
     return NextResponse.json({ ...(updated as any).toObject(), id: (updated as any)._id.toString() });

@@ -7,21 +7,22 @@ interface PaymentFormProps {
   type: 'receive' | 'pay';
   onSuccess: (payment: any) => void;
   onCancel: () => void;
+  initialData?: any;
 }
 
-export default function PaymentForm({ type, onSuccess, onCancel }: PaymentFormProps) {
+export default function PaymentForm({ type, onSuccess, onCancel, initialData }: PaymentFormProps) {
   const [loading, setLoading] = useState(true);
   const [parties, setParties] = useState<any[]>([]);
   const [partyLoading, setPartyLoading] = useState(false);
-  const [selectedParty, setSelectedParty] = useState('');
+  const [selectedParty, setSelectedParty] = useState(initialData?.partyId || '');
   const [totalOutstanding, setTotalOutstanding] = useState<number>(0);
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [mode, setMode] = useState('cash');
-  const [reference, setReference] = useState('');
-  const [notes, setNotes] = useState('');
+  const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
+  const [date, setDate] = useState(initialData?.date ? new Date(initialData.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [mode, setMode] = useState(initialData?.mode || 'cash');
+  const [reference, setReference] = useState(initialData?.reference || '');
+  const [notes, setNotes] = useState(initialData?.notes || '');
   const [saving, setSaving] = useState(false);
-  const [accountId, setAccountId] = useState<string>('');
+  const [accountId, setAccountId] = useState<string>(initialData?.receivedById || initialData?.paidFromId || '');
 
   useEffect(() => {
     load();
@@ -65,15 +66,26 @@ export default function PaymentForm({ type, onSuccess, onCancel }: PaymentFormPr
         // update parties cache with fresh data locally
         setParties((prev) => (prev || []).map((p: any) => ((p._id || p.id || '').toString() === selectedParty.toString() ? fresh : p)));
         
-        const cb = fresh.currentBalance;
+        let cb = fresh.currentBalance;
+        if (typeof cb !== 'number' && typeof cb === 'string' && !isNaN(Number(cb))) cb = Number(cb);
+        
+        // When editing, the fresh balance from server EXCLUDES the current payment.
+        // We should add it back to show the "Outstanding Before" correctly.
+        if (initialData && initialData.partyId === selectedParty) {
+          cb = (Number(cb || 0)) + Number(initialData.amount || 0);
+        }
+        
         if (typeof cb === 'number') setTotalOutstanding(Number(cb || 0));
-        else if (typeof cb === 'string' && !isNaN(Number(cb))) setTotalOutstanding(Number(cb));
         else {
           // fallback: fetch outstanding report
           try {
             const out = await api.reports.getOutstanding();
             const found = (out || []).find((pp: any) => (pp._id || pp.id || '').toString() === selectedParty.toString());
-            if (found && typeof found.currentBalance === 'number') setTotalOutstanding(Number(found.currentBalance || 0));
+            let foundBal = found?.currentBalance || 0;
+            if (initialData && initialData.partyId === selectedParty) {
+              foundBal += Number(initialData.amount || 0);
+            }
+            setTotalOutstanding(Number(foundBal));
           } catch (e) { /* ignore */ }
         }
       } catch (e) { /* ignore */ }
@@ -123,7 +135,12 @@ export default function PaymentForm({ type, onSuccess, onCancel }: PaymentFormPr
         payload.paidByType = accType;
       }
 
-      const res = await api.payments.add(payload);
+      let res;
+      if (initialData?.id) {
+        res = await api.payments.update(initialData.id, payload);
+      } else {
+        res = await api.payments.add(payload);
+      }
       onSuccess(res);
     } catch (e: any) {
       console.error(e);
