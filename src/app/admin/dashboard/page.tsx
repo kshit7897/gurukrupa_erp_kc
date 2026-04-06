@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Card, Modal, Button } from '../../../components/ui/Common';
+import { Card, Modal, Button, Table } from '../../../components/ui/Common';
 import { TrendingUp, TrendingDown, Users, Package, AlertCircle, ChevronRight, Download, FileSpreadsheet, X, ArrowLeft, IndianRupee } from 'lucide-react';
 
 import { api } from '../../../lib/api';
@@ -315,58 +315,50 @@ export default function Dashboard() {
             <>
               {/* Year-wise breakdown */}
               {drilldownLevel === 'year' && drilldownData.data && (
-                <div className="space-y-2">
+                <Table headers={['Year', 'Invoices', 'Total Amount', 'Due / Advance']}>
                   {drilldownData.data.map((row: any) => (
-                    <div 
+                    <tr 
                       key={row.year}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100"
+                      className="cursor-pointer hover:bg-slate-50 transition-colors"
                       onClick={() => drillToMonth(row.year)}
                     >
-                      <div>
-                        <span className="font-bold text-slate-800">{row.year}</span>
-                        <span className="text-sm text-slate-500 ml-2">({row.count} invoices)</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="font-bold text-slate-800">₹ {row.total.toLocaleString()}</div>
-                          {row.due > 0 && <div className="text-xs text-red-600">Due: ₹ {row.due.toLocaleString()}</div>}
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-slate-400" />
-                      </div>
-                    </div>
+                      <td className="px-4 py-3 font-bold text-slate-800">{row.year}</td>
+                      <td className="px-4 py-3 text-slate-500">{row.count}</td>
+                      <td className="px-4 py-3 font-semibold">₹ {row.total.toLocaleString()}</td>
+                      <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                        {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
+                        {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
+                      </td>
+                    </tr>
                   ))}
                   {drilldownData.data.length === 0 && (
-                    <div className="text-center py-8 text-slate-500">No data available</div>
+                    <tr><td colSpan={4} className="text-center py-8 text-slate-500">No data available</td></tr>
                   )}
-                </div>
+                </Table>
               )}
               
               {/* Month-wise breakdown */}
               {drilldownLevel === 'month' && drilldownData.data && (
-                <div className="space-y-2">
+                <Table headers={['Month', 'Invoices', 'Total Amount', 'Due / Advance']}>
                   {drilldownData.data.filter((row: any) => row.count > 0).map((row: any) => (
-                    <div 
+                    <tr 
                       key={row.month}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100"
+                      className="cursor-pointer hover:bg-slate-50 transition-colors"
                       onClick={() => drillToTransactions(row.month)}
                     >
-                      <div>
-                        <span className="font-bold text-slate-800">{row.monthName}</span>
-                        <span className="text-sm text-slate-500 ml-2">({row.count} invoices)</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="font-bold text-slate-800">₹ {row.total.toLocaleString()}</div>
-                          {row.due > 0 && <div className="text-xs text-red-600">Due: ₹ {row.due.toLocaleString()}</div>}
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-slate-400" />
-                      </div>
-                    </div>
+                      <td className="px-4 py-3 font-bold text-slate-800">{row.monthName}</td>
+                      <td className="px-4 py-3 text-slate-500">{row.count}</td>
+                      <td className="px-4 py-3 font-semibold">₹ {row.total.toLocaleString()}</td>
+                      <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                        {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
+                        {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
+                      </td>
+                    </tr>
                   ))}
                   {drilldownData.data.filter((row: any) => row.count > 0).length === 0 && (
-                    <div className="text-center py-8 text-slate-500">No transactions this year</div>
+                    <tr><td colSpan={4} className="text-center py-8 text-slate-500">No transactions this year</td></tr>
                   )}
-                </div>
+                </Table>
               )}
               
               {/* Transaction breakdown */}
@@ -406,22 +398,24 @@ export default function Dashboard() {
                   {/* Transactions list */}
                   <div>
                     <h4 className="text-sm font-semibold text-slate-700 mb-2">Transactions</h4>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {(drilldownData.transactions || []).map((t: any) => (
-                        <div key={t.id} className="flex justify-between items-center text-sm p-2 bg-slate-50 rounded hover:bg-slate-100">
-                          <div>
-                            <div className="font-medium">{t.invoiceNo}</div>
-                            <div className="text-xs text-slate-500">{t.partyName} • {t.date}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className={`font-semibold ${t.type === 'PURCHASE' && drilldownMetric === 'profit' ? 'text-red-600' : t.type === 'SALES' && drilldownMetric === 'profit' ? 'text-green-600' : ''}`}>
-                                {t.type === 'PURCHASE' && drilldownMetric === 'profit' ? '- ' : ''}₹ {t.amount.toLocaleString()}
-                            </div>
-                            {t.due > 0 && <div className="text-xs text-red-600">Due: ₹ {t.due.toLocaleString()}</div>}
-                          </div>
-                        </div>
+                    <Table headers={['Date', 'Ref No', 'Party', 'Type', 'Amount', 'Due']}>
+                       {(drilldownData.transactions || []).map((t: any) => (
+                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-500">{t.date}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{t.invoiceNo}</td>
+                          <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{t.partyName}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'ADVANCE' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {t.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold">₹ {t.amount.toLocaleString()}</td>
+                          <td className={`px-4 py-3 font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                            {t.due !== 0 ? `₹ ${t.due.toLocaleString()}` : '—'}
+                          </td>
+                        </tr>
                       ))}
-                    </div>
+                    </Table>
                   </div>
                 </div>
               )}
