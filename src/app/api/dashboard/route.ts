@@ -235,8 +235,7 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
   const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
   const paymentType = metric === 'sales' || metric === 'receivable' ? 'receive' : 'pay';
 
-  // Get all years with data
-  const [yearlyData, unallocatedPayments] = await Promise.all([
+  const [yearlyInvoices, unallocatedPayments] = await Promise.all([
     Invoice.aggregate([
       { $match: { type: invoiceType, ...companyFilter } },
       {
@@ -261,7 +260,7 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
           count: { $sum: 1 }
         }
       },
-      { $sort: { _id: -1 } }
+      { $sort: { _id: 1 } }
     ]),
     Payment.aggregate([
       { 
@@ -290,32 +289,42 @@ async function getYearlyBreakdown(metric: string, companyId: string) {
           total: { $sum: '$amount' },
           count: { $sum: 1 }
         }
-      }
+      },
+      { $sort: { _id: 1 } }
     ])
   ]);
 
-  const years = new Set<number>([
-    ...yearlyData.map((y: any) => y._id),
+  const allYears = Array.from(new Set([
+    ...yearlyInvoices.map((y: any) => y._id),
     ...unallocatedPayments.map((p: any) => p._id)
-  ]);
-  
-  const data = Array.from(years).map(year => {
-    const y = yearlyData.find((x: any) => x._id === year) || { totalAmount: 0, dueAmount: 0, paidAmount: 0, count: 0 };
-    const p = unallocatedPayments.find((x: any) => x._id === year) || { total: 0, count: 0 };
+  ])).sort((a: any, b: any) => a - b);
+
+  let runningBalance = 0;
+  const result = allYears.map(year => {
+    const inv = yearlyInvoices.find((y: any) => y._id === year) || { totalAmount: 0, dueAmount: 0, paidAmount: 0, count: 0 };
+    const unalloc = unallocatedPayments.find((p: any) => p._id === year) || { total: 0 };
     
+    const opening = runningBalance;
+    const yearTotal = inv.totalAmount;
+    const yearPaid = inv.paidAmount + unalloc.total;
+    const closing = opening + yearTotal - yearPaid;
+    
+    runningBalance = closing;
+
     return {
       year,
-      total: Math.round(Number(y.totalAmount || 0)),
-      due: Math.round(Number(y.dueAmount || 0) - Number(p.total || 0)),
-      paid: Math.round(Number(y.paidAmount || 0) + Number(p.total || 0)),
-      count: (y.count || 0) + (p.count || 0)
+      total: yearTotal,
+      paid: yearPaid,
+      opening: Math.round(opening),
+      due: Math.round(closing), // Closing balance
+      count: inv.count || 0
     };
-  }).sort((a, b) => b.year - a.year);
+  }).reverse(); // Most recent first for UI
 
   return NextResponse.json({
     metric,
     breakdown: 'yearly',
-    data
+    data: result
   });
 }
 
@@ -371,7 +380,41 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
   const invoiceType = metric === 'sales' || metric === 'receivable' ? 'SALES' : 'PURCHASE';
   const paymentType = metric === 'sales' || metric === 'receivable' ? 'receive' : 'pay';
 
-  const [monthlyData, unallocatedPayments] = await Promise.all([
+  // 1. Calculate historical opening balance before Jan 1 of selected year
+  const [histInv, histUnalloc] = await Promise.all([
+    Invoice.aggregate([
+      { 
+        $match: { 
+          type: invoiceType, 
+          ...companyFilter,
+          $and: [
+            { date: { $lt: startDate.toISOString().split('T')[0] } },
+            { createdAt: { $lt: startDate } }
+          ]
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$grandTotal' }, paid: { $sum: { $ifNull: ['$paidAmount', 0] } } } }
+    ]),
+    Payment.aggregate([
+      { 
+        $match: { 
+          type: paymentType, 
+          ...companyFilter, 
+          $and: [
+            { date: { $lt: startDate.toISOString().split('T')[0] } },
+            { createdAt: { $lt: startDate } },
+            { $or: [{ allocations: { $exists: false } }, { allocations: { $size: 0 } }] }
+          ]
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ])
+  ]);
+
+  const initialOpening = (histInv[0]?.total || 0) - (histInv[0]?.paid || 0) - (histUnalloc[0]?.total || 0);
+
+  // 2. Get data for each month of selected year
+  const [monthlyInvoices, unallocatedPayments] = await Promise.all([
     Invoice.aggregate([
       {
         $match: {
@@ -385,27 +428,17 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
       },
       {
         $addFields: {
-          month: {
-            $month: {
-              $cond: [
-                { $type: '$date' },
-                { $dateFromString: { dateString: '$date', onError: '$createdAt' } },
-                '$createdAt'
-              ]
-            }
-          }
+          month: { $month: { $cond: [{ $type: '$date' }, { $dateFromString: { dateString: '$date', onError: '$createdAt' } }, '$createdAt'] } }
         }
       },
       {
         $group: {
           _id: '$month',
           totalAmount: { $sum: '$grandTotal' },
-          dueAmount: { $sum: { $ifNull: ['$dueAmount', 0] } },
           paidAmount: { $sum: { $ifNull: ['$paidAmount', 0] } },
           count: { $sum: 1 }
         }
-      },
-      { $sort: { _id: 1 } }
+      }
     ]),
     Payment.aggregate([
       {
@@ -424,39 +457,40 @@ async function getMonthlyBreakdown(metric: string, year: number, companyId: stri
       },
       {
         $addFields: {
-          month: {
-            $month: {
-              $cond: [
-                { $type: '$date' },
-                { $dateFromString: { dateString: { $substr: ['$date', 0, 10] }, onError: '$createdAt' } },
-                '$createdAt'
-              ]
-            }
-          }
+          month: { $month: { $cond: [{ $type: '$date' }, { $dateFromString: { dateString: { $substr: ['$date', 0, 10] }, onError: '$createdAt' } }, '$createdAt'] } }
         }
       },
       {
         $group: {
           _id: '$month',
-          totalAmount: { $sum: '$amount' },
+          total: { $sum: '$amount' },
           count: { $sum: 1 }
         }
       }
     ])
   ]);
 
-  // Fill in missing months with zero values
+  let runningBalance = initialOpening;
   const filledData = monthNames.map((name, idx) => {
-    const mData = monthlyData.find((m: any) => m._id === idx + 1) || { totalAmount: 0, dueAmount: 0, paidAmount: 0, count: 0 };
-    const pData = unallocatedPayments.find((p: any) => p._id === idx + 1) || { totalAmount: 0, count: 0 };
+    const month = idx + 1;
+    const inv = monthlyInvoices.find(m => m._id === month) || { totalAmount: 0, paidAmount: 0, count: 0 };
+    const pmt = unallocatedPayments.find(m => m._id === month) || { total: 0 };
     
+    const opening = runningBalance;
+    const monthTotal = inv.totalAmount;
+    const monthPaid = inv.paidAmount + pmt.total;
+    const closing = opening + monthTotal - monthPaid;
+    
+    runningBalance = closing;
+
     return {
-      month: idx + 1,
+      month,
       monthName: name,
-      total: Math.round(Number(mData.totalAmount || 0)),
-      due: Math.round(Number(mData.dueAmount || 0) - Number(pData.totalAmount || 0)),
-      paid: Math.round(Number(mData.paidAmount || 0) + Number(pData.totalAmount || 0)),
-      count: (mData.count || 0) + (pData.count || 0)
+      opening: Math.round(opening),
+      total: Math.round(monthTotal),
+      paid: Math.round(monthPaid),
+      due: Math.round(closing), // Closing balance
+      count: inv.count + (pmt.count || 0)
     };
   });
 

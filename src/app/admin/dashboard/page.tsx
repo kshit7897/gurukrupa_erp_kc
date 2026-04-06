@@ -319,7 +319,7 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Year', 'Invoices', 'Total Amount', 'Paid Amount', 'Balance']}>
+                    <Table headers={['Year', 'Opening', 'New bill', 'Paid', 'Closing Balance']}>
                       {drilldownData.data.map((row: any) => (
                         <tr 
                           key={row.year}
@@ -327,11 +327,11 @@ export default function Dashboard() {
                           onClick={() => drillToMonth(row.year)}
                         >
                           <td className="px-4 py-3 font-bold text-slate-800">{row.year}</td>
-                          <td className="px-4 py-3 text-slate-500">{row.count}</td>
-                          <td className="px-4 py-3 font-medium">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-slate-500 font-medium">₹ {row.opening?.toLocaleString() || 0}</td>
+                          <td className="px-4 py-3 font-medium text-blue-600">₹ {row.total.toLocaleString()}</td>
                           <td className="px-4 py-3 font-medium text-green-600">₹ {row.paid.toLocaleString()}</td>
                           <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
+                            ₹ {row.due.toLocaleString()}
                             {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
                           </td>
                         </tr>
@@ -347,22 +347,26 @@ export default function Dashboard() {
                         className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm active:bg-slate-50"
                         onClick={() => drillToMonth(row.year)}
                       >
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="flex justify-between items-center mb-3">
                           <span className="text-lg font-bold text-slate-800">{row.year}</span>
                           <span className="text-xs text-slate-400">{row.count} Invoices</span>
                         </div>
-                        <div className="flex justify-between items-end">
-                          <div>
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total / Paid</div>
-                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Balance</div>
-                            <div className={`font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
-                              ₹ {row.due.toLocaleString()}
-                              {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
-                            </div>
-                          </div>
+                        <div className="space-y-2">
+                           <div className="flex justify-between text-xs">
+                             <span className="text-slate-400">Opening Balance:</span>
+                             <span className="font-semibold text-slate-600">₹ {row.opening?.toLocaleString() || 0}</span>
+                           </div>
+                           <div className="flex justify-between text-xs">
+                             <span className="text-slate-400">Current Activity (+New / -Paid):</span>
+                             <span className="font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></span>
+                           </div>
+                           <div className="border-t border-slate-50 pt-2 flex justify-between items-center">
+                              <span className="text-[10px] text-slate-400 uppercase font-bold text-slate-900">Closing Balance</span>
+                              <div className={`text-lg font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
+                                ₹ {row.due.toLocaleString()}
+                                {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
+                              </div>
+                           </div>
                         </div>
                       </div>
                     ))}
@@ -379,19 +383,19 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Month', 'Invoices', 'Total Amount', 'Paid Amount', 'Balance']}>
-                      {drilldownData.data.filter((row: any) => row.count > 0).map((row: any) => (
+                    <Table headers={['Month', 'Opening', 'New bill', 'Paid', 'Closing Balance']}>
+                      {drilldownData.data.filter((row: any) => row.count > 0 || row.opening !== 0).map((row: any) => (
                         <tr 
                           key={row.month}
                           className="cursor-pointer hover:bg-slate-50 transition-colors"
                           onClick={() => drillToTransactions(row.month)}
                         >
                           <td className="px-4 py-3 font-bold text-slate-800">{row.monthName}</td>
-                          <td className="px-4 py-3 text-slate-500">{row.count}</td>
-                          <td className="px-4 py-3 font-medium">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-slate-500 font-medium">₹ {row.opening?.toLocaleString() || 0}</td>
+                          <td className="px-4 py-3 font-medium text-blue-600">₹ {row.total.toLocaleString()}</td>
                           <td className="px-4 py-3 font-medium text-green-600">₹ {row.paid.toLocaleString()}</td>
                           <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
+                            ₹ {row.due.toLocaleString()}
                             {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
                           </td>
                         </tr>
@@ -401,28 +405,32 @@ export default function Dashboard() {
 
                   {/* Mobile Cards */}
                   <div className="md:hidden space-y-3">
-                    {drilldownData.data.filter((row: any) => row.count > 0).map((row: any) => (
+                    {drilldownData.data.filter((row: any) => row.count > 0 || row.opening !== 0).map((row: any) => (
                       <div 
                         key={row.month}
                         className="p-4 bg-white border border-slate-100 rounded-xl shadow-sm active:bg-slate-50"
                         onClick={() => drillToTransactions(row.month)}
                       >
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="flex justify-between items-center mb-3">
                           <span className="text-lg font-bold text-slate-800">{row.monthName}</span>
                           <span className="text-xs text-slate-400">{row.count} Invoices</span>
                         </div>
-                        <div className="flex justify-between items-end">
-                          <div>
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total / Paid</div>
-                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Balance</div>
-                            <div className={`font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
-                               ₹ {row.due.toLocaleString()}
-                               {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
-                            </div>
-                          </div>
+                        <div className="space-y-2">
+                           <div className="flex justify-between text-xs">
+                             <span className="text-slate-400">Opening Balance:</span>
+                             <span className="font-semibold text-slate-600">₹ {row.opening?.toLocaleString() || 0}</span>
+                           </div>
+                           <div className="flex justify-between text-xs">
+                             <span className="text-slate-400">Current Activity (+New / -Paid):</span>
+                             <span className="font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></span>
+                           </div>
+                           <div className="border-t border-slate-50 pt-2 flex justify-between items-center">
+                              <span className="text-[10px] text-slate-400 uppercase font-bold text-slate-900">Closing Balance</span>
+                              <div className={`text-lg font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
+                                ₹ {row.due.toLocaleString()}
+                                {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
+                              </div>
+                           </div>
                         </div>
                       </div>
                     ))}
