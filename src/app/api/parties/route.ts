@@ -24,7 +24,33 @@ export async function GET(request: Request) {
       if (!party) {
         return NextResponse.json({ error: 'Party not found' }, { status: 404 });
       }
-      return NextResponse.json({ ...(party as any).toObject(), id: (party as any)._id.toString() });
+      
+      // Calculate currentBalance for this single party from Ledger
+      const ledgerAgg = await LedgerEntry.aggregate([
+        { $match: { companyId, partyId: id } },
+        { $group: {
+            _id: "$partyId",
+            totalDebit: { $sum: "$debit" },
+            totalCredit: { $sum: "$credit" }
+        }}
+      ]);
+
+      const stats = ledgerAgg[0] || { totalDebit: 0, totalCredit: 0 };
+      const pType = (party.type || '').toString().toLowerCase();
+      const isCustomer = pType === 'customer';
+      
+      let currentBalance = 0;
+      if (isCustomer) {
+        currentBalance = stats.totalDebit - stats.totalCredit;
+      } else {
+        currentBalance = stats.totalCredit - stats.totalDebit;
+      }
+
+      return NextResponse.json({ 
+        ...(party as any).toObject(), 
+        id: (party as any)._id.toString(),
+        currentBalance: Number(currentBalance.toFixed(2))
+      });
     }
 
     // Build query with company scope
