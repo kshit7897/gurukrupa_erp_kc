@@ -284,6 +284,7 @@ export default function Dashboard() {
       <Modal 
         isOpen={drilldownOpen} 
         onClose={() => setDrilldownOpen(false)} 
+        size="xl"
         title={`${metricLabels[drilldownMetric] || 'Details'} - ${drilldownLevel === 'year' ? 'Year-wise' : drilldownLevel === 'month' ? `${drilldownYear} Monthly` : `${monthNames[(drilldownMonth || 1) - 1]} ${drilldownYear}`}`}
       >
         <div className="min-h-[300px]">
@@ -398,24 +399,52 @@ export default function Dashboard() {
                   {/* Transactions list */}
                   <div>
                     <h4 className="text-sm font-semibold text-slate-700 mb-2">Transactions</h4>
-                    <Table headers={['Date', 'Ref No', 'Party', 'Type', 'Amount', 'Due']}>
-                       {(drilldownData.transactions || []).map((t: any) => (
-                        <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-500">{t.date}</td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{t.invoiceNo}</td>
-                          <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{t.partyName}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'ADVANCE' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                              {t.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-semibold">₹ {t.amount.toLocaleString()}</td>
-                          <td className={`px-4 py-3 font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                            {t.due !== 0 ? `₹ ${t.due.toLocaleString()}` : '—'}
-                          </td>
-                        </tr>
+                    
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                      <Table headers={['Date', 'Ref No', 'Party', 'Type', 'Amount', 'Due']}>
+                        {(drilldownData.transactions || []).map((t: any) => (
+                          <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-500">{t.date}</td>
+                            <td className="px-4 py-3 font-medium text-slate-800">{t.invoiceNo}</td>
+                            <td className="px-4 py-3 text-slate-600 truncate max-w-[120px]">{t.partyName}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.type === 'ADVANCE' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {t.type === 'ADVANCE' ? 'ADVANCE (Unallocated)' : t.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-semibold">₹ {t.amount.toLocaleString()}</td>
+                            <td className={`px-4 py-3 font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                              {t.due !== 0 ? `₹ ${t.due.toLocaleString()}` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                      {(drilldownData.transactions || []).map((t: any) => (
+                        <div key={t.id} className="p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="font-bold text-slate-800 truncate mr-2">{t.invoiceNo}</span>
+                            <span className="font-bold text-slate-900 whitespace-nowrap">₹ {t.amount.toLocaleString()}</span>
+                          </div>
+                          <div className="text-sm text-slate-600 mb-2">{t.partyName}</div>
+                          <div className="flex justify-between items-center text-[11px]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400">{t.date}</span>
+                              <span className={`px-1.5 py-0.5 rounded font-bold uppercase ${t.type === 'ADVANCE' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                                {t.type === 'ADVANCE' ? 'Adv / Unallocated' : t.type}
+                              </span>
+                            </div>
+                            <div className={`font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                              {t.due !== 0 ? `Due: ₹ ${t.due.toLocaleString()}` : '—'}
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </Table>
+                    </div>
                   </div>
                 </div>
               )}
