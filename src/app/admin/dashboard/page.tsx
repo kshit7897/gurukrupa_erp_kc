@@ -440,7 +440,7 @@ export default function Dashboard() {
                       </div>
                    </div>
 
-                   <div className="overflow-x-auto">
+                   <div className="hidden md:block">
                      <Table headers={['Date', 'Ref No', 'Di hui rakam (Debit)', 'Mili hui rakam (Credit)', 'Balance']}>
                         {(drilldownData.transactions || []).map((t: any) => (
                            <tr key={t.id} className="text-sm hover:bg-slate-50 transition-colors border-b border-slate-50">
@@ -458,6 +458,35 @@ export default function Dashboard() {
                           <tr><td colSpan={5} className="py-20 text-center text-slate-400">No transactions in this date range</td></tr>
                         )}
                      </Table>
+                   </div>
+
+                   {/* Mobile View: Cards */}
+                   <div className="md:hidden space-y-3">
+                      {(drilldownData.transactions || []).map((t: any) => (
+                        <div key={t.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                           <div className="flex justify-between items-start mb-2">
+                              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t.date}</div>
+                              <div className="text-right font-black text-slate-900">₹ {t.balance.toLocaleString()}</div>
+                           </div>
+                           <div className="mb-3">
+                              <div className="font-bold text-slate-800">{t.invoiceNo}</div>
+                              <div className="text-[10px] text-blue-500 uppercase font-bold tracking-tight">{t.type}</div>
+                           </div>
+                           <div className="grid grid-cols-2 gap-2 border-t border-slate-50 pt-3">
+                              <div>
+                                 <div className="text-[9px] text-slate-400 uppercase font-bold mb-1">Di hui rakam</div>
+                                 <div className="text-sm font-bold text-red-600">{t.debit > 0 ? `₹ ${t.debit.toLocaleString()}` : '—'}</div>
+                              </div>
+                              <div className="text-right">
+                                 <div className="text-[9px] text-slate-400 uppercase font-bold mb-1">Mili hui rakam</div>
+                                 <div className="text-sm font-bold text-green-600">{t.credit > 0 ? `₹ ${t.credit.toLocaleString()}` : '—'}</div>
+                              </div>
+                           </div>
+                        </div>
+                      ))}
+                      {(drilldownData.transactions || []).length === 0 && (
+                        <div className="py-10 text-center text-slate-400 text-sm">No transactions found</div>
+                      )}
                    </div>
                 </div>
               )}
