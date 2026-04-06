@@ -12,6 +12,9 @@ import mongoose from 'mongoose';
 // Always serve fresh metrics; dashboard must not be cached
 export const dynamic = 'force-dynamic';
 
+// Strict company scope filter
+const companyIdFilter = (cid: string) => ({ companyId: cid });
+
 export async function GET(request: Request) {
   try {
     await dbConnect();
@@ -22,27 +25,28 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No company selected' }, { status: 400 });
     }
 
-    // Strict company scope filter
-    const companyFilter = { companyId };
+    const companyFilter = companyIdFilter(companyId);
 
     const url = new URL(request.url);
     const drilldown = url.searchParams.get('drilldown'); // 'year', 'month', or 'transactions'
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
     const metric = url.searchParams.get('metric'); // 'sales', 'purchase', 'receivable', 'payable', 'ledger'
     const partyId = url.searchParams.get('partyId');
 
     // If drilldown is requested, return specific data
     if (drilldown === 'year' && metric) {
-      if (metric === 'ledger' && partyId) return await getYearlyLedger(partyId, companyId);
+      if (metric === 'ledger' && partyId) return await getLedgerForRange(partyId, from, to, companyId);
       return await getYearlyBreakdown(metric, companyId);
     }
     if (drilldown === 'month' && year && metric) {
-      if (metric === 'ledger' && partyId) return await getMonthlyLedger(partyId, parseInt(year), companyId);
+      if (metric === 'ledger' && partyId) return await getLedgerForRange(partyId, from, to, companyId);
       return await getMonthlyBreakdown(metric, parseInt(year), companyId);
     }
     if (drilldown === 'transactions' && year && month && metric) {
-      if (metric === 'ledger' && partyId) return await getTransactionLedger(partyId, parseInt(year), parseInt(month), companyId);
+      if (metric === 'ledger' && partyId) return await getLedgerForRange(partyId, from, to, companyId);
       return await getTransactionBreakdown(metric, parseInt(year), parseInt(month), companyId);
     }
 
@@ -671,130 +675,68 @@ async function getTransactionBreakdown(metric: string, year: number, month: numb
   });
 }
 
-// Support for generic Ledger Drilldown (for Bank/Cash/Partners)
-async function getYearlyLedger(partyId: string, companyId: string) {
-  const party = await Party.findById(partyId).lean();
+// Simple ledger for a specific date range
+async function getLedgerForRange(partyId: string, from: string | null, to: string | null, companyId: string) {
+  const party = await Party.findOne({ _id: partyId, ...companyIdFilter(companyId) });
   if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 404 });
 
-  const ledgerData = await LedgerEntry.aggregate([
-    { $match: { partyId, companyId } },
-    { $addFields: { year: { $year: { $dateFromString: { dateString: { $substr: ["$date", 0, 10] }, onError: { $toDate: "$createdAt" } } } } } },
-    { $group: {
-        _id: "$year",
-        totalDebit: { $sum: "$debit" },
-        totalCredit: { $sum: "$credit" },
-        count: { $sum: 1 }
-    }},
-    { $sort: { _id: 1 } }
+  // Default to current month if dates are missing
+  const now = new Date();
+  const defFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const defTo = now.toISOString().split('T')[0];
+  const startDate = from || defFrom;
+  const endDate = to || defTo;
+
+  // 1. Calculate Opening Balance before startDate
+  const opAgg = await LedgerEntry.aggregate([
+    { $match: { partyId: partyId, date: { $lt: startDate }, ...companyIdFilter(companyId) } },
+    { $group: { _id: null, debit: { $sum: '$debit' }, credit: { $sum: '$credit' } } }
   ]);
+  const op = opAgg[0] || { debit: 0, credit: 0 };
+  const isCustomer = party.type === 'Customer';
+  const openingBalance = isCustomer ? (op.debit - op.credit) : (op.credit - op.debit);
 
-  const isReceivable = (party as any).type === 'Customer';
-  let runningBalance = 0;
-  
-  const result = ledgerData.map(y => {
-    const opening = runningBalance;
-    const debit = y.totalDebit;
-    const credit = y.totalCredit;
-    // For Receivable (Customer): Balance = +Debit - Credit
-    // For Payable (Bank/Cash/Supplier): Balance = +Credit - Debit
-    const net = isReceivable ? (debit - credit) : (credit - debit);
-    const closing = opening + net;
-    runningBalance = closing;
+  // 2. Fetch transactions in range
+  const transactions = await LedgerEntry.find({
+    partyId: partyId,
+    date: { $gte: startDate, $lte: endDate },
+    ...companyIdFilter(companyId)
+  }).sort({ date: 1, createdAt: 1 }).lean();
 
+  // 3. Format rows
+  let runningBalance = openingBalance;
+  const rows = transactions.map((t: any) => {
+    const amt = isCustomer ? (t.debit - t.credit) : (t.credit - t.debit);
+    runningBalance += amt;
     return {
-      year: y._id,
-      opening: Math.round(opening),
-      total: isReceivable ? debit : credit, // "New" activity
-      paid: isReceivable ? credit : debit,  // "Offsetting" activity
-      due: Math.round(closing),
-      count: y.count
-    };
-  }).reverse();
-
-  return NextResponse.json({ metric: 'ledger', partyId, partyName: (party as any).name, breakdown: 'yearly', data: result });
-}
-
-async function getMonthlyLedger(partyId: string, year: number, companyId: string) {
-  const party = await Party.findById(partyId).lean();
-  const startDate = new Date(year, 0, 1);
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  const [hist, monthly] = await Promise.all([
-    LedgerEntry.aggregate([
-      { $match: { partyId, companyId, date: { $lt: startDate.toISOString().split('T')[0] } } },
-      { $group: { _id: null, totalDebit: { $sum: "$debit" }, totalCredit: { $sum: "$credit" } } }
-    ]),
-    LedgerEntry.aggregate([
-      { $match: { 
-          partyId, 
-          companyId, 
-          date: { $gte: startDate.toISOString().split('T')[0], $lt: new Date(year + 1, 0, 1).toISOString().split('T')[0] }
-      }},
-      { $addFields: { month: { $month: { $dateFromString: { dateString: { $substr: ["$date", 0, 10] } } } } } },
-      { $group: { _id: "$month", totalDebit: { $sum: "$debit" }, totalCredit: { $sum: "$credit" }, count: { $sum: 1 } } }
-    ])
-  ]);
-
-  const isReceivable = (party as any).type === 'Customer';
-  const histStats = hist[0] || { totalDebit: 0, totalCredit: 0 };
-  const initialOpening = isReceivable ? (histStats.totalDebit - histStats.totalCredit) : (histStats.totalCredit - histStats.totalDebit);
-
-  let runningBalance = initialOpening;
-  const result = monthNames.map((name, idx) => {
-    const m = idx + 1;
-    const stats = monthly.find(x => x._id === m) || { totalDebit: 0, totalCredit: 0, count: 0 };
-    const opening = runningBalance;
-    const net = isReceivable ? (stats.totalDebit - stats.totalCredit) : (stats.totalCredit - stats.totalDebit);
-    const closing = opening + net;
-    runningBalance = closing;
-
-    return {
-      month: m,
-      monthName: name,
-      opening: Math.round(opening),
-      total: isReceivable ? stats.totalDebit : stats.totalCredit,
-      paid: isReceivable ? stats.totalCredit : stats.totalDebit,
-      due: Math.round(closing),
-      count: stats.count
+      id: t._id.toString(),
+      date: t.date,
+      invoiceNo: t.description || 'Ref: ' + (t.voucherNo || t.id),
+      partyName: party.name,
+      type: t.referenceType || (t.debit > 0 ? 'Debit' : 'Credit'),
+      amount: t.debit > 0 ? t.debit : t.credit, // For simple list
+      debit: t.debit, // "Di hui rakam"
+      credit: t.credit, // "Mili hui rakam"
+      paid: t.credit, // For compatibility
+      due: runningBalance,
+      balance: runningBalance
     };
   });
 
-  return NextResponse.json({ metric: 'ledger', partyId, partyName: (party as any).name, year, breakdown: 'monthly', data: result });
-}
-
-async function getTransactionLedger(partyId: string, year: number, month: number, companyId: string) {
-  const party = await Party.findById(partyId).lean();
-  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endDate = new Date(year, month, 1).toISOString().split('T')[0];
-
-  const entries = await LedgerEntry.find({
-    partyId,
-    companyId,
-    date: { $gte: startDate, $lt: endDate }
-  }).sort({ date: -1, createdAt: -1 }).lean();
-
-  const isReceivable = (party as any).type === 'Customer';
+  const totalDebit = transactions.reduce((s, t: any) => s + (t.debit || 0), 0);
+  const totalCredit = transactions.reduce((s, t: any) => s + (t.credit || 0), 0);
 
   return NextResponse.json({
+    partyId: partyId,
+    partyName: party.name,
     metric: 'ledger',
-    partyId,
-    partyName: (party as any).name,
-    year,
-    month,
-    breakdown: 'transactions',
     summary: {
-       totalTransactions: entries.length,
-       totalAmount: entries.reduce((s, e) => s + (isReceivable ? e.debit : e.credit), 0)
+      openingBalance,
+      totalDebit, // Di hui rakam
+      totalCredit, // Mili hui rakam
+      closingBalance: runningBalance,
+      totalTransactions: transactions.length
     },
-    transactions: (entries || []).map((e: any) => ({
-      id: e._id.toString(),
-      invoiceNo: e.refNo || 'PAYMENT',
-      date: e.date,
-      partyName: e.narration || '',
-      amount: isReceivable ? e.debit : e.credit,
-      type: e.entryType || 'LEDGER',
-      due: isReceivable ? (e.debit - e.credit) : (e.credit - e.debit),
-      paid: isReceivable ? e.credit : e.debit
-    }))
+    transactions: rows
   });
 }
