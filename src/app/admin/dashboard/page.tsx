@@ -319,7 +319,7 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Year', 'Invoices', 'Total Amount', 'Due / Advance']}>
+                    <Table headers={['Year', 'Invoices', 'Total Amount', 'Paid Amount', 'Balance']}>
                       {drilldownData.data.map((row: any) => (
                         <tr 
                           key={row.year}
@@ -328,7 +328,8 @@ export default function Dashboard() {
                         >
                           <td className="px-4 py-3 font-bold text-slate-800">{row.year}</td>
                           <td className="px-4 py-3 text-slate-500">{row.count}</td>
-                          <td className="px-4 py-3 font-semibold">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 font-medium">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 font-medium text-green-600">₹ {row.paid.toLocaleString()}</td>
                           <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
                             {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
                             {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
@@ -352,14 +353,14 @@ export default function Dashboard() {
                         </div>
                         <div className="flex justify-between items-end">
                           <div>
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Amount</div>
-                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total / Paid</div>
+                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></div>
                           </div>
                           <div className="text-right">
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Net Due / Adv</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Balance</div>
                             <div className={`font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
                               ₹ {row.due.toLocaleString()}
-                              {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase">(Adv)</span>}
+                              {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
                             </div>
                           </div>
                         </div>
@@ -378,7 +379,7 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Month', 'Invoices', 'Total Amount', 'Due / Advance']}>
+                    <Table headers={['Month', 'Invoices', 'Total Amount', 'Paid Amount', 'Balance']}>
                       {drilldownData.data.filter((row: any) => row.count > 0).map((row: any) => (
                         <tr 
                           key={row.month}
@@ -387,7 +388,8 @@ export default function Dashboard() {
                         >
                           <td className="px-4 py-3 font-bold text-slate-800">{row.monthName}</td>
                           <td className="px-4 py-3 text-slate-500">{row.count}</td>
-                          <td className="px-4 py-3 font-semibold">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 font-medium">₹ {row.total.toLocaleString()}</td>
+                          <td className="px-4 py-3 font-medium text-green-600">₹ {row.paid.toLocaleString()}</td>
                           <td className={`px-4 py-3 font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
                             {row.due !== 0 ? `₹ ${row.due.toLocaleString()}` : '—'}
                             {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase opacity-70">(Adv)</span>}
@@ -411,14 +413,14 @@ export default function Dashboard() {
                         </div>
                         <div className="flex justify-between items-end">
                           <div>
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Amount</div>
-                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total / Paid</div>
+                            <div className="text-sm font-semibold">₹ {row.total.toLocaleString()} / <span className="text-green-600">₹ {row.paid.toLocaleString()}</span></div>
                           </div>
                           <div className="text-right">
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Net Due / Adv</div>
+                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Balance</div>
                             <div className={`font-bold ${row.due > 0 ? 'text-red-600' : row.due < 0 ? 'text-green-600' : 'text-slate-700'}`}>
                                ₹ {row.due.toLocaleString()}
-                               {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase">(Adv)</span>}
+                               {row.due < 0 && <span className="ml-1 text-[10px] font-normal uppercase ml-1">(Adv)</span>}
                             </div>
                           </div>
                         </div>
@@ -472,7 +474,7 @@ export default function Dashboard() {
                     
                     {/* Desktop Table View */}
                     <div className="hidden md:block">
-                      <Table headers={['Date', 'Ref No', 'Party', 'Type', 'Amount', 'Due']}>
+                      <Table headers={['Date', 'Ref No', 'Party', 'Type', 'Amount', 'Paid', 'Balance']}>
                         {(drilldownData.transactions || []).map((t: any) => (
                           <tr key={t.id} className="hover:bg-slate-50 transition-colors">
                             <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-500">{t.date}</td>
@@ -483,13 +485,14 @@ export default function Dashboard() {
                                 {t.type === 'ADVANCE' ? 'Pmt / Adjustment' : t.type}
                               </span>
                             </td>
-                            <td className="px-4 py-3 font-semibold">₹ {t.amount.toLocaleString()}</td>
+                            <td className="px-4 py-3 font-medium">₹ {t.amount.toLocaleString()}</td>
+                            <td className="px-4 py-3 font-medium text-green-600">₹ {t.paid.toLocaleString()}</td>
                             <td className="px-4 py-3">
                                <div className={`font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
                                  {t.due !== 0 ? `₹ ${t.due.toLocaleString()}` : '—'}
                                </div>
-                               <div className="text-[10px] text-slate-400">
-                                 {t.type === 'ADVANCE' ? 'Unallocated' : t.due === 0 ? 'Settle / Paid' : (t.paid > 0 ? `Paid: ₹ ${t.paid.toLocaleString()}` : 'Unpaid')}
+                               <div className="text-[10px] text-slate-400 uppercase">
+                                 {t.type === 'ADVANCE' ? 'Unallocated' : t.due === 0 ? 'Settled' : 'Pending'}
                                </div>
                             </td>
                           </tr>
@@ -503,7 +506,7 @@ export default function Dashboard() {
                         <div key={t.id} className="p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
                           <div className="flex justify-between items-start mb-1">
                             <span className="font-bold text-slate-800 truncate mr-2">{t.invoiceNo}</span>
-                            <span className="font-bold text-slate-900 whitespace-nowrap">₹ {t.amount.toLocaleString()}</span>
+                            <span className="font-bold text-slate-900 whitespace-nowrap">₹ {t.amount.toLocaleString()} / <span className="text-green-600">₹ {t.paid.toLocaleString()}</span></span>
                           </div>
                           <div className="text-sm text-slate-600 mb-2">{t.partyName}</div>
                           <div className="flex justify-between items-center text-[11px]">
@@ -515,10 +518,10 @@ export default function Dashboard() {
                             </div>
                             <div className="text-right">
                               <div className={`font-bold ${t.due > 0 ? 'text-red-600' : t.due < 0 ? 'text-green-600' : 'text-slate-400'}`}>
-                                {t.due !== 0 ? `Due: ₹ ${t.due.toLocaleString()}` : '—'}
+                                {t.due !== 0 ? `Bal: ₹ ${t.due.toLocaleString()}` : '—'}
                               </div>
                               <div className="text-[9px] text-slate-400 uppercase">
-                                 {t.type === 'ADVANCE' ? 'Unallocated' : t.due === 0 ? 'Settle / Paid' : (t.paid > 0 ? `Paid: ₹ ${t.paid.toLocaleString()}` : 'Unpaid')}
+                                 {t.type === 'ADVANCE' ? 'Unallocated' : t.due === 0 ? 'Settled' : 'Pending'}
                               </div>
                             </div>
                           </div>
