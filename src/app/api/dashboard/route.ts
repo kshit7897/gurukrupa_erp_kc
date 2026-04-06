@@ -711,7 +711,7 @@ async function getLedgerForRange(partyId: string, from: string | null, to: strin
     return {
       id: t._id.toString(),
       date: t.date,
-      invoiceNo: t.description || 'Ref: ' + (t.voucherNo || t.id),
+      invoiceNo: t.narration || t.refNo || 'Ref: ' + (t._id?.toString().slice(-6)),
       partyName: party.name,
       type: t.referenceType || (t.debit > 0 ? 'Debit' : 'Credit'),
       amount: t.debit > 0 ? t.debit : t.credit, // For simple list
