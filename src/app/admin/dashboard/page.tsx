@@ -11,6 +11,8 @@ interface DrilldownData {
   breakdown: 'yearly' | 'monthly' | 'transactions';
   year?: number;
   month?: number;
+  partyId?: string;
+  partyName?: string;
   data?: any[];
   summary?: any;
   partyWise?: any[];
@@ -62,12 +64,13 @@ export default function Dashboard() {
   };
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   
-  const loadDrilldown = async (metric: string, level: 'year' | 'month' | 'transactions', year?: number, month?: number) => {
+  const loadDrilldown = async (metric: string, level: 'year' | 'month' | 'transactions', year?: number, month?: number, partyId?: string) => {
     setDrilldownLoading(true);
     try {
       let url = `/api/dashboard?drilldown=${level}&metric=${metric}`;
       if (year) url += `&year=${year}`;
       if (month) url += `&month=${month}`;
+      if (partyId) url += `&partyId=${partyId}`;
       
       const res = await fetch(url);
       if (res.ok) {
@@ -80,37 +83,38 @@ export default function Dashboard() {
     setDrilldownLoading(false);
   };
   
-  const openDrilldown = async (metric: string) => {
+  const openDrilldown = async (metric: string, partyId?: string) => {
     setDrilldownMetric(metric);
     setDrilldownLevel('year');
     setDrilldownYear(null);
     setDrilldownMonth(null);
     setDrilldownOpen(true);
-    await loadDrilldown(metric, 'year');
+    await loadDrilldown(metric, 'year', undefined, undefined, partyId);
   };
   
   const drillToMonth = async (year: number) => {
     setDrilldownLevel('month');
     setDrilldownYear(year);
-    await loadDrilldown(drilldownMetric, 'month', year);
+    await loadDrilldown(drilldownMetric, 'month', year, undefined, (drilldownData as any)?.partyId);
   };
   
   const drillToTransactions = async (month: number) => {
     if (!drilldownYear) return;
     setDrilldownLevel('transactions');
     setDrilldownMonth(month);
-    await loadDrilldown(drilldownMetric, 'transactions', drilldownYear, month);
+    await loadDrilldown(drilldownMetric, 'transactions', drilldownYear, month, (drilldownData as any)?.partyId);
   };
   
   const goBack = async () => {
+    const pid = (drilldownData as any)?.partyId;
     if (drilldownLevel === 'transactions') {
       setDrilldownLevel('month');
       setDrilldownMonth(null);
-      await loadDrilldown(drilldownMetric, 'month', drilldownYear!);
+      await loadDrilldown(drilldownMetric, 'month', drilldownYear!, undefined, pid);
     } else if (drilldownLevel === 'month') {
       setDrilldownLevel('year');
       setDrilldownYear(null);
-      await loadDrilldown(drilldownMetric, 'year');
+      await loadDrilldown(drilldownMetric, 'year', undefined, undefined, pid);
     }
   };
   
@@ -199,10 +203,7 @@ export default function Dashboard() {
   }
   const _d = new Date();
   const monthName = `${_d.toLocaleString(undefined, { month: 'short' })}-${_d.getFullYear().toString().slice(-2)}`;
-
-
-
-
+  const fVal = (val: number) => `₹ ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-6 pb-20">
@@ -214,7 +215,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard 
           title={`Monthly Profit — ${monthName}`} 
-          value={`₹ ${(Number(stats.monthProfit || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
+          value={fVal(stats.monthProfit)} 
           subtext="Click for year-wise breakdown" 
           icon={IndianRupee} 
           color="#8b5cf6" 
@@ -223,7 +224,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title={`Total Sales — ${monthName}`} 
-          value={`₹ ${(Number(stats.monthSales || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
+          value={fVal(stats.monthSales)} 
           subtext="Click for year-wise breakdown" 
           icon={TrendingUp} 
           color="#10b981" 
@@ -232,7 +233,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title={`Total Purchase — ${monthName}`} 
-          value={`₹ ${(Number(stats.monthPurchase || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
+          value={fVal(stats.monthPurchase)} 
           subtext="Click for year-wise breakdown" 
           icon={TrendingDown} 
           color="#ef4444" 
@@ -241,7 +242,7 @@ export default function Dashboard() {
         />
         <StatCard 
           title={`Parties Receivables — ${monthName}`} 
-          value={`₹ ${(Number(stats.monthReceivables || 0)).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}`} 
+          value={fVal(stats.monthReceivables)} 
           subtext="Click for year-wise breakdown" 
           icon={Users} 
           color="#3b82f6" 
@@ -249,8 +250,8 @@ export default function Dashboard() {
           onClick={() => openDrilldown('receivable')} 
         />
         <StatCard 
-          title="Payable (Supplier)" 
-          value={`${stats.payables ? `₹ ${Number(stats.payables || 0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}`} 
+          title="Payables" 
+          value={fVal(stats.payables)} 
           subtext="Click for year-wise breakdown" 
           icon={TrendingDown} 
           color="#ef4444" 
@@ -258,6 +259,7 @@ export default function Dashboard() {
           onClick={() => openDrilldown('payable')} 
         />
       </div>
+
       {/* Current Stock snapshot */}
       <div className="mt-4">
         <Card title="Current Stock (Top items)">
@@ -279,13 +281,43 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+      {/* Financial Accounts Section */}
+      <div className="mt-6">
+        <div className="flex items-center gap-2 mb-4">
+          <IndianRupee className="h-5 w-5 text-blue-600" />
+          <h2 className="text-lg font-bold text-slate-800">Financial Accounts & Partners</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {(stats.financialAccounts || []).map((acc: any) => (
+            <div 
+              key={acc.id} 
+              className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              onClick={() => openDrilldown('ledger', acc.id)}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">{acc.roles?.[0] || acc.type}</div>
+                <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+              </div>
+              <div className="text-base font-semibold text-slate-800 mb-1">{acc.name}</div>
+              <div className={`text-xl font-bold ${acc.currentBalance < 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                ₹ {Number(acc.currentBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          ))}
+          {(stats.financialAccounts || []).length === 0 && (
+            <div className="col-span-full py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+              No financial accounts configured (Bank/Cash/Partners)
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Drilldown Modal */}
       <Modal 
         isOpen={drilldownOpen} 
         onClose={() => setDrilldownOpen(false)} 
         size="xl"
-        title={`${metricLabels[drilldownMetric] || 'Details'} - ${drilldownLevel === 'year' ? 'Year-wise' : drilldownLevel === 'month' ? `${drilldownYear} Monthly` : `${monthNames[(drilldownMonth || 1) - 1]} ${drilldownYear}`}`}
+        title={`${drilldownData?.partyName || metricLabels[drilldownMetric] || 'Details'}`}
       >
         <div className="min-h-[300px]">
           {/* Navigation and Export */}
@@ -319,7 +351,7 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Year', 'Opening', 'New bill', 'Paid', 'Closing Balance']}>
+                    <Table headers={['Year', 'Opening', drilldownMetric === 'ledger' ? 'Debit/In' : 'New bill', drilldownMetric === 'ledger' ? 'Credit/Out' : 'Paid', 'Closing Balance']}>
                       {drilldownData.data.map((row: any) => (
                         <tr 
                           key={row.year}
@@ -383,7 +415,7 @@ export default function Dashboard() {
                 <>
                   {/* Desktop Table */}
                   <div className="hidden md:block">
-                    <Table headers={['Month', 'Opening', 'New bill', 'Paid', 'Closing Balance']}>
+                    <Table headers={['Month', 'Opening', drilldownMetric === 'ledger' ? 'Debit/In' : 'New bill', drilldownMetric === 'ledger' ? 'Credit/Out' : 'Paid', 'Closing Balance']}>
                       {drilldownData.data.filter((row: any) => row.count > 0 || row.opening !== 0).map((row: any) => (
                         <tr 
                           key={row.month}

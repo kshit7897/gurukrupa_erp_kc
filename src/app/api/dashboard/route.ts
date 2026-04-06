@@ -4,6 +4,8 @@ import Invoice from '../../../lib/models/Invoice';
 import Payment from '../../../lib/models/Payment';
 import Item from '../../../lib/models/Item';
 import OtherTxn from '../../../lib/models/OtherTxn';
+import Party from '../../../lib/models/Party';
+import LedgerEntry from '../../../lib/models/LedgerEntry';
 import { getCompanyContextFromRequest } from '../../../lib/companyContext';
 import mongoose from 'mongoose';
 
@@ -27,16 +29,20 @@ export async function GET(request: Request) {
     const drilldown = url.searchParams.get('drilldown'); // 'year', 'month', or 'transactions'
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
-    const metric = url.searchParams.get('metric'); // 'sales', 'purchase', 'receivable', 'payable'
+    const metric = url.searchParams.get('metric'); // 'sales', 'purchase', 'receivable', 'payable', 'ledger'
+    const partyId = url.searchParams.get('partyId');
 
     // If drilldown is requested, return specific data
     if (drilldown === 'year' && metric) {
+      if (metric === 'ledger' && partyId) return await getYearlyLedger(partyId, companyId);
       return await getYearlyBreakdown(metric, companyId);
     }
     if (drilldown === 'month' && year && metric) {
+      if (metric === 'ledger' && partyId) return await getMonthlyLedger(partyId, parseInt(year), companyId);
       return await getMonthlyBreakdown(metric, parseInt(year), companyId);
     }
     if (drilldown === 'transactions' && year && month && metric) {
+      if (metric === 'ledger' && partyId) return await getTransactionLedger(partyId, parseInt(year), parseInt(month), companyId);
       return await getTransactionBreakdown(metric, parseInt(year), parseInt(month), companyId);
     }
 
@@ -66,7 +72,9 @@ export async function GET(request: Request) {
       unallocReceiptsAgg,
       unallocPaymentsAgg,
       monthUnallocReceiptsAgg,
-      monthUnallocPaymentsAgg
+      monthUnallocPaymentsAgg,
+      financialAccountsAgg,
+      ledgerSumsAgg
     ] = await Promise.all([
       // 1. Total Sales
       Invoice.aggregate([{ $match: { type: 'SALES', ...companyFilter } }, { $group: { _id: null, total: { $sum: '$grandTotal' } } }]),
@@ -118,6 +126,16 @@ export async function GET(request: Request) {
           ] 
         } 
       }, { $group: { _id: null, total: { $sum: { $ifNull: ['$amount', 0] } } } }]),
+      // 20. Financial Accounts (Partner, Bank, Cash, UPI, Owner)
+      Party.find({
+        roles: { $in: ['Partner', 'Bank', 'Cash', 'UPI', 'Owner'] },
+        companyId
+      }).lean(),
+      // 21. All Ledger sums for these accounts
+      LedgerEntry.aggregate([
+        { $match: { companyId } },
+        { $group: { _id: "$partyId", totalDebit: { $sum: "$debit" }, totalCredit: { $sum: "$credit" } } }
+      ])
     ]);
 
     // Combine recent transactions
@@ -186,6 +204,19 @@ export async function GET(request: Request) {
       cashOut: roundUp(cashOut),
       lowStock: Number(lowStock || 0),
       currentStock: (currentStockItems || []).map((it: any) => ({ id: it._id?.toString(), name: it.name || it.title || 'Unnamed', sku: it.sku || null, stock: Number(it.stock || 0), unit: it.unit || null })),
+      financialAccounts: (financialAccountsAgg || []).map((p: any) => {
+        const id = p._id.toString();
+        const stats = (ledgerSumsAgg || []).find((s: any) => s._id === id) || { totalDebit: 0, totalCredit: 0 };
+        const isCustomer = p.type === 'Customer';
+        let currentBalance = isCustomer ? (stats.totalDebit - stats.totalCredit) : (stats.totalCredit - stats.totalDebit);
+        return {
+          id,
+          name: p.name,
+          type: p.type,
+          roles: p.roles || [],
+          currentBalance: Number(currentBalance.toFixed(2))
+        };
+      }),
       recentInvoices,
       recentPayments,
       recentOtherTxns: recentOther
@@ -637,5 +668,133 @@ async function getTransactionBreakdown(metric: string, year: number, month: numb
       due: Math.round(data.due)
     })).sort((a, b) => b.total - a.total),
     transactions: displayTransactions
+  });
+}
+
+// Support for generic Ledger Drilldown (for Bank/Cash/Partners)
+async function getYearlyLedger(partyId: string, companyId: string) {
+  const party = await Party.findById(partyId).lean();
+  if (!party) return NextResponse.json({ error: 'Party not found' }, { status: 404 });
+
+  const ledgerData = await LedgerEntry.aggregate([
+    { $match: { partyId, companyId } },
+    { $addFields: { year: { $year: { $dateFromString: { dateString: { $substr: ["$date", 0, 10] }, onError: { $toDate: "$createdAt" } } } } } },
+    { $group: {
+        _id: "$year",
+        totalDebit: { $sum: "$debit" },
+        totalCredit: { $sum: "$credit" },
+        count: { $sum: 1 }
+    }},
+    { $sort: { _id: 1 } }
+  ]);
+
+  const isReceivable = (party as any).type === 'Customer';
+  let runningBalance = 0;
+  
+  const result = ledgerData.map(y => {
+    const opening = runningBalance;
+    const debit = y.totalDebit;
+    const credit = y.totalCredit;
+    // For Receivable (Customer): Balance = +Debit - Credit
+    // For Payable (Bank/Cash/Supplier): Balance = +Credit - Debit
+    const net = isReceivable ? (debit - credit) : (credit - debit);
+    const closing = opening + net;
+    runningBalance = closing;
+
+    return {
+      year: y._id,
+      opening: Math.round(opening),
+      total: isReceivable ? debit : credit, // "New" activity
+      paid: isReceivable ? credit : debit,  // "Offsetting" activity
+      due: Math.round(closing),
+      count: y.count
+    };
+  }).reverse();
+
+  return NextResponse.json({ metric: 'ledger', partyId, partyName: (party as any).name, breakdown: 'yearly', data: result });
+}
+
+async function getMonthlyLedger(partyId: string, year: number, companyId: string) {
+  const party = await Party.findById(partyId).lean();
+  const startDate = new Date(year, 0, 1);
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const [hist, monthly] = await Promise.all([
+    LedgerEntry.aggregate([
+      { $match: { partyId, companyId, date: { $lt: startDate.toISOString().split('T')[0] } } },
+      { $group: { _id: null, totalDebit: { $sum: "$debit" }, totalCredit: { $sum: "$credit" } } }
+    ]),
+    LedgerEntry.aggregate([
+      { $match: { 
+          partyId, 
+          companyId, 
+          date: { $gte: startDate.toISOString().split('T')[0], $lt: new Date(year + 1, 0, 1).toISOString().split('T')[0] }
+      }},
+      { $addFields: { month: { $month: { $dateFromString: { dateString: { $substr: ["$date", 0, 10] } } } } } },
+      { $group: { _id: "$month", totalDebit: { $sum: "$debit" }, totalCredit: { $sum: "$credit" }, count: { $sum: 1 } } }
+    ])
+  ]);
+
+  const isReceivable = (party as any).type === 'Customer';
+  const histStats = hist[0] || { totalDebit: 0, totalCredit: 0 };
+  const initialOpening = isReceivable ? (histStats.totalDebit - histStats.totalCredit) : (histStats.totalCredit - histStats.totalDebit);
+
+  let runningBalance = initialOpening;
+  const result = monthNames.map((name, idx) => {
+    const m = idx + 1;
+    const stats = monthly.find(x => x._id === m) || { totalDebit: 0, totalCredit: 0, count: 0 };
+    const opening = runningBalance;
+    const net = isReceivable ? (stats.totalDebit - stats.totalCredit) : (stats.totalCredit - stats.totalDebit);
+    const closing = opening + net;
+    runningBalance = closing;
+
+    return {
+      month: m,
+      monthName: name,
+      opening: Math.round(opening),
+      total: isReceivable ? stats.totalDebit : stats.totalCredit,
+      paid: isReceivable ? stats.totalCredit : stats.totalDebit,
+      due: Math.round(closing),
+      count: stats.count
+    };
+  });
+
+  return NextResponse.json({ metric: 'ledger', partyId, partyName: (party as any).name, year, breakdown: 'monthly', data: result });
+}
+
+async function getTransactionLedger(partyId: string, year: number, month: number, companyId: string) {
+  const party = await Party.findById(partyId).lean();
+  const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+  const endDate = new Date(year, month, 1).toISOString().split('T')[0];
+
+  const entries = await LedgerEntry.find({
+    partyId,
+    companyId,
+    date: { $gte: startDate, $lt: endDate }
+  }).sort({ date: -1, createdAt: -1 }).lean();
+
+  const isReceivable = (party as any).type === 'Customer';
+
+  return NextResponse.json({
+    metric: 'ledger',
+    partyId,
+    partyName: (party as any).name,
+    year,
+    month,
+    breakdown: 'transactions',
+    summary: {
+       totalTransactions: entries.length,
+       totalAmount: entries.reduce((s, e) => s + (isReceivable ? e.debit : e.credit), 0)
+    },
+    transactions: (entries || []).map((e: any) => ({
+      id: e._id.toString(),
+      invoiceNo: e.refNo || 'PAYMENT',
+      date: e.date,
+      partyName: e.narration || '',
+      amount: isReceivable ? e.debit : e.credit,
+      type: e.entryType || 'LEDGER',
+      due: isReceivable ? (e.debit - e.credit) : (e.credit - e.debit),
+      paid: isReceivable ? e.credit : e.debit
+    }))
   });
 }
